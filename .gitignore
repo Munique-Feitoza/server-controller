@@ -1,0 +1,67 @@
+# ====================================
+# SEGURANÇA - Secrets e credenciais
+# ====================================
+.env
+.env.local
+.env.*.local
+certs/
+*.pem
+*.key
+*.pfx
+*.p12
+secrets/
+private/
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Android/Gradle
+.gradle
+.idea
+*.iml
+local.properties
+build/
+*.apk
+*.aab
+*.keystore
+
+# General
+.DS_Store
+*.log
+*.swp
+*~
+.vscode/
+.sublime-*
+tmp/
+temp/
+
+*.swo
+*~
+.env
+.env.local
+secrets/
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Certificates (development)
+*.pem
+*.key
+*.crt
+
+# Configuration files (local)
+config.toml
+config.local.toml
