@@ -1,0 +1,35 @@
+[Unit]
+Description=Pocket NOC - Ultra-lightweight Infrastructure Monitoring Agent
+Documentation=https://github.com/munique-feitoza/pocket-noc-agent
+After=network.target
+
+[Service]
+Type=simple
+User=pocketnoc
+Group=pocketnoc
+WorkingDirectory=/opt/pocket-noc-agent
+
+# Executável
+ExecStart=/opt/pocket-noc-agent/bin/pocket-noc-agent
+
+# Reinicia automaticamente se falhar
+Restart=always
+RestartSec=10
+
+# Limita recursos para não impactar o servidor
+MemoryMax=128M
+CPUQuota=5%
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pocket-noc-agent
+
+# Segurança
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pocket-noc /var/log
+
+[Install]
+WantedBy=multi-user.target

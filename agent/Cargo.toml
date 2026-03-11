@@ -1,0 +1,63 @@
+[package]
+name = "pocket-noc-agent"
+version = "0.1.0"
+edition = "2021"
+authors = ["Pocket NOC Team"]
+description = "Ultra-lightweight infrastructure monitoring agent in Rust"
+license = "MIT"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+tokio-util = "0.7"
+
+# Web framework
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Authentication & Security
+jsonwebtoken = "9.2"
+bcrypt = "0.15"
+
+# System telemetry
+sysinfo = "0.29"
+procfs = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# TLS/HTTPS
+rustls = "0.21"
+rustls-pemfile = "2.0"
+tokio-rustls = "0.24"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+futures = "0.3"
+bytes = "1.5"
+
+# WebSocket support
+tokio-tungstenite = "0.21"
+
+# Configuration
+toml = "0.8"
+
+# Command execution
+nix = { version = "0.27", features = ["process"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
