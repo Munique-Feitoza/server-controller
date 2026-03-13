@@ -1,54 +1,130 @@
 package com.pocketnoc.ui.components
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Power
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.pocketnoc.data.models.EmergencyCommand
+import com.pocketnoc.data.models.ServiceInfo
+import com.pocketnoc.data.models.ServiceStatus
+import com.pocketnoc.ui.theme.*
 
 /**
- * Componente de semáforo que exibe o status da infraestrutura
- * Verde = OK, Amarelo = Aviso, Vermelho = Crítico
+ * Status Indicator Futurista com animação neon pulsante
  */
 @Composable
 fun StatusTrafficLight(
     status: TrafficLightStatus,
     modifier: Modifier = Modifier
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "status_glow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow_alpha"
+    )
+
     Column(
         modifier = modifier
-            .background(Color(0xFF1E1E1E), shape = MaterialTheme.shapes.large)
-            .padding(16.dp),
+            .fillMaxWidth()
+            .shadow(
+                elevation = 16.dp,
+                spotColor = status.color.copy(alpha = glowAlpha),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        DarkCard.copy(alpha = 0.9f),
+                        DarkCard
+                    )
+                )
+            )
+            .border(
+                width = 2.dp,
+                color = status.color.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .size(80.dp)
-                .background(status.color, shape = MaterialTheme.shapes.large)
-        )
+                .size(96.dp)
+                .shadow(
+                    elevation = 20.dp,
+                    spotColor = status.color.copy(alpha = glowAlpha),
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            status.color.copy(alpha = 0.8f),
+                            status.color.copy(alpha = 0.2f)
+                        )
+                    )
+                )
+                .border(
+                    width = 2.dp,
+                    color = status.color,
+                    shape = RoundedCornerShape(20.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (status == TrafficLightStatus.HEALTHY) Icons.Default.Check else Icons.Default.Close,
+                contentDescription = status.label,
+                tint = Color.White,
+                modifier = Modifier.size(48.dp)
+            )
+        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = status.label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            text = status.label.uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            color = status.color
         )
     }
 }
 
 enum class TrafficLightStatus(val color: Color, val label: String) {
-    HEALTHY(Color(0xFF00D084), "Healthy"),
-    WARNING(Color(0xFFFFB74D), "Warning"),
-    CRITICAL(Color(0xFFEF5350), "Critical")
+    HEALTHY(HealthyGreen, "Healthy"),
+    WARNING(WarningOrange, "Warning"),
+    CRITICAL(CriticalRed, "Critical")
 }
 
 /**
- * Card de métrica simples com título e valor
+ * Card de métrica futurista com gradiente
  */
 @Composable
 fun MetricCard(
@@ -60,38 +136,48 @@ fun MetricCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .background(Color(0xFF1E1E1E))
-                .padding(16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            .shadow(
+                elevation = 12.dp,
+                spotColor = NeonCyan.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(12.dp)
             )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                verticalAlignment = Alignment.Baseline,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
                 Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = title.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary
                 )
 
-                if (unit.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
-                        text = " $unit",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp)
+                        text = value,
+                        style = MaterialTheme.typography.displaySmall,
+                        color = NeonCyan
                     )
+
+                    if (unit.isNotEmpty()) {
+                        Text(
+                            text = unit,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -99,45 +185,68 @@ fun MetricCard(
 }
 
 /**
- * Componente de barra de progresso com rótulo
+ * Barra de progresso futurista com gradient
  */
 @Composable
 fun PercentageBar(
     label: String,
     percentage: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    color: Color = NeonGreen
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = label,
+                text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = TextSecondary
             )
 
             Text(
                 text = "${percentage.toInt()}%",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.labelMedium,
+                color = color
             )
         }
 
-        LinearProgressIndicator(
-            progress = percentage / 100f,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        )
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(DarkSurface)
+                .padding(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(percentage / 100f)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                color.copy(alpha = 0.5f),
+                                color,
+                                color.copy(alpha = 0.5f)
+                            )
+                        )
+                    )
+                    .shadow(
+                        elevation = 4.dp,
+                        spotColor = color.copy(alpha = 0.5f)
+                    )
+            )
+        }
     }
 }
 
 /**
- * Botão de ação rápida para emergência
+ * Botão de ação de emergência com estilo futurista
  */
 @Composable
 fun EmergencyActionButton(
@@ -152,34 +261,421 @@ fun EmergencyActionButton(
         enabled = !isLoading,
         modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .height(72.dp)
+            .shadow(
+                elevation = 16.dp,
+                spotColor = CriticalRed.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(12.dp)
+            ),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFEF5350)
-        )
+            containerColor = CriticalRed
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        if (isLoading) {
-            CircularProgressIndicator(
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = label.uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White
+                )
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+// ========== COMPONENTES FUTURISTICOS ESPECIALIZADOS ==========
+
+@Composable
+fun FuturisticResourceCard(
+    title: String,
+    percentage: Int,
+    color: Color,
+    icon: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 8.dp,
+                spotColor = color.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Icon
+            Box(
                 modifier = Modifier
-                    .size(20.dp)
-                    .padding(end = 8.dp),
-                color = Color.White,
-                strokeWidth = 2.dp
+                    .size(48.dp)
+                    .background(
+                        color = color.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(icon, style = MaterialTheme.typography.displaySmall)
+            }
+
+            // Content
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextSecondary
+                )
+                Text(
+                    "$percentage%",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = color
+                )
+            }
+
+            // Progress Indicator
+            CircularProgressIndicator(
+                progress = percentage / 100f,
+                modifier = Modifier.size(56.dp),
+                color = color,
+                trackColor = DarkSurface,
+                strokeWidth = 4.dp
             )
         }
 
+        // Linear progress com gradient
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            color.copy(alpha = 0.2f),
+                            color,
+                            color.copy(alpha = 0.2f)
+                        )
+                    )
+                ),
+            content = {}
+        )
+    }
+}
+
+@Composable
+fun MetricCardFuturistic(
+    title: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .shadow(
+                elevation = 8.dp,
+                spotColor = color.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceEvenly
         ) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge
+                title,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary
             )
-
             Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.8f)
+                value,
+                style = MaterialTheme.typography.headlineMedium,
+                color = color
             )
+        }
+    }
+}
+
+@Composable
+fun EmergencyActionButtonFuturistic(
+    label: String,
+    description: String,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .shadow(
+                elevation = 12.dp,
+                spotColor = CriticalRed.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp)
+            ),
+        colors = ButtonDefaults.buttonColors(containerColor = CriticalRed),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Power,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White
+                )
+                Text(
+                    description,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+@Composable
+fun SecurityStatusCard(security: com.pocketnoc.data.models.SecurityMetrics) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, spotColor = NeonGreen.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("SECURITY STATUS", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(if (security.activeSshSessions > 0) WarningOrange else HealthyGreen, RoundedCornerShape(6.dp))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "SSH Sessions: ${security.activeSshSessions}",
+                    color = if (security.activeSshSessions > 0) WarningOrange else HealthyGreen
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ProcessesCard(processes: com.pocketnoc.data.models.ProcessMetrics) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, spotColor = NeonMagenta.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("TOP PROCESSES", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Spacer(modifier = Modifier.height(12.dp))
+            processes.topProcesses.take(5).forEach { process ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(process.name, style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.weight(1f))
+                    Text("${process.cpuUsage.toInt()}% CPU", color = NeonMagenta, style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("${process.memoryMb}MB", color = NeonBlue, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ServicesCard(
+    services: List<ServiceInfo>,
+    onActionClick: (String, String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, spotColor = NeonCyan.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("SERVICE MANAGER", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            if (services.isEmpty()) {
+                Text("No critical services detected", color = TextMuted, style = MaterialTheme.typography.bodySmall)
+            }
+
+            services.forEach { service ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(service.name, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(
+                                        if (service.status == ServiceStatus.ACTIVE) HealthyGreen else CriticalRed,
+                                        RoundedCornerShape(4.dp)
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                service.status.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (service.status == ServiceStatus.ACTIVE) HealthyGreen else CriticalRed
+                            )
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        // Restart Button
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(DarkSurface)
+                                .border(1.2.dp, NeonCyan.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                .clickable { onActionClick(service.name, "restart") }
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Restart",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        
+                        val isRunning = service.status == ServiceStatus.ACTIVE
+                        val actionColor = if (isRunning) CriticalRed else HealthyGreen
+                        
+                        // Start/Stop Button
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(DarkSurface)
+                                .border(1.2.dp, actionColor.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                .clickable { onActionClick(service.name, if (isRunning) "stop" else "start") }
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                contentDescription = if (isRunning) "Stop" else "Start",
+                                tint = actionColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+                Divider(color = NeonCyan.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 4.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun CommandsCard(
+    commands: Map<String, List<EmergencyCommand>>,
+    onCommandClick: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, spotColor = NeonMagenta.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("ACTION CENTER", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (commands.isEmpty()) {
+                Text("Fetching emergency protocols...", color = TextMuted, style = MaterialTheme.typography.bodySmall)
+            }
+
+            commands.forEach { (category, cmdList) ->
+                Text(category.uppercase(), style = MaterialTheme.typography.labelSmall, color = NeonMagenta.copy(alpha = 0.7f))
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                cmdList.forEach { command ->
+                    ElevatedButton(
+                        onClick = { onCommandClick(command.id) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = DarkSurface,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonMagenta.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(command.id, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                Text(command.description, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            }
+                            Text("EXEC", color = NeonMagenta, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
     }
 }

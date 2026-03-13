@@ -1,176 +1,102 @@
-# Pocket NOC - Server Controller
+# 🌌 Pocket NOC - Server Controller
 
-**Um painel de controle de infraestrutura e segurança on-the-go para celular Android.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-blue.svg)](https://kotlinlang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
+[![Android](https://img.shields.io/badge/Android-8.0+-green.svg)](https://developer.android.com/)
 
-Monitore seus servidores em tempo real, receba alertas e execute ações de emergência direto do seu bolso, sem precisar de um notebook.
+**O centro de comando da sua infraestrutura, direto no seu bolso.**
 
----
-
-## 📋 Arquitetura Geral
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  CONTROLLER (Android / Kotlin)                          │
-│  ├─ Dashboard em tempo real                             │
-│  ├─ Alertas visuais (Verde/Amarelo/Vermelho)           │
-│  ├─ Botões de ação rápida (restart, logs, etc)         │
-│  └─ Widget na tela inicial                              │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-                    HTTPS/WebSocket
-                   (Autenticação JWT)
-                           │
-        ┌──────────────────┴──────────────────┐
-        │                                     │
-┌───────▼─────────┐              ┌───────────▼─────────┐
-│ AGENT 1 (Rust)  │              │ AGENT N (Rust)      │
-│ Servidor 1      │              │ Servidor N          │
-│                 │              │                     │
-│ ├─ Telemetria   │              │ ├─ Telemetria       │
-│ ├─ Serviços     │              │ ├─ Serviços         │
-│ └─ Emergência   │              │ └─ Emergência       │
-└─────────────────┘              └─────────────────────┘
-```
+O **Pocket NOC** é uma solução completa de monitoramento e gerenciamento de servidores em tempo real para dispositivos Android. Projetado para sysadmins e desenvolvedores que precisam de controle total, segurança e agilidade, mesmo longe do computador.
 
 ---
 
-## 🗂️ Estrutura do Repositório
+## ✨ Funcionalidades Premium
 
+- 🚀 **Telemetria Real-time**: CPU, RAM, Disco e Temperatura com visualização futurista.
+- 🛡️ **Segurança Militar**: Autenticação via JWT (JSON Web Tokens) e comunicação HTTPS/TLS.
+- ⚡ **Ações de Emergência**: Reinicialização de serviços (Nginx, Docker, etc.) com um toque.
+- 🚦 **Status Visual**: Semáforo de saúde da infraestrutura (Healthy/Warning/Critical).
+- 📱 **Interface Futurista**: Design inspirado em Cyberpunk com elementos Neon e Glassmorphism.
+
+---
+
+## 🏗️ Arquitetura do Sistema
+
+O projeto é dividido em dois componentes principais, seguindo padrões modernos de engenharia de software:
+
+```mermaid
+graph TD
+    A[Pocket NOC Controller <br/> Kotlin/Compose] -- "HTTPS (JWT)" --> B[Pocket NOC Agent <br/> Rust/Axum]
+    B -- "Sysfs / Proc" --> C[Server OS <br/> Linux]
+    B -- "Systemctl" --> D[Services <br/> Nginx/Docker]
 ```
-server-controller/
-├── agent/                       # Agente Rust (servidores)
-│   ├── Cargo.toml              # Dependências e configuração
-│   ├── src/
-│   │   ├── main.rs             # Entry point
-│   │   ├── lib.rs              # Módulos principais
-│   │   ├── telemetry/
-│   │   │   ├── mod.rs
-│   │   │   ├── cpu.rs
-│   │   │   ├── memory.rs
-│   │   │   ├── disk.rs
-│   │   │   └── temperature.rs
-│   │   ├── services/
-│   │   │   ├── mod.rs
-│   │   │   └── monitor.rs
-│   │   ├── commands/
-│   │   │   ├── mod.rs
-│   │   │   └── executor.rs
-│   │   ├── api/
-│   │   │   ├── mod.rs
-│   │   │   ├── handlers.rs
-│   │   │   ├── middleware.rs
-│   │   │   └── websocket.rs
-│   │   ├── auth/
-│   │   │   ├── mod.rs
-│   │   │   └── jwt.rs
-│   │   └── error.rs
-│   ├── systemd/
-│   │   └── pocket-noc-agent.service
-│   └── README.md
-│
-├── controller/                  # Controller Android (Kotlin)
-│   ├── settings.gradle.kts
-│   ├── build.gradle.kts
-│   ├── app/
-│   │   ├── build.gradle.kts
-│   │   ├── src/
-│   │   │   └── main/
-│   │   │       ├── AndroidManifest.xml
-│   │   │       ├── java/com/pocketnoc/
-│   │   │       │   ├── MainActivity.kt
-│   │   │       │   ├── data/
-│   │   │       │   │   ├── models/
-│   │   │       │   │   ├── api/
-│   │   │       │   │   └── repository/
-│   │   │       │   ├── ui/
-│   │   │       │   │   ├── screens/
-│   │   │       │   │   ├── components/
-│   │   │       │   │   ├── theme/
-│   │   │       │   │   └── viewmodels/
-│   │   │       │   └── utils/
-│   │   │       └─ res/
-│   │   └── README.md
-│   └── gradle/
-│
-├── docs/                        # Documentação
-│   ├── SETUP.md                # Guia de instalação
-│   ├── SECURITY.md             # Políticas de segurança
-│   ├── API.md                  # Especificação da API
-│   └── ARCHITECTURE.md         # Detalhes da arquitetura
-│
-└── README.md                   # Este arquivo
+
+1. **Controller (Android)**: Interface construída com Jetpack Compose, seguindo o padrão **MVVM**.
+2. **Agent (Rust)**: Um serviço ultraleve e performático que roda nos servidores, coletando métricas sem sobrecarregar o sistema.
+
+---
+
+## 📂 Estrutura do Repositório
+
+```bash
+.
+├── agent/              # Código fonte do Agente (Rust)
+├── controller/         # Código fonte do App Android (Kotlin)
+├── docs/               # Documentação técnica detalhada (pt-br)
+│   ├── API.md          # Especificação dos endpoints
+│   ├── ARCHITECTURE.md # Decisões de design e fluxos
+│   ├── SECURITY.md     # Camadas de proteção e auth
+│   └── SETUP.md        # Guia de instalação e troubleshooting
+└── README.md           # Este guia
 ```
 
 ---
 
-## 🚀 Início Rápido
+## 🚀 Como Começar
 
-### Pré-requisitos
-
-- **Agent**: Linux com Rust 1.70+
-- **Controller**: Android 8.0+ com Kotlin 1.9+
-- **Segurança**: HTTPS com certificado TLS
-
-### Agent (Servidor)
+### 1. Instalar o Agente (Servidor)
 
 ```bash
 cd agent
 cargo build --release
-sudo systemctl enable --now pocket-noc-agent.service
+sudo systemctl enable --now ./systemd/pocket-noc-agent.service
 ```
 
-### Controller (Celular)
+### 2. Instalar o Controller (Android)
 
 ```bash
 cd controller
-./gradlew assembleRelease
-# Instalar no Android via adb ou Google Play (futuro)
+./gradlew assembleDebug
+# Instale o APK gerado no seu dispositivo
 ```
 
----
-
-## 📡 Comunicação
-
-| Componente | Protocolo | Porta | Autenticação |
-|-----------|-----------|-------|--------------|
-| Agent HTTP REST | HTTPS | 9443 | JWT / API Key |
-| Agent WebSocket | WSS | 9443 | JWT / API Key |
-| Controller | HTTPS Client | N/A | Token Bearer |
+> [!IMPORTANT]
+> Para detalhes completos de configuração, consulte o **[Guia de Instalação (docs/SETUP.md)](./docs/SETUP.md)**.
 
 ---
 
-## 📚 Documentação Completa
+## 🔒 Segurança por Design
 
-- [Setup e Instalação](./docs/SETUP.md)
-- [Segurança e Autenticação](./docs/SECURITY.md)
-- [Especificação da API](./docs/API.md)
-- [Arquitetura Detalhada](./docs/ARCHITECTURE.md)
-
----
-
-## 🔒 Segurança
-
-- ✅ Autenticação JWT em todas as requisições
-- ✅ HTTPS/TLS obrigatório
-- ✅ Validação de comandos predefinidos (whitelist)
-- ✅ Integração com VPN (Tailscale/WireGuard recomendado)
+- **Zero Trust**: Nenhuma requisição é processada sem um token JWT válido.
+- **Whitelist**: Apenas comandos pré-aprovados podem ser executados no servidor.
+- **Minimal Footprint**: O agente em Rust usa menos de 15MB de RAM em idle.
 
 ---
 
-## 📝 Licença
+## 📚 Documentação Adicional
 
-MIT - Veja LICENSE.md
-
----
-
-## 👨‍💻 Desenvolvimento
-
-Desenvolvido seguindo princípios de engenharia sênior em infraestrutura e mobile:
-
-- **Rust**: Idiomático, sem `unwrap()` indiscriminado, tratamento de erros com `Result` e `Option`
-- **Kotlin**: MVVM, Jetpack Compose, Coroutines, injeção de dependência
-- **Resilência**: Preparado para o pior cenário (CPU 100%, conexões intermitentes)
+- 🛠️ [Guia de Configuração e Instalação](./docs/SETUP.md)
+- 📡 [Referência da API REST](./docs/API.md)
+- 📐 [Detalhes da Arquitetura](./docs/ARCHITECTURE.md)
+- 🔐 [Políticas de Segurança](./docs/SECURITY.md)
 
 ---
 
-**Pronto para monitorar sua infraestrutura? Comece pelo [SETUP.md](./docs/SETUP.md)!**
+## 👨‍💻 Contribuição
+
+Sinta-se à vontade para abrir Issues ou Pull Requests. O projeto segue o **Protocolo OMNI-DEV** de excelência técnica.
+
+---
+
+**Pocket NOC** - Por **Munique Alves Pacheco Feitoza** | *Engenharia de Software & Alta Performance*

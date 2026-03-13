@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Fundo -->
+    <path
+        android:fillColor="#1F6FEB"
+        android:pathData="M0,0h108v108h-108z" />
+    
+    <!-- Símbolo: Letra P (Pocket) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,25h20c5.5,0 10,4.5 10,10v15c0,5.5 -4.5,10 -10,10h-8v18h-12v-53zM52,35v15h-4v-15h4z" />
+</vector>

@@ -9,8 +9,52 @@ data class SystemTelemetry(
     val memory: MemoryMetrics,
     val disk: DiskMetrics,
     val temperature: TemperatureMetrics?,
+    val network: NetworkMetrics,
+    val security: SecurityMetrics,
+    val processes: ProcessMetrics,
     val uptime: UptimeInfo,
     val timestamp: Long
+)
+
+data class NetworkMetrics(
+    val interfaces: List<InterfaceMetrics>
+)
+
+data class InterfaceMetrics(
+    val name: String,
+    @SerializedName("rx_bytes")
+    val rxBytes: Long,
+    @SerializedName("tx_bytes")
+    val txBytes: Long,
+    @SerializedName("rx_packets")
+    val rxPackets: Long,
+    @SerializedName("tx_packets")
+    val txPackets: Long,
+    @SerializedName("rx_errors")
+    val rxErrors: Long,
+    @SerializedName("tx_errors")
+    val txErrors: Long
+)
+
+data class ProcessMetrics(
+    @SerializedName("top_processes")
+    val topProcesses: List<ProcessInfo>
+)
+
+data class ProcessInfo(
+    val pid: Int,
+    val name: String,
+    @SerializedName("cpu_usage")
+    val cpuUsage: Float,
+    @SerializedName("memory_mb")
+    val memoryMb: Long
+)
+
+data class SecurityMetrics(
+    @SerializedName("active_ssh_sessions")
+    val activeSshSessions: Int,
+    @SerializedName("suspicious_activities")
+    val suspiciousActivities: List<String>
 )
 
 data class CpuMetrics(
@@ -102,7 +146,12 @@ data class ServiceInfo(
 )
 
 enum class ServiceStatus {
-    ACTIVE, INACTIVE, UNKNOWN
+    @SerializedName("active")
+    ACTIVE,
+    @SerializedName("inactive")
+    INACTIVE,
+    @SerializedName("unknown")
+    UNKNOWN
 }
 
 // ==================== Comandos ====================
@@ -112,6 +161,10 @@ data class EmergencyCommand(
     val description: String,
     val command: String,
     val args: List<String>
+)
+
+data class CommandListResponse(
+    val commands: Map<String, List<EmergencyCommand>>
 )
 
 data class CommandResult(

@@ -71,12 +71,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(pocket_noc_agent::api::middleware::logging_middleware));
 
-    // Bind and serve
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:9443")
-        .await
-        .map_err(|e| format!("Failed to bind to port 9443: {}", e))?;
+    // Port configuration
+    let port = std::env::var("POCKET_NOC_PORT")
+        .unwrap_or_else(|_| "9443".to_string());
+    // Segurança: bind em 127.0.0.1 para forçar acesso via túnel SSH
+    let addr = format!("127.0.0.1:{}", port);
 
-    tracing::info!("🔐 HTTP listening on http://0.0.0.0:9443 (use for testing)");
+    // Bind and serve
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
+
+    tracing::info!("🔐 HTTP listening on http://{} (use for testing)", addr);
     tracing::info!("📋 Public routes:");
     tracing::info!("   GET /health - No auth required");
     tracing::info!("🔒 Protected routes (JWT Required - Bearer token):");
