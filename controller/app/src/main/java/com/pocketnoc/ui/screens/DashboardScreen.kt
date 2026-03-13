@@ -1,245 +1,358 @@
 package com.pocketnoc.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.pocketnoc.data.models.SystemTelemetry
-import com.pocketnoc.ui.components.MetricCard
-import com.pocketnoc.ui.components.PercentageBar
-import com.pocketnoc.ui.components.StatusTrafficLight
-import com.pocketnoc.ui.components.TrafficLightStatus
+import com.pocketnoc.ui.components.*
+import com.pocketnoc.ui.theme.*
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.TelemetryUiState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    serverUrl: String,
-    token: String,
-    onNavigateToServerDetails: () -> Unit
+    onNavigateToAddServer: () -> Unit
 ) {
+    val servers by viewModel.allServers.collectAsState()
+    var selectedServerIndex by remember { mutableStateOf(0) }
+    
+    // Garantir que o index é válido
+    val safeIndex = if (selectedServerIndex < servers.size) selectedServerIndex else 0
+    val selectedServer = if (servers.isNotEmpty()) servers[safeIndex] else null
+    
     val telemetryState = viewModel.telemetryState.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Coleta eventos do flow para mostrar Snackerbar
     LaunchedEffect(Unit) {
-        viewModel.fetchTelemetry(serverUrl, token)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF121212))
-    ) {
-        // Top Bar
-        TopAppBar(
-            title = { Text("Pocket NOC") },
-            actions = {
-                IconButton(onClick = { viewModel.refreshTelemetry(token) }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFF1E1E1E)
+        viewModel.eventFlow.collect { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
             )
-        )
+        }
+    }
+    
+    // Animação neon pulsante
+    val infiniteTransition = rememberInfiniteTransition(label = "neon_pulse")
+    val pulseAlpha = infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
 
-        // Content
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            when (val state = telemetryState.value) {
-                is TelemetryUiState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
+    // Fetch telemetry e comandos quando o servidor selecionado muda
+    LaunchedEffect(selectedServer) {
+        selectedServer?.let {
+            viewModel.fetchTelemetry(it)
+        }
+    }
 
-                is TelemetryUiState.Success -> {
-                    DashboardContent(
-                        telemetry = state.telemetry,
-                        onNavigateToServerDetails = onNavigateToServerDetails
-                    )
-                }
-
-                is TelemetryUiState.Error -> {
-                    ErrorContent(message = state.message)
-                }
+    // Auto-refresh a cada 30 segundos
+    LaunchedEffect(selectedServer) {
+        while (true) {
+            kotlinx.coroutines.delay(30000)
+            selectedServer?.let {
+                viewModel.fetchTelemetry(it)
             }
         }
     }
-}
 
-@Composable
-fun DashboardContent(
-    telemetry: SystemTelemetry,
-    onNavigateToServerDetails: () -> Unit
-) {
-    val scrollState = rememberScrollState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .background(Color(0xFF121212))
-            .padding(12.dp)
-    ) {
-        // Status Traffic Light
-        val status = when {
-            telemetry.cpu.usagePercent > 90 -> TrafficLightStatus.CRITICAL
-            telemetry.memory.usagePercent > 85 -> TrafficLightStatus.CRITICAL
-            telemetry.cpu.usagePercent > 70 || telemetry.memory.usagePercent > 70 ->
-                TrafficLightStatus.WARNING
-
-            else -> TrafficLightStatus.HEALTHY
-        }
-
-        StatusTrafficLight(
-            status = status,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // CPU Metrics
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .background(Color(0xFF1E1E1E))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    "CPU",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF00D084)
-                )
-
-                PercentageBar(
-                    "Global",
-                    telemetry.cpu.usagePercent,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    "Cores: ${telemetry.cpu.coreCount}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    Scaffold(
+        snackbarHost = { 
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = DarkSurface,
+                    contentColor = NeonCyan,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                 )
             }
+        },
+        containerColor = Color.Transparent, // O fundo já está no Column
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text("◆ POCKET NOC ◆", style = MaterialTheme.typography.displaySmall, color = NeonCyan)
+                },
+                actions = {
+                    // Botão de deletar servidor selecionado
+                    selectedServer?.let { server ->
+                        IconButton(onClick = { viewModel.deleteServer(server) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Server", tint = Color.Red.copy(alpha = 0.7f))
+                        }
+                    }
+                    
+                    IconButton(onClick = onNavigateToAddServer) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Server", tint = NeonCyan)
+                    }
+                    IconButton(
+                        onClick = { 
+                            selectedServer?.let { viewModel.fetchTelemetry(it) }
+                        }
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = NeonGreen)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.8f)),
+                modifier = Modifier.shadow(8.dp, spotColor = NeonCyan.copy(alpha = 0.3f))
+            )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Memory Metrics
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .background(Color(0xFF1E1E1E))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    "Memory",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF03DAC6)
-                )
-
-                PercentageBar(
-                    "RAM",
-                    telemetry.memory.usagePercent,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    "${telemetry.memory.usedMb}MB / ${telemetry.memory.totalMb}MB",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Disk Metrics
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .background(Color(0xFF1E1E1E))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    "Disk",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFFFFB74D)
-                )
-
-                telemetry.disk.disks.forEach { disk ->
-                    PercentageBar(
-                        disk.mountPoint,
-                        disk.usagePercent,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // More Details Button
-        Button(
-            onClick = onNavigateToServerDetails,
+    ) { paddingValues ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(DarkBackground, Color(0xFF0F1A35), DarkBackground)
+                    )
+                )
         ) {
-            Text("View Full Details")
-        }
+            // ========== SERVER TABS ==========
+            if (servers.isNotEmpty()) {
+                ScrollableTabRow(
+                    selectedTabIndex = safeIndex,
+                    modifier = Modifier.fillMaxWidth(),
+                    containerColor = DarkSurface.copy(alpha = 0.7f),
+                    contentColor = NeonMagenta,
+                    edgePadding = 16.dp,
+                    divider = { Divider(color = NeonCyan.copy(alpha = 0.2f)) },
+                    indicator = { tabPositions ->
+                        if (safeIndex < tabPositions.size) {
+                            TabRowDefaults.Indicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[safeIndex]),
+                                color = NeonCyan
+                            )
+                        }
+                    }
+                ) {
+                    servers.forEachIndexed { index, server ->
+                        Tab(
+                            selected = safeIndex == index,
+                            onClick = { selectedServerIndex = index },
+                            text = { Text(server.name) },
+                            selectedContentColor = NeonCyan,
+                            unselectedContentColor = TextSecondary
+                        )
+                    }
+                }
+            }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            // ========== CONTENT ==========
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val state = telemetryState.value) {
+                    is TelemetryUiState.Loading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center),
+                            color = NeonCyan
+                        )
+                    }
+                    is TelemetryUiState.Success -> {
+                        val telemetry = state.telemetry
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            item {
+                                StatusCard(pulseAlpha.value, selectedServer)
+                            }
+                            item {
+                                FuturisticResourceCard(
+                                    title = "CPU USAGE",
+                                    percentage = telemetry.cpu.usagePercent.toInt(),
+                                    color = NeonMagenta,
+                                    icon = "⚡"
+                                )
+                            }
+                            item {
+                                FuturisticResourceCard(
+                                    title = "RAM USAGE",
+                                    percentage = telemetry.memory.usagePercent.toInt(),
+                                    color = NeonBlue,
+                                    icon = "💾"
+                                )
+                            }
+                            item {
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    MetricCardFuturistic(
+                                        title = "UPTIME",
+                                        value = "${telemetry.uptime.uptimeSeconds / 3600}h",
+                                        color = NeonCyan,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MetricCardFuturistic(
+                                        title = "LOAD",
+                                        value = String.format("%.2f", telemetry.uptime.loadAverage.getOrNull(0) ?: 0f),
+                                        color = NeonGreen,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            item {
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    val txMb = telemetry.network.interfaces.sumOf { it.txBytes } / 1024 / 1024
+                                    val rxMb = telemetry.network.interfaces.sumOf { it.rxBytes } / 1024 / 1024
+                                    MetricCardFuturistic(
+                                        title = "NETWORK TX",
+                                        value = "${txMb}MB",
+                                        color = NeonCyan,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    MetricCardFuturistic(
+                                        title = "NETWORK RX",
+                                        value = "${rxMb}MB",
+                                        color = NeonGreen,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            item {
+                                SecurityStatusCard(telemetry.security)
+                            }
+                            item {
+                                ServicesCard(
+                                    // Mapeamento de serviços críticos: mostramos mesmo se inativos
+                                    services = run {
+                                        val criticalNames = listOf("nginx", "docker", "mysql", "pocket-noc-agent")
+                                        criticalNames.map { name ->
+                                            val process = telemetry.processes.topProcesses.find { it.name.contains(name, true) }
+                                            com.pocketnoc.data.models.ServiceInfo(
+                                                name = name,
+                                                status = if (process != null) com.pocketnoc.data.models.ServiceStatus.ACTIVE else com.pocketnoc.data.models.ServiceStatus.INACTIVE,
+                                                description = if (process != null) "Running - PID: ${process.pid}" else "Stopped/Not responding",
+                                                pid = process?.pid?.toLong()
+                                            )
+                                        }
+                                    },
+                                    onActionClick = { name, action ->
+                                        selectedServer?.let { viewModel.performServiceAction(it, name, action) }
+                                    }
+                                )
+                            }
+
+                            item {
+                                ProcessesCard(telemetry.processes)
+                            }
+                            item {
+                                IconButton(
+                                    onClick = { selectedServer?.let { viewModel.rebootServer(it) } },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(60.dp)
+                                        .background(Color(0xFF440000), RoundedCornerShape(12.dp))
+                                        .border(1.dp, Color.Red, RoundedCornerShape(12.dp))
+                                ) {
+                                    Icon(Icons.Default.PowerSettingsNew, contentDescription = null, tint = Color.Red)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("EMERGENCY REBOOT", color = Color.Red)
+                                }
+                            }
+                        }
+                    }
+                    is TelemetryUiState.Error -> {
+                        Text(
+                            text = "ERROR: ${state.message}",
+                            color = Color.Red,
+                            modifier = Modifier.align(Alignment.Center).padding(16.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun ErrorContent(message: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+fun StatusCard(alpha: Float, server: ServerEntity?) {
+    val securityStatus = server?.securityStatus ?: 0
+    val shieldColor = when(securityStatus) {
+        0 -> HealthyGreen
+        1 -> Color.Yellow
+        2 -> Color.Red
+        else -> HealthyGreen
+    }
+    
+    val shieldLabel = when(securityStatus) {
+        0 -> "SECURE"
+        1 -> "BYPASS"
+        2 -> "THREAT"
+        else -> "SECURE"
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().shadow(12.dp, spotColor = NeonCyan.copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard)
     ) {
-        Text(
-            "Error Loading Data",
-            style = MaterialTheme.typography.headlineSmall,
-            color = Color(0xFFEF5350)
-        )
+        Column(modifier = Modifier.padding(20.dp).fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("INFRA STATUS", color = NeonCyan.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("ONLINE", style = MaterialTheme.typography.headlineMedium, color = HealthyGreen)
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Security, 
+                        contentDescription = "Security Status",
+                        tint = shieldColor,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Text(shieldLabel, style = MaterialTheme.typography.labelSmall, color = shieldColor)
+                }
+            }
+            
+            if (server != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Divider(color = NeonCyan.copy(alpha = 0.1f))
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    InfoTag(label = "OS", value = server.osInfo)
+                    InfoTag(label = "STACK", value = server.stackInfo)
+                    InfoTag(label = "LOC", value = server.locationInfo)
+                }
+            }
+        }
+    }
+}
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+@Composable
+fun InfoTag(label: String, value: String) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = NeonCyan.copy(alpha = 0.6f))
+        Text(value, style = MaterialTheme.typography.bodySmall, color = Color.White)
     }
 }

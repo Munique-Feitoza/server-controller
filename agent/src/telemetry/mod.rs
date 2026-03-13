@@ -6,11 +6,17 @@ mod cpu;
 mod memory;
 mod disk;
 mod temperature;
+mod network;
+mod security;
+mod processes;
 
 pub use cpu::CpuMetrics;
 pub use memory::MemoryMetrics;
 pub use disk::DiskMetrics;
 pub use temperature::TemperatureMetrics;
+pub use network::NetworkMetrics;
+pub use security::SecurityMetrics;
+pub use processes::ProcessMetrics;
 
 /// Estrutura completa de telemetria do sistema
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +25,9 @@ pub struct SystemTelemetry {
     pub memory: MemoryMetrics,
     pub disk: DiskMetrics,
     pub temperature: Option<TemperatureMetrics>,
+    pub network: NetworkMetrics,
+    pub security: SecurityMetrics,
+    pub processes: ProcessMetrics,
     pub uptime: UptimeInfo,
     pub timestamp: i64,
 }
@@ -68,6 +77,9 @@ impl TelemetryCollector {
         let memory = MemoryMetrics::collect(&self.system)?;
         let disk = DiskMetrics::collect(&self.system)?;
         let temperature = TemperatureMetrics::collect().ok();
+        let network = NetworkMetrics::collect(&self.system)?;
+        let security = SecurityMetrics::collect()?;
+        let processes = ProcessMetrics::collect(&self.system)?;
         let uptime = UptimeInfo::collect()?;
 
         let timestamp = std::time::SystemTime::now()
@@ -80,6 +92,9 @@ impl TelemetryCollector {
             memory,
             disk,
             temperature,
+            network,
+            security,
+            processes,
             uptime,
             timestamp,
         })

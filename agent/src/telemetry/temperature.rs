@@ -46,15 +46,3 @@ impl TemperatureMetrics {
         Ok(Self { sensors })
     }
 }
-
-// Helper para read_to_string que não existe em DirEntry
-trait ReadToString {
-    fn read_to_string(&self) -> Result<String>;
-}
-
-impl ReadToString for std::path::Path {
-    fn read_to_string(&self) -> Result<String> {
-        fs::read_to_string(self)
-            .map_err(|e| crate::error::AgentError::TelemetryError(format!("Failed to read file: {}", e)))
-    }
-}

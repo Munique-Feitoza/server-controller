@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nome da aplicação -->
+    <string name="app_name">Pocket NOC</string>
+    
+    <!-- Descrição da aplicação -->
+    <string name="app_description">Monitoramento de Infraestrutura em Tempo Real</string>
+    
+    <!-- Strings genéricas -->
+    <string name="loading">Carregando...</string>
+    <string name="error">Erro</string>
+    <string name="success">Sucesso</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancelar</string>
+    <string name="retry">Tentar Novamente</string>
+    
+    <!-- Autenticação -->
+    <string name="login">Login</string>
+    <string name="logout">Logout</string>
+    <string name="token">Token</string>
+    
+    <!-- Telas -->
+    <string name="dashboard">Dashboard</string>
+    <string name="settings">Configurações</string>
+    <string name="about">Sobre</string>
+</resources>
