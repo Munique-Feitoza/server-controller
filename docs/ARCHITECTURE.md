@@ -1,89 +1,57 @@
-# 📐 Arquitetura Detalhada - Pocket NOC
+# 📐 Arquitetura do Sistema — Pocket NOC Ultra
 
-Este documento fornece uma visão técnica profunda da arquitetura do Pocket NOC, detalhando as decisões de design, fluxos de dados e a integração entre os componentes.
+Este documento detalha as decisões de design e a infraestrutura do ecossistema Pocket NOC. Minha prioridade aqui foi construir algo resiliente, leve e que eu pudesse confiar em um ambiente de missão crítica.
+
+## 🏗️ Design Macro
+
+O Pocket NOC segue um modelo de **Agente Distribuído**. Diferente de soluções tradicionais que exigem um servidor central (SaaS), o Pocket NOC comunica-se diretamente com o host via túnel SSH, eliminando pontos únicos de falha e dependências externas desnecessárias.
+
+### Stacks Escolhidas
+
+| Camada | Tecnologia | Motivação |
+| :--- | :--- | :--- |
+| **Mobile** | Kotlin + Compose | UI reativa moderna e performance nativa. |
+| **Backend** | Rust + Axum | Core de sistemas. Eficiência absoluta e segurança de memória. |
+| **Persistência** | Room + DataStore | Gestão local de estado e credenciais criptografadas. |
+| **Comunicação** | SSH Tunneling + JWT | Bicamada de segurança para acesso remoto. |
 
 ---
 
-## 🏗️ Visão Geral do Sistema
+## 🔄 Fluxo de Dados de Telemetria
 
-O Pocket NOC utiliza uma arquitetura descentralizada de Agente-Controller, garantindo escalabilidade e baixo acoplamento.
+O fluxo foi desenhado para ser unidirecional e reativo, seguindo os princípios de observabilidade:
+
+1. **Kernel Poll**: O Engine em Rust lê diretamente o `/proc` e `/sys` a cada segundo.
+2. **REST Buffer**: Os dados são estruturados em JSON e servidos via Axum.
+3. **Android Fetch**: O app realiza polling via Retrofit através do Túnel SSH.
+4. **Reactive UI**: O `DashboardViewModel` atualiza o `StateFlow`, que dispara a recomposição do Jetpack Compose.
 
 ```mermaid
-graph LR
-    subgraph "Mobile Device (Kotlin)"
-        A[UI Layer] --> B[ViewModel]
-        B --> C[Repository]
-        C --> D[Retrofit Client]
-    end
+sequenceDiagram
+    participant User as 📱 Android App
+    participant SSH as 🔐 SSH Tunnel
+    participant Agent as 🦀 Rust Agent
+    participant Kernel as 🐧 Linux Kernel
 
-    D -- "HTTPS + JWT" --> E[Pocket NOC Agent (Rust)]
-
-    subgraph "Server Environment"
-        E --> F[Telemetry Module]
-        E --> G[Service Manager]
-        E --> H[Command Executor]
-        F --> I["/proc & sysfs"]
-        G --> J[Systemd]
-    end
+    User->>SSH: Request Telemetry (JWT)
+    SSH->>Agent: Forward to localhost:9443
+    Agent->>Kernel: Read /proc/stat, /proc/meminfo
+    Kernel-->>Agent: Raw Metrics
+    Agent-->>SSH: Struct JSON Response
+    SSH-->>User: Encrypted Data Stream
 ```
 
 ---
 
-## 🏎️ Componentes Principais
+## 🎯 Decisões de Engenharia (Trade-offs)
 
-### 1. Agent (O Coração no Servidor)
+### Por que Rust no Agente?
 
-Desenvolvido em **Rust** para garantir a máxima performance com o menor uso de recursos possível.
+Eu poderia ter usado Go ou Python, mas para um agente de monitoramento, o uso de RAM é sagrado. Rust me permitiu criar um binário estático que não exige runtime ou GC (Garbage Collector), garantindo que o agente nunca entre em "concorrência" por recursos com o serviço que ele está monitorando (como um banco de dados pesado).
 
-- **Modularidade**: O código é dividido em módulos especializados (telemetria, serviços, comandos).
-- **Zero-Unwrap Policy**: Tratamento de erros robusto usando `Result` e `Option` para evitar crashes.
-- **Async I/O**: Baseado no runtime `Tokio` para lidar com múltiplas conexões sem bloquear.
+### Arquitetura MVVM no Android
 
-### 2. Controller (A Interface no Bolso)
-
-Desenvolvido em **Kotlin** com **Jetpack Compose**, seguindo as melhores práticas da plataforma Android.
-
-- **MVVM (Model-View-ViewModel)**: Separação clara entre a lógica de negócio e a interface.
-- **Coroutines & Flow**: Gerenciamento eficiente de chamadas assíncronas e estados da UI.
-- **Material Design 3**: UI moderna com foco em usabilidade e estética futurista.
+No Controller, utilizei MVVM (Model-View-ViewModel) para garantir que a lógica de rede e persistência do SSH sejam desacopladas da UI. Isso permite que o app mantenha a fluidez mesmo com múltiplas conexões simultâneas.
 
 ---
-
-## 📊 Fluxos de Dados
-
-### Coleta de Telemetria
-
-1. O **Controller** solicita um `GET /telemetry` enviando o `JWT`.
-2. O **Agente** valida a assinatura e expiração do token através de um **Middleware**.
-3. O módulo de telemetria lê diretamente do sistema de arquivos virtual do Linux (`/proc` e `/sys`).
-4. Os dados são serializados em JSON e enviados de volta.
-5. A UI do Android reage à atualização do estado através de `StateFlow`.
-
-### Execução de Comandos (Action Center)
->
-> [!NOTE]
-> O Action Center está temporariamente oculto na UI principal para ajustes, mas a infraestrutura da API continua operacional.
-
-1. O Controller envia um `POST /commands/{id}`.
-2. O Agente verifica se o comando solicitado está presente na **Whitelist**.
-3. Se autorizado, o comando é executado via `std::process::Command` sem passagem direta para o shell (evitando `Shell Injection`).
-4. O resultado (exit code e output) é retornado ao Controller.
-
----
-
-## 🛡️ Decisões Técnicas e Segurança
-
-- **Porta 9443**: Escolhida para evitar conflitos, permitindo o uso de proxies reversos.
-- **Segurança por Whitelist**: Ao contrário de ferramentas de terminal remoto, o Pocket NOC só permite executar o que foi explicitamente configurado.
-- **Minimalismo**: O agente não possui banco de dados próprio, consumindo menos de 20MB de RAM.
-
----
-
-## 📈 Escalabilidade e Performance
-
-O sistema foi testado para responder em menos de **200ms** para métricas de telemetria, mesmo sob carga moderada de sistema. Para ambientes com centenas de servidores, recomenda-se o uso de um agregador ou proxy centralizado, embora o Agente suporte conexões diretas via IP ou VPN.
-
----
-
-**Última atualização**: Março de 2026
-**Status**: Arquitetura validada e estável.
+**Documentação mantida conforme o Protocolo OMNI-DEV.**

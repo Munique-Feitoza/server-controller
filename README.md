@@ -1,102 +1,78 @@
-# 🌌 Pocket NOC - Server Controller
+# 🌌 Pocket NOC Ultra — Comandos de Infraestrutura no seu Bolso
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](https://opensource.org/licenses/MIT)
-[![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-blue.svg)](https://kotlinlang.org/)
-[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
-[![Android](https://img.shields.io/badge/Android-8.0+-green.svg)](https://developer.android.com/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-blue?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Android](https://img.shields.io/badge/Android-8.0%2B-green?style=for-the-badge&logo=android)](https://developer.android.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-teal?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**O centro de comando da sua infraestrutura, direto no seu bolso.**
-
-O **Pocket NOC** é uma solução completa de monitoramento e gerenciamento de servidores em tempo real para dispositivos Android. Projetado para sysadmins e desenvolvedores que precisam de controle total, segurança e agilidade, mesmo longe do computador.
+O **Pocket NOC Ultra** é uma solução de monitoramento e gestão de servidores de alto nível, projetada para quem não abre mão de controle total e segurança, mesmo em movimento. Desenvolvido com uma arquitetura híbrida **Rust + Kotlin**, o sistema entrega performance de nível de kernel com uma experiência mobile premium.
 
 ---
 
-## ✨ Funcionalidades Premium
+## 💎 Diferenciais Técnicos
 
-- 🚀 **Telemetria Real-time**: CPU, RAM, Disco e Temperatura com visualização futurista.
-- 🛡️ **Segurança Militar**: Autenticação via JWT (JSON Web Tokens) e comunicação HTTPS/TLS.
-- ⚡ **Ações de Emergência**: Reinicialização de serviços (Nginx, Docker, etc.) com um toque.
-- 🚦 **Status Visual**: Semáforo de saúde da infraestrutura (Healthy/Warning/Critical).
-- 📱 **Interface Futurista**: Design inspirado em Cyberpunk com elementos Neon e Glassmorphism.
+- 🦀 **Agente Non-Intrusive (Rust)**: Monitoramento ultra eficiente com footprint de memória < 15MB. Zero-cost abstractions garantem que o monitor não afete a carga do host.
+- 📱 **Interface Cyber-Modern (Compose)**: Design inspirado em estética cyberpunk com Glassmorphism, otimizado para observabilidade rápida.
+- 🔐 **HackerSec Core**: Segurança Zero-Trust. Comunicação via túnel SSH criptografado e autenticação robusta com JWT (HMAC-SHA256).
+- 💀 **Hunter Mode (Process Management)**: Identifique e encerre processos zumbis ou pesados remotamente com precisão cirúrgica.
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🏗️ Arquitetura de Engenharia
 
-O projeto é dividido em dois componentes principais, seguindo padrões modernos de engenharia de software:
+O ecossistema segue o **Protocolo OMNI-DEV**, priorizando desacoplamento e resiliência:
 
 ```mermaid
-graph TD
-    A[Pocket NOC Controller <br/> Kotlin/Compose] -- "HTTPS (JWT)" --> B[Pocket NOC Agent <br/> Rust/Axum]
-    B -- "Sysfs / Proc" --> C[Server OS <br/> Linux]
-    B -- "Systemctl" --> D[Services <br/> Nginx/Docker]
-```
+graph LR
+    subgraph "📱 Mobile Controller (Kotlin/MVVM)"
+        A[UI Analytics] --> B[Server Repository]
+        B --> C[Secure Token Storage]
+    end
+    
+    subgraph "🔐 Security Tunnel"
+        D[SSH Tunneling]
+    end
+    
+    subgraph "🦀 Host Agent (Rust/Axum)"
+        E[REST API] --> F[Telemetry Engine]
+        F --> G[(Linux Kernel /proc)]
+        E --> H[Action Center]
+    end
 
-1. **Controller (Android)**: Interface construída com Jetpack Compose, seguindo o padrão **MVVM**.
-2. **Agent (Rust)**: Um serviço ultraleve e performático que roda nos servidores, coletando métricas sem sobrecarregar o sistema.
-
----
-
-## 📂 Estrutura do Repositório
-
-```bash
-.
-├── agent/              # Código fonte do Agente (Rust)
-├── controller/         # Código fonte do App Android (Kotlin)
-├── docs/               # Documentação técnica detalhada (pt-br)
-│   ├── API.md          # Especificação dos endpoints
-│   ├── ARCHITECTURE.md # Decisões de design e fluxos
-│   ├── SECURITY.md     # Camadas de proteção e auth
-│   └── SETUP.md        # Guia de instalação e troubleshooting
-└── README.md           # Este guia
+    B -.-> D -.-> E
 ```
 
 ---
 
-## 🚀 Como Começar
+## 📂 Ecossistema de Documentação
 
-### 1. Instalar o Agente (Servidor)
+Para manter o padrão de excelência, a documentação está organizada por domínios:
+
+- 🛠️ **[Guia de Instalação (SETUP)](./docs/SETUP.md)**: Deployment do agente no Ubuntu e configuração do app.
+- 📐 **[Arquitetura e Design (ARCHITECTURE)](./docs/ARCHITECTURE.md)**: Detalhes sobre o fluxo de dados e stack.
+- 🛡️ **[Protocolos de Segurança (SECURITY)](./docs/SECURITY.md)**: Como protegemos seus acessos e chaves SSH.
+- 📡 **[Referência da API (API)](./docs/API.md)**: Documentação funcional dos endpoints do agente.
+
+---
+
+## 🚀 Deployment Rápido
+
+### Servidor (Ubuntu Server recomendado)
 
 ```bash
+# Compile com otimizações de release
 cd agent
 cargo build --release
-sudo systemctl enable --now ./systemd/pocket-noc-agent.service
+
+# O binário bindará apenas em localhost para segurança máxima
+./target/release/pocket-noc-agent
 ```
 
-### 2. Instalar o Controller (Android)
+### Android
 
-```bash
-cd controller
-./gradlew assembleDebug
-# Instale o APK gerado no seu dispositivo
-```
-
-> [!IMPORTANT]
-> Para detalhes completos de configuração, consulte o **[Guia de Instalação (docs/SETUP.md)](./docs/SETUP.md)**.
+Basta compilar via Android Studio ou Gradle e configurar o arquivo `local.properties` com suas chaves.
 
 ---
 
-## 🔒 Segurança por Design
-
-- **Zero Trust**: Nenhuma requisição é processada sem um token JWT válido.
-- **Whitelist**: Apenas comandos pré-aprovados podem ser executados no servidor.
-- **Minimal Footprint**: O agente em Rust usa menos de 15MB de RAM em idle.
-
----
-
-## 📚 Documentação Adicional
-
-- 🛠️ [Guia de Configuração e Instalação](./docs/SETUP.md)
-- 📡 [Referência da API REST](./docs/API.md)
-- 📐 [Detalhes da Arquitetura](./docs/ARCHITECTURE.md)
-- 🔐 [Políticas de Segurança](./docs/SECURITY.md)
-
----
-
-## 👨‍💻 Contribuição
-
-Sinta-se à vontade para abrir Issues ou Pull Requests. O projeto segue o **Protocolo OMNI-DEV** de excelência técnica.
-
----
-
-**Pocket NOC** - Por **Munique Alves Pacheco Feitoza** | *Engenharia de Software & Alta Performance*
+**Desenvolvido com obsessão técnica por [Munique Alves Pacheco Feitoza](https://github.com/Munique-Feitoza)**  
+*Engenharia de Software | ADS | Manjaro User*

@@ -1,95 +1,73 @@
-# 📡 Especificação da API - Pocket NOC Agent
+# 📡 Referência da API — Pocket NOC Agent
 
-Este documento descreve os endpoints da API REST fornecida pelo Agente Rust para o Controller Android.
+Esta API é interna e protegida. Todas as rotas (exceto `/health`) exigem o cabeçalho `Authorization: Bearer <JWT_TOKEN>`.
 
----
+## 📍 Base URL
 
-## 🌐 Informações Gerais
-
-- **Protocolo**: HTTPS/TLS (Obrigatório)
-- **Porta Padrão**: `9443`
-- **Formato**: `application/json`
-- **Autenticação**: Bearer Token (JWT)
+O agente ouve em: `http://127.0.0.1:9443` (Acesso via túnel SSH).
 
 ---
 
-## 📊 Endpoints Disponíveis
+## 🚀 Endpoints de Telemetria
 
-### 1. Health Check
+### `GET /telemetry`
 
-Verifica se o agente está ativo e operacional.
+Retorna o estado completo da máquina.
 
-- **Método**: `GET`
-- **Path**: `/health`
-- **Auth**: Não necessária.
+- **Retorno**: JSON contendo CPU, RAM, Disk, Load Average e Network.
 
-**Exemplo de Resposta**:
+### `GET /processes`
+
+Lista os processos que mais consomem recursos.
+
+- **Retorno**: Top 10 processos formatados para o dashboard.
+
+### `DELETE /processes/:pid`
+
+Encerra um processo específico.
+
+- **Segurança**: Requer confirmação no mobile antes do disparo.
+
+---
+
+## ⚙️ Gestão e Ações
+
+### `POST /alerts/config`
+
+Atualiza os thresholds de alerta em tempo real.
+
+- **Payload**:
 
 ```json
 {
-  "status": "healthy",
-  "timestamp": "2026-03-13T12:00:00Z"
+  "cpu_threshold_percent": 85.0,
+  "memory_threshold_percent": 90.0,
+  "disk_threshold_percent": 95.0
 }
 ```
 
----
+### `GET /logs?service=<name>&lines=100`
 
-### 2. Telemetria Completa
+Acessa o buffer do `journalctl`.
 
-Retorna o estado atual do servidor (CPU, RAM, Disco, etc.).
+- **Default service**: `pocket-noc-agent`.
 
-- **Método**: `GET`
-- **Path**: `/telemetry`
-- **Auth**: Bearer Token.
+### `POST /commands/:id`
 
-**Campos principais**:
+Executa um comando da Whitelist.
 
-- `cpu`: Uso por core e total.
-- `memory`: RAM usada, total e swap.
-- `disk`: Lista de discos montados e espaço livre.
-- `uptime`: Tempo de atividade do sistema.
+- **Comandos Válidos**: `restart_nginx`, `stop_nginx`, `restart_docker`, `clear_logs`.
 
 ---
 
-### 3. Listar Comandos (Action Center)
+## 💓 Health Check
 
-Retorna a lista de comandos de emergência configurados na whitelist.
+### `GET /health`
 
-- **Método**: `GET`
-- **Path**: `/commands`
-- **Auth**: Bearer Token.
+Verifica se o agente está operante.
 
----
-
-### 4. Executar Comando
-
-Dispara um comando da whitelist.
-
-- **Método**: `POST`
-- **Path**: `/commands/{id}`
-- **Auth**: Bearer Token.
-
-**Exemplo de Resposta**:
-
-```json
-{
-  "exit_code": 0,
-  "stdout": "Service restarted successfully",
-  "stderr": ""
-}
-```
+- **Auth**: Não requerido.
+- **Resposta**: `{"status": "healthy"}`
 
 ---
-
-## 🔑 Autenticação
-
-Todas as rotas (exceto `/health`) exigem o header:
-`Authorization: Bearer <seu_token_jwt>`
-
-> [!TIP]
-> Use o script de testes na raiz do projeto para validar sua conexão e token: `test_jwt_security.sh`.
-
----
-
-**Versão da API**: 0.1.0
-**Última Atualização**: Março de 2026
+**Documentação Funcional — Protocolo OMNI-DEV.**
