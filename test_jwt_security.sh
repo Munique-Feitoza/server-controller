@@ -3,13 +3,22 @@
 # Test script para demonstrar a segurança do JWT
 # Testa 401 Unauthorized em rotas protegidas
 
+# CONFIGURAÇÕES DINÂMICAS:
+# Tenta ler do ambiente ou usa um valor de teste genérico (JAMais use em prod)
+SECRET="${POCKET_NOC_SECRET:-test-insecure-secret-key-minimum-32-bytes-required-dev-only}"
+
 echo "🧪 Pocket NOC Agent - JWT Security Test"
 echo "========================================"
+echo "⚠️  AVISO: Usando secret para AMBIENTE DE DESENVOLVIMENTO."
 echo ""
 
+# Detecta o diretório do script para evitar caminhos absolutos
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AGENT_DIR="$SCRIPT_DIR/agent"
+
 # Aguarda o servidor começar
-echo "⏳ Iniciando agente..."
-cd /home/muniquefeitoza/Área\ de\ trabalho/Munique/server-controller/agent
+echo "⏳ Iniciando agente em: $AGENT_DIR"
+cd "$AGENT_DIR" || { echo "❌ Diretório do agente não encontrado"; exit 1; }
 timeout 30 cargo run --release &
 SERVER_PID=$!
 sleep 3
@@ -74,8 +83,8 @@ echo ""
 echo "TEST 4: Gerando token JWT válido..."
 echo "-----------------------------------"
 
-# Usa a chave padrão do servidor
-SECRET="test-insecure-secret-key-minimum-32-bytes-required-prodctn"
+# A secret já foi definida no topo do script via env var ou fallback
+# SECRET="test-insecure-secret-key-minimum-32-bytes-required-prodctn"
 TIMESTAMP=$(date +%s)
 EXPIRY=$((TIMESTAMP + 3600))
 
