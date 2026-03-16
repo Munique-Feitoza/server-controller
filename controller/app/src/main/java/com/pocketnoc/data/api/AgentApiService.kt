@@ -68,4 +68,10 @@ interface AgentApiService {
         @Query("service") service: String,
         @Query("lines") lines: Int = 100
     ): LogResponse
+
+    // Security
+    @POST("security/block-ip")
+    suspend fun blockIp(
+        @Body payload: Map<String, String>
+    ): GenericResponse
 }

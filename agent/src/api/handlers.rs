@@ -226,3 +226,26 @@ pub async fn update_alert_config(
         "current_config": new_thresholds
     })))
 }
+
+/// POST /security/block-ip - Bloqueia um IP agressor
+pub async fn block_ip(
+    State(_state): State<AppState>,
+    Json(payload): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>> {
+    let ip = payload.get("ip").and_then(|v| v.as_str()).ok_or_else(|| {
+        crate::error::AgentError::CommandError("Missing IP in payload".to_string())
+    })?;
+
+    let success = crate::telemetry::SecurityMetrics::block_ip(ip)?;
+    
+    if success {
+        tracing::warn!("🛡️ IP Blocked by remote user: {}", ip);
+        Ok(Json(json!({
+            "status": "success",
+            "message": format!("IP {} has been blocked via iptables", ip),
+            "ip": ip
+        })))
+    } else {
+        Err(crate::error::AgentError::CommandError(format!("Failed to block IP {}", ip)))
+    }
+}

@@ -12,6 +12,7 @@ import com.pocketnoc.data.models.AlertsResponse
 import com.pocketnoc.config.PocketNOCConfig
 import com.pocketnoc.ssh.SshTunnelManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.*
 import com.pocketnoc.utils.SecurityNotificationManager
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -90,7 +91,7 @@ class ServerRepository @Inject constructor(
         return RetrofitClient.getInstance(url, server.token).create(AgentApiService::class.java)
     }
 
-    suspend fun getTelemetry(server: ServerEntity): SystemTelemetry {
+    suspend fun getTelemetry(server: ServerEntity): SystemTelemetry = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
             val telemetry = apiService.getTelemetry()
@@ -100,7 +101,7 @@ class ServerRepository @Inject constructor(
                 securityNotifications.sendHighCpuAlert(server.name, telemetry.cpu.usagePercent.toDouble())
             }
             
-            return telemetry
+            telemetry
         } catch (e: Exception) {
             throw Exception("Agent Connection Error: ${e.message}")
         }
@@ -126,28 +127,35 @@ class ServerRepository @Inject constructor(
         return apiService.listCommands().commands
     }
 
-    suspend fun getAlerts(server: ServerEntity): AlertsResponse {
+    suspend fun getAlerts(server: ServerEntity): AlertsResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
-            return apiService.getAlerts()
+            apiService.getAlerts()
         } catch (e: Exception) {
             throw Exception("Failed to fetch alerts: ${e.message}")
         }
     }
 
-    suspend fun updateAlertConfig(server: ServerEntity, config: com.pocketnoc.data.local.AlertThresholdConfig) {
+    suspend fun updateAlertConfig(server: ServerEntity, config: com.pocketnoc.data.local.AlertThresholdConfig) = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
-            apiService.updateAlertConfig(config)
+            // Map local config to API model
+            val apiConfig = com.pocketnoc.data.models.AlertThresholdConfig(
+                limitCpu = config.cpuThresholdPercent,
+                limitMemory = config.memoryThresholdPercent,
+                limitDisk = config.diskThresholdPercent,
+                limitTemp = config.temperatureThresholdCelsius
+            )
+            apiService.updateAlertConfig(apiConfig)
         } catch (e: Exception) {
             throw Exception("Failed to sync alerts with server: ${e.message}")
         }
     }
 
-    suspend fun listProcesses(server: ServerEntity): List<com.pocketnoc.data.models.ProcessInfo> {
+    suspend fun listProcesses(server: ServerEntity): List<com.pocketnoc.data.models.ProcessInfo> = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
-            return apiService.getTopProcesses().processes
+            apiService.getTopProcesses().processes
         } catch (e: Exception) {
             throw Exception("Failed to fetch processes: ${e.message}")
         }
@@ -168,6 +176,15 @@ class ServerRepository @Inject constructor(
             return apiService.getLogs(service, lines)
         } catch (e: Exception) {
             throw Exception("Failed to fetch logs: ${e.message}")
+        }
+    }
+
+    suspend fun blockIp(server: ServerEntity, ip: String) {
+        try {
+            val apiService = getApiService(server)
+            apiService.blockIp(mapOf("ip" to ip))
+        } catch (e: Exception) {
+            throw Exception("Failed to block IP $ip: ${e.message}")
         }
     }
 

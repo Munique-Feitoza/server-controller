@@ -87,10 +87,21 @@ fun AlertHistoryScreen(
 
 @Composable
 fun AlertHistoryCard(alert: AlertEntity, dateFormatter: SimpleDateFormat) {
-    val typeColor = when (alert.type.uppercase()) {
-        "CRITICAL" -> CriticalRedHealth
-        "WARNING" -> WarningGreen
-        else -> AlertYellow
+    val type = alert.type.uppercase()
+    
+    // Mapeamento de cor baseado no tipo e severidade (HackerSec Core: Segurança é sempre Crítico)
+    val typeColor = when {
+        type.contains("SECURITY") || type.contains("THREAT") -> CriticalRedHealth
+        type.contains("CPU") || type.contains("DISK") || type.contains("TEMPERATURE") -> AlertYellow
+        type.contains("MEMORY") -> WarningGreen
+        else -> NeonCyan
+    }
+
+    // Unidade baseada no tipo de alerta
+    val unit = when {
+        type.contains("CPU") || type.contains("MEMORY") || type.contains("DISK") -> "%"
+        type.contains("REBOOT") -> " min"
+        else -> "" // Segurança e outros são contadores absolutos
     }
 
     Card(
@@ -154,14 +165,15 @@ fun AlertHistoryCard(alert: AlertEntity, dateFormatter: SimpleDateFormat) {
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "${String.format("%.1f", alert.value)}%",
+                        text = "${String.format("%.1f", alert.value.toDouble())}$unit",
                         style = MaterialTheme.typography.titleMedium,
                         color = typeColor,
                         fontWeight = FontWeight.Black
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                    val limitLabel = if (unit == "%") "${alert.threshold.toInt()}%" else "${alert.threshold.toInt()}$unit"
                     Text(
-                        text = "(Limit: ${alert.threshold.toInt()}%)",
+                        text = "(Limit: $limitLabel)",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextSecondary
                     )

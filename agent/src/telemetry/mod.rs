@@ -1,6 +1,7 @@
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use sysinfo::{System, SystemExt};
+use crate::services::{ServiceInfo, ServiceMonitor};
 
 /// POR QUE RUST? (Decisão de Engenharia)
 /// Escolhi Rust para o Agente por ser uma linguagem de sistemas que oferece "Zero-Cost Abstractions".
@@ -38,6 +39,7 @@ pub struct SystemTelemetry {
     pub security: SecurityMetrics,
     pub processes: ProcessMetrics,
     pub uptime: UptimeInfo,
+    pub services: Vec<ServiceInfo>,
     pub timestamp: i64,
 }
 
@@ -94,6 +96,7 @@ impl TelemetryCollector {
         let security = SecurityMetrics::collect()?;
         let processes = ProcessMetrics::collect(&self.system)?;
         let uptime = UptimeInfo::collect()?;
+        let services = ServiceMonitor::check_multiple_services(&["nginx", "docker", "mysql", "pocket-noc-agent"]);
 
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -109,6 +112,7 @@ impl TelemetryCollector {
             security,
             processes,
             uptime,
+            services,
             timestamp,
         })
     }

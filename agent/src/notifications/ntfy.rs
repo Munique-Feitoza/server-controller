@@ -50,11 +50,11 @@ impl NtfyClient {
             Ok(resp) => {
                 let status = resp.status();
                 error!("Failed to send ntfy notification. Status: {}", status);
-                Err(crate::error::AgentError::Internal(format!("Ntfy error: {}", status)))
+                Err(crate::error::AgentError::InternalError(format!("Ntfy error: {}", status)))
             },
             Err(e) => {
                 error!("Network error sending ntfy notification: {}", e);
-                Err(crate::error::AgentError::Internal(format!("Network error: {}", e)))
+                Err(crate::error::AgentError::InternalError(format!("Network error: {}", e)))
             }
         }
     }

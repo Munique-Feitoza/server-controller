@@ -13,6 +13,7 @@ data class SystemTelemetry(
     val security: SecurityMetrics,
     val processes: ProcessMetrics,
     val uptime: UptimeInfo,
+    val services: List<ServiceInfo>,
     val timestamp: Long
 )
 
@@ -53,8 +54,19 @@ data class ProcessInfo(
 data class SecurityMetrics(
     @SerializedName("active_ssh_sessions")
     val activeSshSessions: Int,
+    @SerializedName("failed_login_attempts")
+    val failedLoginAttempts: Int,
+    @SerializedName("failed_logins")
+    val failedLogins: List<FailedLogin>,
     @SerializedName("suspicious_activities")
     val suspiciousActivities: List<String>
+)
+
+data class FailedLogin(
+    val ip: String,
+    val count: Int,
+    @SerializedName("last_attempt")
+    val lastAttempt: String
 )
 
 data class ProcessListResponse(
@@ -248,6 +260,17 @@ data class AlertsResponse(
     val alerts: List<Alert>,
     val count: Int,
     val timestamp: String
+)
+
+data class AlertThresholdConfig(
+    @SerializedName("limit_cpu")
+    val limitCpu: Float,
+    @SerializedName("limit_memory")
+    val limitMemory: Float,
+    @SerializedName("limit_disk")
+    val limitDisk: Float,
+    @SerializedName("limit_temp")
+    val limitTemp: Float
 )
 
 // ==================== Status de Saúde ====================

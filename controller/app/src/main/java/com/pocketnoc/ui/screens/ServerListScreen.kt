@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
 import com.pocketnoc.data.models.HealthStatus
 import com.pocketnoc.ui.components.ServerHealthWidget
 import com.pocketnoc.ui.theme.*

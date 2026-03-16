@@ -1,6 +1,5 @@
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::SystemTelemetry;
 
@@ -175,7 +174,7 @@ impl AlertManager {
 
         // Verificar Temperatura
         if let Some(temp_metrics) = &telemetry.temperature {
-            if let Some(max_temp) = temp_metrics.readings.iter().map(|r| r.temperature).max_by(|a, b| a.partial_cmp(b).unwrap()) {
+            if let Some(max_temp) = temp_metrics.sensors.iter().map(|r| r.celsius).max_by(|a: &f32, b: &f32| a.partial_cmp(b).unwrap()) {
                 if max_temp > self.thresholds.temperature_threshold_celsius {
                     alerts.push(Alert {
                         alert_type: AlertType::HighTemperature,

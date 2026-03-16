@@ -77,14 +77,14 @@ fun ProcessExplorerScreen(
                     )
                 }
 
-                when (processesState) {
+                when (val state = processesState) {
                     is ProcessesUiState.Loading -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = NeonMagenta)
                         }
                     }
                     is ProcessesUiState.Success -> {
-                        val processes = (processesState as ProcessesUiState.Success).processes
+                        val processes = state.processes
                         ProcessList(
                             processes = processes,
                             onKillRequest = { showKillConfirmation = it }
@@ -93,7 +93,7 @@ fun ProcessExplorerScreen(
                     is ProcessesUiState.Error -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
-                                text = (processesState as ProcessesUiState.Error).message,
+                                text = state.message,
                                 color = Color.Red,
                                 modifier = Modifier.padding(16.dp)
                             )
@@ -197,7 +197,7 @@ fun ProcessCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    MetricLabel(label = "CPU", value = "${String.format("%.1f", process.cpuUsage)}%", color = if (isHeavy) Color.Red else NeonGreen)
+                    MetricLabel(label = "CPU", value = "${String.format("%.1f", process.cpuUsage.toDouble())}%", color = if (isHeavy) Color.Red else NeonGreen)
                     MetricLabel(label = "MEM", value = "${process.memoryMb}MB", color = NeonCyan)
                 }
             }
