@@ -9,6 +9,11 @@ import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
@@ -29,6 +34,7 @@ class WebSocketTelemetryManager(
     )
     val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
 
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var webSocket: WebSocket? = null
     private var isConnected = false
 
@@ -73,6 +79,7 @@ class WebSocketTelemetryManager(
             webSocket?.close(1000, "Client closing")
             webSocket = null
             isConnected = false
+            scope.cancel() // Cancel coroutines on disconnect
             Log.d(tag, "WebSocket disconnected")
         } catch (e: Exception) {
             Log.e(tag, "Error closing WebSocket: ${e.message}", e)
@@ -107,13 +114,12 @@ class WebSocketTelemetryManager(
 
     override fun onMessage(webSocket: WebSocket, text: String) {
         Log.d(tag, "Message received (${text.length} chars)")
-        try {
-            // Emite a mensagem para os coletores
-            runBlocking {
+        scope.launch {
+            try {
                 _messageFlow.emit(text)
+            } catch (e: Exception) {
+                Log.e(tag, "Error emitting message: ${e.message}", e)
             }
-        } catch (e: Exception) {
-            Log.e(tag, "Error emitting message: ${e.message}", e)
         }
     }
 
@@ -139,14 +145,4 @@ class WebSocketTelemetryManager(
         // Pode implementar reconexão automática se necessário
     }
 
-    companion object {
-        private fun runBlocking(block: suspend () -> Unit) {
-            val scope = kotlinx.coroutines.CoroutineScope(
-                kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.Job()
-            )
-            scope.launch {
-                block()
-            }
-        }
-    }
 }

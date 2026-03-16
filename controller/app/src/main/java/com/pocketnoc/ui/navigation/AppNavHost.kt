@@ -29,10 +29,7 @@ fun AppNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = startDestination,
-        typeMap = mapOf(
-            typeOf<Int>() to androidx.navigation.NavType.IntType
-        )
+        startDestination = startDestination
     ) {
         // Login Screen
         composable(AppRoute.Login.route) {

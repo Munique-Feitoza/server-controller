@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -21,10 +22,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.pocketnoc.ui.components.*
 import com.pocketnoc.ui.theme.*
 import com.pocketnoc.data.local.entities.ServerEntity
+import com.pocketnoc.ui.navigation.AppRoute
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.TelemetryUiState
 
@@ -190,40 +193,11 @@ fun DashboardScreen(
                             modifier = Modifier.fillMaxSize().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // ========== HEALTH WIDGETS GRID ==========
-                            item {
-                                if (servers.isNotEmpty()) {
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        Text(
-                                            text = "SAÚDE DOS SERVIDORES",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = NeonCyan,
-                                            modifier = Modifier.padding(bottom = 12.dp)
-                                        )
-                                        
-                                        servers.forEach { server ->
-                                            val health = serverHealthMap[server.id]
-                                            if (health != null) {
-                                                ServerHealthWidget(
-                                                    serverName = health.serverName,
-                                                    status = health.status,
-                                                    cpuUsage = health.cpuUsage,
-                                                    memoryUsage = health.memoryUsage,
-                                                    diskUsage = health.diskUsage,
-                                                    activeAlerts = health.activeAlerts,
-                                                    onClick = {
-                                                        selectedServerIndex = servers.indexOf(server)
-                                                    },
-                                                    modifier = Modifier.padding(bottom = 8.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            // Removida a lista redundante de servidores.
+                            // Agora o Dashboard foca 100% no servidor selecionado na TabRow.
 
                             item {
-                                StatusCard(pulseAlpha.value, selectedServer)
+                                StatusCard(pulseAlpha, selectedServer)
                             }
                             item {
                                 FuturisticResourceCard(
@@ -276,23 +250,16 @@ fun DashboardScreen(
                                 }
                             }
                             item {
-                                SecurityStatusCard(telemetry.security)
+                                SecurityStatusCard(
+                                    security = telemetry.security,
+                                    onBlockIp = { ip ->
+                                        selectedServer?.let { viewModel.blockIp(it, ip) }
+                                    }
+                                )
                             }
                             item {
                                 ServicesCard(
-                                    // Mapeamento de serviços críticos: mostramos mesmo se inativos
-                                    services = run {
-                                        val criticalNames = listOf("nginx", "docker", "mysql", "pocket-noc-agent")
-                                        criticalNames.map { name ->
-                                            val process = telemetry.processes.topProcesses.find { it.name.contains(name, true) }
-                                            com.pocketnoc.data.models.ServiceInfo(
-                                                name = name,
-                                                status = if (process != null) com.pocketnoc.data.models.ServiceStatus.ACTIVE else com.pocketnoc.data.models.ServiceStatus.INACTIVE,
-                                                description = if (process != null) "Running - PID: ${process.pid}" else "Stopped/Not responding",
-                                                pid = process?.pid?.toLong()
-                                            )
-                                        }
-                                    },
+                                    services = telemetry.services,
                                     onActionClick = { name, action ->
                                         selectedServer?.let { viewModel.performServiceAction(it, name, action) }
                                     }
@@ -332,7 +299,7 @@ fun DashboardScreen(
 }
 
 @Composable
-fun StatusCard(alpha: Float, server: ServerEntity?) {
+fun StatusCard(pulseAlpha: State<Float>, server: ServerEntity?) {
     val securityStatus = server?.securityStatus ?: 0
     val shieldColor = when(securityStatus) {
         0 -> HealthyGreen
@@ -349,8 +316,12 @@ fun StatusCard(alpha: Float, server: ServerEntity?) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().shadow(12.dp, spotColor = NeonCyan.copy(alpha = 0.4f)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(12.dp, spotColor = NeonCyan.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, NeonCyan.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(20.dp).fillMaxWidth()) {
             Row(
@@ -359,7 +330,12 @@ fun StatusCard(alpha: Float, server: ServerEntity?) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("INFRA STATUS", color = NeonCyan.copy(alpha = alpha), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = "INFRA STATUS", 
+                        color = NeonCyan, 
+                        modifier = Modifier.graphicsLayer(alpha = pulseAlpha.value),
+                        style = MaterialTheme.typography.labelSmall
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("ONLINE", style = MaterialTheme.typography.headlineMedium, color = HealthyGreen)
                 }

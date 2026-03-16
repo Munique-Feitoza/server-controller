@@ -1,8 +1,10 @@
 package com.pocketnoc.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketnoc.data.local.entities.ServerEntity
+import com.pocketnoc.data.local.entities.AlertEntity
 import com.pocketnoc.data.models.*
 import com.pocketnoc.data.repository.ServerRepository
 import com.pocketnoc.utils.JwtUtils
@@ -10,6 +12,7 @@ import com.pocketnoc.utils.HealthStatusCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.pocketnoc.config.PocketNOCConfig
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -267,7 +270,14 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _commandsState.value = CommandsUiState.Loading
             try {
-                val commands = repository.listCommands(server).values.flatten()
+                val commands = repository.listCommands(server).values.flatten().map { cmd ->
+                    CommandInfo(
+                        id = cmd.id,
+                        description = cmd.description,
+                        command = cmd.command,
+                        args = cmd.args
+                    )
+                }
                 _commandsState.value = CommandsUiState.Success(commands)
             } catch (e: Exception) {
                 val errorMsg = e.localizedMessage ?: "Failed to load commands"
@@ -294,42 +304,71 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private suspend fun updateServerHealth(server: ServerEntity, telemetry: SystemTelemetry) {
+    private suspend fun updateServerHealth(server: ServerEntity, telemetry: SystemTelemetry) = withContext(kotlinx.coroutines.Dispatchers.Default) {
         try {
             val health = HealthStatusCalculator.calculateStatus(telemetry)
-            val alerts = repository.getAlerts(server)
+            
+            // Operações de I/O (Alertas e DB) movidas para o dispatcher correto
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val alerts = repository.getAlerts(server)
 
-                if (alerts.isNotEmpty()) {
-                    alerts.forEach { alert ->
-                        repository.saveAlert(
-                            com.pocketnoc.data.local.entities.AlertEntity(
-                                serverId = server.id,
-                                serverName = server.name,
-                                type = alert.type,
-                                message = alert.message,
-                                value = alert.value,
-                                threshold = alert.threshold
+                    if (alerts.alerts.isNotEmpty()) {
+                        alerts.alerts.forEach { alert ->
+                            repository.saveAlert(
+                                com.pocketnoc.data.local.entities.AlertEntity(
+                                    serverId = server.id,
+                                    serverName = server.name,
+                                    type = alert.alertType.name,
+                                    message = alert.message,
+                                    value = alert.currentValue,
+                                    threshold = alert.threshold
+                                )
                             )
-                        )
+                        }
+                    }
+
+                    val serverHealth = ServerHealth(
+                        serverId = server.id,
+                        serverName = server.name,
+                        status = health,
+                        cpuUsage = telemetry.cpu.usagePercent,
+                        memoryUsage = telemetry.memory.usagePercent,
+                        diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
+                        temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
+                        activeAlerts = alerts.count,
+                        lastUpdate = System.currentTimeMillis()
+                    )
+
+                    // Atualização atômica do mapa de saúde
+                    _serverHealthMap.update { currentMap ->
+                        currentMap.toMutableMap().apply {
+                            this[server.id] = serverHealth
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("DashboardViewModel", "Failed to fetch alerts during health update: ${e.message}")
+                    
+                    // Fallback para exibir saúde sem alertas se falhar
+                    val serverHealth = ServerHealth(
+                        serverId = server.id,
+                        serverName = server.name,
+                        status = health,
+                        cpuUsage = telemetry.cpu.usagePercent,
+                        memoryUsage = telemetry.memory.usagePercent,
+                        diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
+                        temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
+                        activeAlerts = 0,
+                        lastUpdate = System.currentTimeMillis()
+                    )
+                    
+                    _serverHealthMap.update { currentMap ->
+                        currentMap.toMutableMap().apply {
+                            this[server.id] = serverHealth
+                        }
                     }
                 }
-
-                val serverHealth = ServerHealth(
-                serverId = server.id,
-                serverName = server.name,
-                status = health,
-                cpuUsage = telemetry.cpu.usagePercent,
-                memoryUsage = telemetry.memory.usagePercent,
-                diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
-                temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
-                activeAlerts = alerts.count,
-                lastUpdate = System.currentTimeMillis()
-            )
-
-            // Atualiza o mapa de saúde
-            val currentMap = _serverHealthMap.value.toMutableMap()
-            currentMap[server.id] = serverHealth
-            _serverHealthMap.value = currentMap
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -342,14 +381,21 @@ class DashboardViewModel @Inject constructor(
                 alertThresholdRepository.updateAllThresholds(config)
                 
                 // 2. Sincroniza com todos os servidores ativos
-                val servers = allServers.value
-                _eventFlow.emit("Propagating thresholds to ${servers.size} nodes...")
-                
-                for (server in servers) {
-                    try {
-                        repository.updateAlertConfig(server, config)
-                    } catch (e: Exception) {
-                        _eventFlow.emit("Failed to sync ${server.name}: ${e.message}")
+                // Sync cada servidor ativo
+                val servers = allServers.value // Get all servers once
+                val currentHealth = _serverHealthMap.value // Use _serverHealthMap.value
+                _eventFlow.emit("Propagating thresholds to ${currentHealth.size} active nodes...")
+
+                if (currentHealth.isNotEmpty()) {
+                    for ((_, health) in currentHealth) {
+                        val server = servers.find { it.id == health.serverId }
+                        if (server != null) {
+                            try {
+                                repository.updateAlertConfig(server, config)
+                            } catch (e: Exception) {
+                                _eventFlow.emit("Failed to sync ${server.name}: ${e.message}")
+                            }
+                        }
                     }
                 }
                 
@@ -382,6 +428,7 @@ class DashboardViewModel @Inject constructor(
                 fetchProcesses(server)
             } catch (e: Exception) {
                 _eventFlow.emit("Kill failed: ${e.localizedMessage}")
+            }
         }
     }
 
@@ -401,6 +448,21 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             repository.clearAlertHistory()
             _eventFlow.emit("Alert audit history cleared.")
+        }
+    }
+
+    fun blockIp(server: ServerEntity, ip: String) {
+        viewModelScope.launch {
+            try {
+                _eventFlow.emit("Signaling Firewall for BAN: $ip...")
+                repository.blockIp(server, ip)
+                _eventFlow.emit("SENTINEL: IP $ip blocked permamently.")
+                // Atualiza telemetria para ver se o IP some ou status muda
+                fetchTelemetry(server)
+            } catch (e: Exception) {
+                _eventFlow.emit("Firewall Error: ${e.localizedMessage}")
+                e.printStackTrace()
+            }
         }
     }
 }

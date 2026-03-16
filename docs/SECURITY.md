@@ -16,7 +16,10 @@ Toda a comunicação REST passa por um túnel SSH (Local Port Forwarding).
 
 - **Criptografia**: AES-256 de nível militar.
 - **Autenticação**: Baseada em par de chaves (Ed25519 preferencialmente).
-- **Proteção contra Intrusão**: O Controller monitora falhas de autenticação SSH e bloqueia o acesso após 3 tentativas inválidas (HackerSec Core Protection).
+- **Proteção contra Intrusão (Sentinel Security)**: O Controller monitora falhas de autenticação SSH e login do sistema (`lastb`).
+  - **Visibilidade Expandida**: O dashboard exibe os top 10 IPs atacantes em tempo real.
+  - **Deep Log Parsing**: O agente analisa as últimas 500 entradas de log de segurança para identificar padrões de força bruta mesmo sob alta carga.
+  - **Intervenção Manual (BAN)**: Bloqueio instantâneo via IPTables diretamente pelo Controller mobile.
 
 ### 3. Aplicação: JWT Auth (HMAC-SHA256)
 

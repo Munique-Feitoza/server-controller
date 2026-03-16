@@ -1,13 +1,13 @@
 use axum::{
     middleware,
-    routing::{get, post},
+    routing::{get, post, delete},
     Router,
 };
 use pocket_noc_agent::{
     api::{handlers::*, AppState},
     auth::JwtConfig,
     commands::default_emergency_commands,
-    telemetry::{TelemetryCollector, AlertManager},
+    telemetry::{TelemetryCollector, AlertManager, AlertType},
     notifications::NtfyClient,
 };
 use std::sync::Arc;
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "test-insecure-secret-key-minimum-32-bytes-required-prodctn".to_string()
         });
 
-    let jwt_config = Arc::new(JwtConfig::new(jwt_secret, 3600)
+    let jwt_config = Arc::new(JwtConfig::new(jwt_secret.clone(), 3600)
         .expect("Failed to create JWT config"));
 
     tracing::info!("✅ JWT configured - protected routes active");
@@ -56,18 +56,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("🔔 Ntfy notifications active on topic: {}", ntfy_topic);
 
     let state = AppState {
-        telemetry_collector: collector,
+        telemetry_collector: collector.clone(),
         command_executor,
-        alert_manager,
+        alert_manager: alert_manager.clone(),
     };
 
-    // ========== ROTAS PÚBLICAS ==========
-    let public_routes = Router::new()
+    // ========== MONTAGEM FINAL ==========
+    let app = Router::new()
         .route("/health", get(health_check))
-        .with_state(state.clone());
-
-    // ========== ROTAS PROTEGIDAS COM JWT ==========
-    let protected_routes = Router::new()
         .route("/telemetry", get(get_telemetry))
         .route("/alerts", get(get_alerts))
         .route("/alerts/config", post(update_alert_config))
@@ -77,17 +73,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/services/:service_name", get(get_service_status))
         .route("/commands", get(list_commands))
         .route("/commands/:command_id", post(execute_command))
+        .route("/security/block-ip", post(block_ip))
         .route("/metrics", get(get_metrics))
         .layer(middleware::from_fn_with_state(
             jwt_config.clone(),
             pocket_noc_agent::api::middleware::jwt_middleware,
         ))
-        .with_state(state);
-
-    // ========== MONTAGEM FINAL ==========
-    let app = Router::new()
-        .merge(public_routes)
-        .merge(protected_routes)
+        .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(pocket_noc_agent::api::middleware::logging_middleware));
 
@@ -119,6 +111,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ntfy_client_task = ntfy_client.clone();
     
     tokio::spawn(async move {
+        let mut last_notified_alerts: std::collections::HashMap<AlertType, String> = std::collections::HashMap::new();
+        
         loop {
             // Coleta telemetria
             let mut coll = collector_task.lock().await;
@@ -126,20 +120,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Analisa alertas
                 let alert_mgr = alert_manager_task.lock().await;
                 if let Ok(alerts) = alert_mgr.analyze(&telemetry) {
+                    // Limpa do histórico alertas que não estão mais ativos
+                    let active_types: Vec<AlertType> = alerts.iter().map(|a| a.alert_type.clone()).collect();
+                    last_notified_alerts.retain(|k, _| active_types.contains(k));
+
                     for alert in alerts {
+                        // DEDUPLICAÇÃO: Só notifica se a mensagem mudou ou se é um novo alerta
+                        if let Some(last_msg) = last_notified_alerts.get(&alert.alert_type) {
+                            if last_msg == &alert.message {
+                                continue;
+                            }
+                        }
+
                         // Envia notificação ntfy para cada novo alerta
                         let priority = match alert.alert_type {
-                            pocket_noc_agent::telemetry::AlertType::HighCpu | 
-                            pocket_noc_agent::telemetry::AlertType::HighDisk |
-                            pocket_noc_agent::telemetry::AlertType::HighTemperature |
-                            pocket_noc_agent::telemetry::AlertType::SecurityThreat => 4, // High
+                            AlertType::HighCpu | 
+                            AlertType::HighDisk |
+                            AlertType::HighTemperature |
+                            AlertType::SecurityThreat => 4, // High
                             _ => 3, // Default
                         };
                         
                         let tags = match alert.alert_type {
-                            pocket_noc_agent::telemetry::AlertType::HighCpu => "cpu,warning",
-                            pocket_noc_agent::telemetry::AlertType::SecurityThreat => "lock,skull,danger",
-                            pocket_noc_agent::telemetry::AlertType::RecentReboot => "reboot,info",
+                            AlertType::HighCpu => "cpu,warning",
+                            AlertType::SecurityThreat => "lock,skull,danger",
+                            AlertType::RecentReboot => "reboot,info",
                             _ => "warning",
                         };
 
@@ -149,6 +154,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             priority,
                             tags
                         ).await;
+
+                        // Atualiza o histórico
+                        last_notified_alerts.insert(alert.alert_type, alert.message);
                     }
                 }
                 drop(alert_mgr);

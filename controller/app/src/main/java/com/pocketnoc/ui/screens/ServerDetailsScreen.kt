@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +18,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
 import com.pocketnoc.data.models.HealthStatus
 import com.pocketnoc.ui.components.FuturisticResourceCard
 import com.pocketnoc.ui.components.MetricCardFuturistic
@@ -76,7 +78,7 @@ fun ServerDetailsScreen(
                     IconButton(
                         onClick = { onNavigateToLogs(serverId, "pocket-noc-agent") }
                     ) {
-                        Icon(androidx.compose.material.icons.filled.List, contentDescription = "Logs", tint = NeonGreen)
+                        Icon(Icons.Default.List, contentDescription = "Logs", tint = NeonGreen)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.8f)),
@@ -116,9 +118,9 @@ fun ServerDetailsScreen(
                         item {
                             HealthStatusCard(
                                 status = health?.status ?: HealthStatus.HEALTHY,
-                                cpuUsage = health?.cpuUsage ?: 0,
-                                memoryUsage = health?.memoryUsage ?: 0,
-                                diskUsage = health?.diskUsage ?: 0
+                                cpuUsage = health?.cpuUsage?.toInt() ?: 0,
+                                memoryUsage = health?.memoryUsage?.toInt() ?: 0,
+                                diskUsage = health?.diskUsage?.toInt() ?: 0
                             )
                         }
 
@@ -193,7 +195,7 @@ fun ServerDetailsScreen(
                         }
 
                         // Temperature
-                        if (telemetry.temperature.sensors.isNotEmpty()) {
+                        if (telemetry.temperature != null && telemetry.temperature.sensors.isNotEmpty()) {
                             item {
                                 TemperatureCard(telemetry.temperature)
                             }
@@ -315,7 +317,7 @@ fun MetricChartCard(
                     .align(Alignment.CenterHorizontally)
             ) {
                 CircularProgressIndicator(
-                    progress = { percentage / 100f },
+                    progress = percentage / 100f,
                     modifier = Modifier.fillMaxSize(),
                     color = color,
                     trackColor = DarkSurface,
@@ -345,7 +347,7 @@ fun DiskUsageCard(disk: com.pocketnoc.data.models.DiskMetrics, modifier: Modifie
             Text("DISCOS", style = MaterialTheme.typography.labelSmall, color = NeonCyan)
             Spacer(modifier = Modifier.height(12.dp))
 
-            disk.filesystems.forEach { filesystem ->
+            disk.disks.forEach { diskInfo ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -354,26 +356,26 @@ fun DiskUsageCard(disk: com.pocketnoc.data.models.DiskMetrics, modifier: Modifie
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = filesystem.mountPoint,
+                            text = diskInfo.mountPoint,
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         LinearProgressIndicator(
-                            progress = { (filesystem.usedPercent / 100f).coerceIn(0f, 1f) },
+                            progress = (diskInfo.usagePercent / 100f).coerceIn(0f, 1f),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(6.dp),
                             color = when {
-                                filesystem.usedPercent > 90 -> CriticalRedHealth
-                                filesystem.usedPercent > 80 -> AlertYellow
-                                filesystem.usedPercent > 70 -> WarningGreen
+                                diskInfo.usagePercent > 90 -> CriticalRedHealth
+                                diskInfo.usagePercent > 80 -> AlertYellow
+                                diskInfo.usagePercent > 70 -> WarningGreen
                                 else -> NeonGreen
                             }
                         )
                     }
                     Text(
-                        text = "${filesystem.usedPercent.toInt()}%",
+                        text = "${diskInfo.usagePercent.toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
                         color = NeonCyan,
                         modifier = Modifier.padding(start = 8.dp)
@@ -411,11 +413,11 @@ fun TemperatureCard(temperature: com.pocketnoc.data.models.TemperatureMetrics, m
                         color = TextSecondary
                     )
                     Text(
-                        text = "${sensor.temperature}°C",
+                        text = "${sensor.celsius}°C",
                         style = MaterialTheme.typography.labelSmall,
                         color = when {
-                            sensor.temperature > 80 -> CriticalRedHealth
-                            sensor.temperature > 70 -> AlertYellow
+                            sensor.celsius > 80 -> CriticalRedHealth
+                            sensor.celsius > 70 -> AlertYellow
                             else -> NeonGreen
                         }
                     )
@@ -425,6 +427,7 @@ fun TemperatureCard(temperature: com.pocketnoc.data.models.TemperatureMetrics, m
     }
 }
 
+@Composable
 fun TopProcessesCard(
     processes: List<com.pocketnoc.data.models.ProcessInfo>,
     onSeeAllClick: () -> Unit,
@@ -471,7 +474,7 @@ fun TopProcessesCard(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "${process.cpuPercent}%",
+                            text = "${process.cpuUsage}%",
                             style = MaterialTheme.typography.labelSmall,
                             color = NeonMagenta
                         )

@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import com.pocketnoc.data.models.CommandInfo
 import com.pocketnoc.ui.theme.*
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
+import com.pocketnoc.ui.viewmodels.CommandsUiState
+import androidx.compose.foundation.BorderStroke
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,15 +78,15 @@ fun ActionCenterScreen(
                 )
             }
 
-            when (commandsState) {
-                is DashboardViewModel.CommandsUiState.Loading -> {
+            when (val state = commandsState) {
+                is CommandsUiState.Loading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.CenterHorizontally).padding(32.dp),
                         color = NeonCyan
                     )
                 }
-                is DashboardViewModel.CommandsUiState.Success -> {
-                    val commands = (commandsState as DashboardViewModel.CommandsUiState.Success).commands
+                is CommandsUiState.Success -> {
+                    val commands = state.commands
                     
                     if (commands.isEmpty()) {
                         Text(
@@ -111,9 +113,9 @@ fun ActionCenterScreen(
                         }
                     }
                 }
-                is DashboardViewModel.CommandsUiState.Error -> {
+                is CommandsUiState.Error -> {
                     Text(
-                        text = "Erro ao carregar comandos: ${(commandsState as DashboardViewModel.CommandsUiState.Error).message}",
+                        text = "Erro ao carregar comandos: ${state.message}",
                         color = Color.Red,
                         modifier = Modifier.padding(16.dp)
                     )

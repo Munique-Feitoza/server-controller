@@ -320,12 +320,13 @@ fun FuturisticResourceCard(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 8.dp,
-                spotColor = color.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(12.dp)
+                elevation = 12.dp,
+                spotColor = color.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(16.dp)
             )
-            .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard)
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, color.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Row(
             modifier = Modifier
@@ -400,12 +401,13 @@ fun MetricCardFuturistic(
     Card(
         modifier = modifier
             .shadow(
-                elevation = 8.dp,
-                spotColor = color.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(12.dp)
+                elevation = 12.dp,
+                spotColor = color.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(16.dp)
             )
-            .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard)
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, color.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Column(
             modifier = Modifier
@@ -476,28 +478,77 @@ fun EmergencyActionButtonFuturistic(
     }
 }
 @Composable
-fun SecurityStatusCard(security: com.pocketnoc.data.models.SecurityMetrics) {
+fun SecurityStatusCard(
+    security: com.pocketnoc.data.models.SecurityMetrics,
+    onBlockIp: (String) -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(8.dp, spotColor = NeonGreen.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard)
+            .shadow(12.dp, spotColor = if (security.failedLoginAttempts > 5) CriticalRed.copy(alpha = 0.5f) else NeonGreen.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, if (security.failedLoginAttempts > 5) CriticalRed.copy(alpha = 0.6f) else NeonGreen.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("SECURITY STATUS", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("SENTINEL SECURITY", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                if (security.failedLoginAttempts > 0) {
+                    Text("${security.failedLoginAttempts} THREATS", color = CriticalRed, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
+            }
+            
             Spacer(modifier = Modifier.height(12.dp))
+            
+            // SSH Sessions
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
-                        .background(if (security.activeSshSessions > 0) WarningOrange else HealthyGreen, RoundedCornerShape(6.dp))
+                        .size(10.dp)
+                        .background(if (security.activeSshSessions > 0) WarningOrange else HealthyGreen, RoundedCornerShape(5.dp))
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "SSH Sessions: ${security.activeSshSessions}",
+                    "SSH Active: ${security.activeSshSessions}",
+                    style = MaterialTheme.typography.bodySmall,
                     color = if (security.activeSshSessions > 0) WarningOrange else HealthyGreen
                 )
+            }
+
+            if (security.failedLogins.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Divider(color = Color.White.copy(alpha = 0.1f))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("FAILED ATTEMPTS BY IP:", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                security.failedLogins.take(10).forEach { login ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CriticalRed.copy(alpha = 0.05f))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(login.ip, style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("${login.count} attempts - ${login.lastAttempt}", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        }
+                        
+                        Button(
+                            onClick = { onBlockIp(login.ip) },
+                            colors = ButtonDefaults.buttonColors(containerColor = CriticalRed.copy(alpha = 0.8f)),
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text("BAN", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                        }
+                    }
+                }
             }
         }
     }
@@ -508,9 +559,10 @@ fun ProcessesCard(processes: com.pocketnoc.data.models.ProcessMetrics) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(8.dp, spotColor = NeonMagenta.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard)
+            .shadow(12.dp, spotColor = NeonMagenta.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, NeonMagenta.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("TOP PROCESSES", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
@@ -538,9 +590,10 @@ fun ServicesCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(8.dp, spotColor = NeonCyan.copy(alpha = 0.4f), shape = RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard)
+            .shadow(12.dp, spotColor = NeonCyan.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, NeonCyan.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("SERVICE MANAGER", style = MaterialTheme.typography.labelMedium, color = TextSecondary)

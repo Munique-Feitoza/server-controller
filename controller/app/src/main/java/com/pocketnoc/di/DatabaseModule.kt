@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.pocketnoc.data.local.AppDatabase
 import com.pocketnoc.data.local.dao.ServerDao
+import com.pocketnoc.data.local.dao.AlertDao
 import com.pocketnoc.data.local.AlertThresholdRepository
 import dagger.Module
 import dagger.Provides
