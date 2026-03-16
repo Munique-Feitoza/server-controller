@@ -45,8 +45,12 @@ impl ServiceMonitor {
 
     /// Obtém o status de um serviço via systemctl
     fn get_service_status(service_name: &str) -> Result<ServiceStatus> {
+        // Usa 'systemctl show' que é mais robusto que 'is-active'
         let output = Command::new("systemctl")
-            .arg("is-active")
+            .arg("show")
+            .arg("-p")
+            .arg("ActiveState")
+            .arg("--value")
             .arg(service_name)
             .output()
             .map_err(|e| {
@@ -56,8 +60,10 @@ impl ServiceMonitor {
         let status_str = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
 
         Ok(match status_str.as_str() {
-            "active" => ServiceStatus::Active,
-            "inactive" => ServiceStatus::Inactive,
+            // Estados que indicam que o serviço está realmente ativo
+            "active" | "activating" | "reloading" => ServiceStatus::Active,
+            // Estados que indicam inatividade
+            "inactive" | "deactivating" | "failed" => ServiceStatus::Inactive,
             _ => ServiceStatus::Unknown,
         })
     }

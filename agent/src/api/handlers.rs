@@ -12,7 +12,7 @@ use crate::{
     commands::CommandExecutor,
     error::Result,
     services::ServiceMonitor,
-    telemetry::TelemetryCollector,
+    telemetry::{TelemetryCollector, AlertManager},
 };
 
 /// Estado compartilhado da aplicação
@@ -20,6 +20,7 @@ use crate::{
 pub struct AppState {
     pub telemetry_collector: Arc<Mutex<TelemetryCollector>>,
     pub command_executor: Arc<CommandExecutor>,
+    pub alert_manager: Arc<Mutex<AlertManager>>,
 }
 
 /// GET /health - Healthcheck simples
@@ -128,4 +129,100 @@ pub async fn get_metrics(
     ));
 
     Ok(output)
+}
+
+/// GET /logs - Retorna os últimos logs do sistema ou de um serviço
+pub async fn get_service_logs(
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>> {
+    let service = params.get("service").map(|s| s.as_str()).unwrap_or("pocket-noc-agent");
+    let lines = params.get("lines").and_then(|l| l.parse::<u32>().ok()).unwrap_or(100);
+
+    let output = std::process::Command::new("journalctl")
+        .arg("-u")
+        .arg(service)
+        .arg("-n")
+        .arg(lines.to_string())
+        .arg("--no-pager")
+        .output()
+        .map_err(|e| crate::error::AgentError::CommandError(format!("Failed to execute journalctl: {}", e)))?;
+
+    let logs = String::from_utf8_lossy(&output.stdout).to_string();
+
+    Ok(Json(json!({
+        "service": service,
+        "logs": logs,
+        "lines": lines,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    })))
+}
+
+/// GET /alerts - Retorna uma lista de alertas atuais
+pub async fn get_alerts(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>> {
+    let mut collector = state.telemetry_collector.lock().await;
+    let telemetry = collector.collect()?;
+    let alert_manager = state.alert_manager.lock().await;
+    let alerts = alert_manager.analyze(&telemetry)?;
+
+    Ok(Json(json!({
+        "alerts": alerts,
+        "count": alerts.len(),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    })))
+}
+
+/// GET /processes - Retorna a lista de processos (Top 10)
+pub async fn get_top_processes(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>> {
+    let mut collector = state.telemetry_collector.lock().await;
+    let telemetry = collector.collect()?;
+    
+    Ok(Json(json!({
+        "processes": telemetry.processes.top_processes,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    })))
+}
+
+/// DELETE /processes/:pid - Encerra um processo
+pub async fn kill_process(
+    State(state): State<AppState>,
+    axum::extract::Path(pid): axum::extract::Path<u32>,
+) -> Result<Json<serde_json::Value>> {
+    let mut collector = state.telemetry_collector.lock().await;
+    let success = collector.kill_process(pid)?;
+    
+    if success {
+        tracing::warn!("💀 Process killed by remote user: PID {}", pid);
+        Ok(Json(json!({
+            "status": "success",
+            "message": format!("Process {} signaled for termination", pid),
+            "pid": pid
+        })))
+    } else {
+        Err(crate::error::AgentError::CommandError(format!("Failed to kill process {}", pid)))
+    }
+}
+
+/// POST /alerts/config - Atualiza as configurações de alerta dinamicamente
+pub async fn update_alert_config(
+    State(state): State<AppState>,
+    Json(new_thresholds): Json<crate::telemetry::AlertThresholds>,
+) -> Result<Json<serde_json::Value>> {
+    let mut alert_manager = state.alert_manager.lock().await;
+    alert_manager.update_thresholds(new_thresholds.clone());
+    
+    tracing::info!("🔔 Alert thresholds updated: CPU={}%, RAM={}%, Disk={}%", 
+        new_thresholds.cpu_threshold_percent,
+        new_thresholds.memory_threshold_percent,
+        new_thresholds.disk_threshold_percent
+    );
+
+    Ok(Json(json!({
+        "status": "success",
+        "message": "Alert thresholds updated successfully",
+        "current_config": new_thresholds
+    })))
 }
