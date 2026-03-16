@@ -31,10 +31,16 @@ import com.pocketnoc.ui.viewmodels.TelemetryUiState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    navController: androidx.navigation.NavHostController,
     viewModel: DashboardViewModel,
-    onNavigateToAddServer: () -> Unit
+    onNavigateToAddServer: () -> Unit,
+    onNavigateToServerList: () -> Unit = {},
+    onNavigateToServerDetails: (Int) -> Unit = {},
+    onNavigateToActionCenter: (Int) -> Unit = {},
+    onNavigateToAlertSettings: () -> Unit = {}
 ) {
     val servers by viewModel.allServers.collectAsState()
+    val serverHealthMap by viewModel.serverHealthMap.collectAsState()
     var selectedServerIndex by remember { mutableStateOf(0) }
     
     // Garantir que o index é válido
@@ -120,6 +126,9 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = NeonGreen)
                     }
+                    IconButton(onClick = { navController.navigate(AppRoute.AlertHistory.route) }) {
+                        Icon(Icons.Default.Security, contentDescription = "Alert Audit", tint = NeonMagenta)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.8f)),
                 modifier = Modifier.shadow(8.dp, spotColor = NeonCyan.copy(alpha = 0.3f))
@@ -181,6 +190,38 @@ fun DashboardScreen(
                             modifier = Modifier.fillMaxSize().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
+                            // ========== HEALTH WIDGETS GRID ==========
+                            item {
+                                if (servers.isNotEmpty()) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = "SAÚDE DOS SERVIDORES",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = NeonCyan,
+                                            modifier = Modifier.padding(bottom = 12.dp)
+                                        )
+                                        
+                                        servers.forEach { server ->
+                                            val health = serverHealthMap[server.id]
+                                            if (health != null) {
+                                                ServerHealthWidget(
+                                                    serverName = health.serverName,
+                                                    status = health.status,
+                                                    cpuUsage = health.cpuUsage,
+                                                    memoryUsage = health.memoryUsage,
+                                                    diskUsage = health.diskUsage,
+                                                    activeAlerts = health.activeAlerts,
+                                                    onClick = {
+                                                        selectedServerIndex = servers.indexOf(server)
+                                                    },
+                                                    modifier = Modifier.padding(bottom = 8.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             item {
                                 StatusCard(pulseAlpha.value, selectedServer)
                             }

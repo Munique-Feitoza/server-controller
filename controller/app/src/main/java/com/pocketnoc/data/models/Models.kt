@@ -57,6 +57,18 @@ data class SecurityMetrics(
     val suspiciousActivities: List<String>
 )
 
+data class ProcessListResponse(
+    val processes: List<ProcessInfo>,
+    val timestamp: String
+)
+
+data class LogResponse(
+    val service: String,
+    val logs: String,
+    val lines: Int,
+    val timestamp: String
+)
+
 data class CpuMetrics(
     @SerializedName("usage_percent")
     val usagePercent: Float,
@@ -167,6 +179,15 @@ data class CommandListResponse(
     val commands: Map<String, List<EmergencyCommand>>
 )
 
+// Alias para compatibilidade
+data class CommandInfo(
+    val id: String,
+    val description: String,
+    val command: String = "",
+    val args: List<String> = emptyList(),
+    val timeout: Int = 0
+)
+
 data class CommandResult(
     @SerializedName("command_id")
     val commandId: String,
@@ -194,4 +215,67 @@ data class ServerConfig(
     val port: Int = 9443,
     val token: String,
     val isFavorite: Boolean = false
+)
+// ==================== Alertas ====================
+
+enum class AlertType {
+    @SerializedName("highcpu")
+    HIGH_CPU,
+    @SerializedName("highmemory")
+    HIGH_MEMORY,
+    @SerializedName("highdisk")
+    HIGH_DISK,
+    @SerializedName("hightemperature")
+    HIGH_TEMPERATURE,
+    @SerializedName("securitythreat")
+    SECURITY_THREAT,
+    @SerializedName("recentreboot")
+    RECENT_REBOOT
+}
+
+data class Alert(
+    @SerializedName("alert_type")
+    val alertType: AlertType,
+    val message: String,
+    @SerializedName("current_value")
+    val currentValue: Float,
+    val threshold: Float,
+    val timestamp: Long,
+    val component: String? = null
+)
+
+data class AlertsResponse(
+    val alerts: List<Alert>,
+    val count: Int,
+    val timestamp: String
+)
+
+// ==================== Status de Saúde ====================
+
+enum class HealthStatus {
+    HEALTHY,      // Azul - Tudo OK
+    WARNING,      // Verde - Um pouco de uso demais
+    ALERT,        // Amarelo - Alerta
+    CRITICAL      // Vermelho - Crítico
+}
+
+data class ServerHealth(
+    val serverId: Int,
+    val serverName: String,
+    val status: HealthStatus,
+    val cpuUsage: Float,
+    val memoryUsage: Float,
+    val diskUsage: Float,
+    val temperature: Float?,
+    val activeAlerts: Int,
+    val lastUpdate: Long
+)
+
+// ==================== Respostas Genéricas ====================
+
+data class GenericResponse(
+    val status: String,
+    val message: String,
+    @SerializedName("current_config")
+    val currentConfig: Map<String, Any>? = null
 )

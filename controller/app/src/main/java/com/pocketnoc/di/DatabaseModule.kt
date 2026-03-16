@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.pocketnoc.data.local.AppDatabase
 import com.pocketnoc.data.local.dao.ServerDao
+import com.pocketnoc.data.local.AlertThresholdRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,5 +30,16 @@ object DatabaseModule {
     @Provides
     fun provideServerDao(database: AppDatabase): ServerDao {
         return database.serverDao()
+    }
+
+    @Provides
+    fun provideAlertDao(database: AppDatabase): AlertDao {
+        return database.alertDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAlertThresholdRepository(@ApplicationContext context: Context): AlertThresholdRepository {
+        return AlertThresholdRepository(context)
     }
 }

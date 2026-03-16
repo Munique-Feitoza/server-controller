@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.pocketnoc.data.models.EmergencyCommand
 import com.pocketnoc.data.models.ServiceInfo
 import com.pocketnoc.data.models.ServiceStatus
+import com.pocketnoc.data.models.HealthStatus
 import com.pocketnoc.ui.theme.*
 
 /**
@@ -679,3 +680,208 @@ fun CommandsCard(
         }
     }
 }
+
+// ==================== Widget de Saúde do Servidor ====================
+
+/**
+ * Widget visual que mostra o status de saúde do servidor com cores
+ * Azul = Saudável
+ * Verde = Aviso (uso moderado)
+ * Amarelo = Alerta
+ * Vermelho = Crítico
+ */
+@Composable
+fun ServerHealthWidget(
+    serverName: String,
+    status: HealthStatus,
+    cpuUsage: Float,
+    memoryUsage: Float,
+    diskUsage: Float,
+    activeAlerts: Int = 0,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val (backgroundColor, borderColor, statusColor, statusLabel) = when (status) {
+        HealthStatus.HEALTHY -> {
+            // Azul
+            Tuple4(
+                Color(0xFF1a3a52).copy(alpha = 0.6f),
+                Color(0xFF4DB8FF),
+                Color(0xFF4DB8FF),
+                "OK"
+            )
+        }
+        HealthStatus.WARNING -> {
+            // Verde
+            Tuple4(
+                Color(0xFF1a4d2e).copy(alpha = 0.6f),
+                Color(0xFF66BB6A),
+                Color(0xFF66BB6A),
+                "AVISO"
+            )
+        }
+        HealthStatus.ALERT -> {
+            // Amarelo
+            Tuple4(
+                Color(0xFF6b5b1a).copy(alpha = 0.6f),
+                Color(0xFFFDD835),
+                Color(0xFFFDD835),
+                "ALERTA"
+            )
+        }
+        HealthStatus.CRITICAL -> {
+            // Vermelho
+            Tuple4(
+                Color(0xFF4d1a1a).copy(alpha = 0.6f),
+                Color(0xFFEF5350),
+                Color(0xFFEF5350),
+                "CRÍTICO"
+            )
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor)
+            .border(2.dp, borderColor, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        // Header com nome do servidor e status
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = serverName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Status Badge
+            Row(
+                modifier = Modifier
+                    .background(statusColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                    .border(1.dp, statusColor, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(statusColor, shape = RoundedCornerShape(4.dp))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Métricas em progresso horizontal
+        MetricRow(
+            label = "CPU",
+            value = cpuUsage,
+            icon = "⚡",
+            color = statusColor
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        MetricRow(
+            label = "RAM",
+            value = memoryUsage,
+            icon = "🧠",
+            color = statusColor
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        MetricRow(
+            label = "DISCO",
+            value = diskUsage,
+            icon = "💾",
+            color = statusColor
+        )
+
+        // Alertas ativos (se houver)
+        if (activeAlerts > 0) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFEF5350).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color(0xFFEF5350).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("🚨", modifier = Modifier.padding(end = 6.dp))
+                Text(
+                    text = "$activeAlerts alerta${if (activeAlerts > 1) "s" else ""} ativo${if (activeAlerts > 1) "s" else ""}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFFEF5350)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetricRow(
+    label: String,
+    value: Float,
+    icon: String,
+    color: Color
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(icon, modifier = Modifier.padding(end = 6.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+            Text(
+                text = String.format("%.1f%%", value),
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        LinearProgressIndicator(
+            progress = (value / 100f).coerceIn(0f, 1f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = color,
+            trackColor = Color.White.copy(alpha = 0.1f)
+        )
+    }
+}
+
+// Data class auxiliar para retornar múltiplos valores
+private data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+

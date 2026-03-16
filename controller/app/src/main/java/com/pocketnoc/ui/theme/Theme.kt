@@ -23,6 +23,7 @@ val NeonPink = Color(0xFFFF1493)
 
 // Cores de Fundo - Ultra Dark com tom azulado
 val DarkBackground = Color(0xFF0A0E27)  // Quase black com tom azul
+val DarkBg = DarkBackground             // Alias para compatibilidade
 val DarkSurface = Color(0xFF111B3D)     // Azul escuro profundo
 val DarkCard = Color(0xFF1A2551)        // Azul escuro médio
 
@@ -30,6 +31,15 @@ val DarkCard = Color(0xFF1A2551)        // Azul escuro médio
 val CriticalRed = Color(0xFFFF0040)
 val WarningOrange = Color(0xFFFF6B00)
 val HealthyGreen = Color(0xFF00FF88)
+
+// Cores de Saúde do Servidor
+val HealthyBlue = Color(0xFF4DB8FF)      // Azul - Tudo OK
+val WarningGreen = Color(0xFF66BB6A)     // Verde - Aviso/Uso moderado
+val AlertYellow = Color(0xFFFDD835)      // Amarelo - Alerta
+val CriticalRedHealth = Color(0xFFEF5350) // Vermelho - Crítico
+
+// Glassmorphism
+val GlassColor = Color(0xFF1A2551).copy(alpha = 0.7f)
 
 // Cores de Texto
 val TextPrimary = Color(0xFFE3F2FD)
