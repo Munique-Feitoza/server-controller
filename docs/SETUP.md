@@ -1,126 +1,89 @@
-# 🚀 Guia de Setup e Instalação - Pocket NOC
+# 🛠️ Guia de Setup e Deployment
 
-Este guia orienta a instalação completa do **Pocket NOC Agent** nos seus servidores Linux e do **Pocket NOC Controller** no seu dispositivo Android.
+Bem-vinda ao guia de instalação do Pocket NOC Ultra. Siga estes passos para colocar sua infraestrutura sob monitoramento em poucos minutos.
 
----
+## 🦀 1. Configurando o Agente no Servidor
 
-## 📋 Pré-requisitos
+### Requisitos
 
-### Agente (Servidor)
+- Rust 1.70+ instalado.
+- Sistema Linux (Preferencialmente Ubuntu 22.04+).
+- Privilégios de Root (necessário para logs e gestão de processos).
 
-- **Linux**: Ubuntu 22.04+, Debian 12+, Arch Linux ou Manjaro.
-- **Rust**: Versão 1.75+ (Stable).
-- **Acesso**: Usuário com privilégios de `sudo`.
-- **Recursos**: Mínimo de 100MB de RAM disponível.
-
-### Controller (Celular)
-
-- **Android**: Versão 8.0 (Oreo) ou superior.
-- **Desenvolvedor**: Opções de desenvolvedor e Depuração USB ativadas.
-
----
-
-## 🛠️ Passo 1: Configuração do Servidor (Agente)
-
-O Agente é o serviço que coleta as métricas. Ele deve ser compilado e rodar como um serviço do sistema.
-
-### 1. Compilação
+### Compilação e Execução
 
 ```bash
-# Clone o repositório se ainda não o fez
-git clone https://github.com/seu-usuario/server-controller.git
-cd server-controller/agent
+# Clone o repositório no seu servidor
+git clone https://github.com/Munique-Feitoza/pocket-noc.git
+cd pocket-noc/agent
 
-# Compile em modo release para máxima performance
+# Defina seu segredo de segurança (CRÍTICO)
+export POCKET_NOC_SECRET="seu-segredo-de-no-minimo-32-caracteres"
+
+# Compile com otimizações
 cargo build --release
+
+# Rode o agente
+# Dica: rode via tmux ou screen, ou configure um serviço systemd (recomendado)
+./target/release/pocket-noc-agent
 ```
 
-### 2. Instalação como Serviço (Systemd)
+### Criando um Serviço Systemd (Produção)
 
-O binário será gerado em `target/release/pocket-noc-agent`.
+Para garantir que o agente inicie com o servidor:
+`sudo nano /etc/systemd/system/pocket-noc-agent.service`
 
-```bash
-# Copie o binário para o diretório de binários do sistema
-sudo cp target/release/pocket-noc-agent /usr/local/bin/
+```ini
+[Unit]
+Description=Pocket NOC Agent
+After=network.target
 
-# Configure o arquivo de serviço
-sudo cp systemd/pocket-noc-agent.service /etc/systemd/system/
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/caminho/do/agente
+Environment=POCKET_NOC_SECRET=seu-segredo-aqui
+ExecStart=/caminho/do/agente/target/release/pocket-noc-agent
+Restart=on-failure
 
-# Recarregue os daemons e inicie o serviço
-sudo systemctl daemon-reload
-sudo systemctl enable --now pocket-noc-agent
+[Install]
+WantedBy=multi-user.target
 ```
+
+`sudo systemctl enable --now pocket-noc-agent`
 
 ---
 
-## 📱 Passo 2: Configuração do Android (Controller)
+## 📱 2. Configurando o Controller (Android)
 
-### 1. Gerar o APK
+### Arquivo local.properties
 
-```bash
-cd ../controller
-./gradlew assembleDebug
+No diretório `controller/`, crie ou edite o arquivo `local.properties`:
+
+```properties
+# Credenciais do Servidor 1
+POCKET_NOC_SERVER_1=ip.do.seu.servidor
+POCKET_NOC_SERVER_NAME_1=Meu_Prod_Server
+SSH_USER_1=root
+SSH_HOST_1=ip.do.seu.servidor
+SSH_KEY_CONTENT_GLOBAL=-----BEGIN OPENSSH PRIVATE KEY-----\nsua-chave-aqui\n-----END OPENSSH PRIVATE KEY-----
+
+# Segredo JWT (Deve ser IGUAL ao do servidor)
+POCKET_NOC_SECRET=seu-segredo-de-no-minimo-32-caracteres
 ```
 
-### 2. Instalação no Celular
+### Instalação
 
-Conecte seu celular via USB e execute:
-
-```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
+Gere o APK e instale no seu smartphone:
+`./gradlew assembleDebug`
 
 ---
 
-## 🔍 Solução de Problemas (Troubleshooting)
+## ❓ Troubleshooting
 
-### Erro: `INSTALL_FAILED_USER_RESTRICTED`
-
-Se ao tentar instalar o app no celular você receber este erro:
-> *The application could not be installed: INSTALL_FAILED_USER_RESTRICTED Installation via USB is disabled.*
-
-**Como resolver:**
-
-1. Vá em **Configurações** no seu celular Android.
-2. Acesse **Opções do Desenvolvedor**.
-3. Procure pela seção de **Depuração**.
-4. Ative a chave **Instalar via USB** (ou *Install via USB*).
-   - *Dica:* Em aparelhos Xiaomi, isso pode exigir que você esteja logado na sua Mi Account.
-5. Tente instalar novamente.
-
-### Falha na Conexão (Timeout)
-
-1. Verifique se a porta **9443** está liberada no firewall do servidor:
-
-   ```bash
-   sudo ufw allow 9443/tcp
-   ```
-
-2. Certifique-se de que o Agente está rodando:
-
-   ```bash
-   sudo systemctl status pocket-noc-agent
-   ```
+1. **"Erro de Conexão (SSH Tunnel Failure)"**: Verifique se o IP do servidor está correto e se a porta 22 (SSH) está aberta no seu provedor de cloud (AWS, DigitalOcean, etc).
+2. **"401 Unauthorized"**: O segredo JWT no Android não bate com o segredo definido no enviroment do Rust.
+3. **Logs não aparecem**: Certifique-se de que o Agente está rodando como Root para poder acessar o `journalctl`.
 
 ---
-
-## 🔐 Configuração do JWT Secret
-
-Para que o App consiga falar com o Agente, você precisa configurar um Secret compartilhado:
-
-1. Crie um arquivo `.env` na raiz do Agente no servidor.
-2. Adicione a chave:
-
-   ```bash
-   JWT_SECRET=sua_chave_secreta_aqui_muito_longa
-   ```
-
-3. Reinicie o agente:
-
-   ```bash
-   sudo systemctl restart pocket-noc-agent
-   ```
-
----
-
-**Dúvidas?** Consulte a [Documentação de Segurança](./SECURITY.md) ou abra uma issue no repositório.
+*Escrito com rigor técnico para o projeto de Engenharia de Software.*
