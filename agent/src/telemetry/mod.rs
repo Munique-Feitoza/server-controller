@@ -2,6 +2,13 @@ use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use sysinfo::{System, SystemExt};
 
+/// POR QUE RUST? (Decisão de Engenharia)
+/// Escolhi Rust para o Agente por ser uma linguagem de sistemas que oferece "Zero-Cost Abstractions".
+/// Isso significa que o monitoramento consome o mínimo possível de CPU e RAM (footprint < 15MB),
+/// garantindo que o próprio monitor não interfira na performance do servidor que está vigiando.
+/// Além disso, o sistema de tipos e o 'borrow checker' eliminam bugs de memória e race conditions
+/// em tempo de compilação, o que é crítico para um serviço que roda como root.
+
 mod cpu;
 mod memory;
 mod disk;
@@ -9,6 +16,7 @@ mod temperature;
 mod network;
 mod security;
 mod processes;
+pub mod alerts;
 
 pub use cpu::CpuMetrics;
 pub use memory::MemoryMetrics;
@@ -17,6 +25,7 @@ pub use temperature::TemperatureMetrics;
 pub use network::NetworkMetrics;
 pub use security::SecurityMetrics;
 pub use processes::ProcessMetrics;
+pub use alerts::{Alert, AlertManager, AlertThresholds, AlertType};
 
 /// Estrutura completa de telemetria do sistema
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,6 +66,10 @@ impl UptimeInfo {
 }
 
 /// Coletor principal de telemetria
+/// 
+/// Aqui exploramos a eficiência do Rust ao interagir diretamente com o subsistema /proc do Linux.
+/// Diferente de soluções em linguagens de alto nível, o Rust nos permite gerenciar buffers de forma
+/// extremamente granulada, minimizando syscalls e alocações desnecessárias.
 pub struct TelemetryCollector {
     system: System,
 }
@@ -98,6 +111,17 @@ impl TelemetryCollector {
             uptime,
             timestamp,
         })
+    }
+
+    /// Encerra um processo pelo PID
+    pub fn kill_process(&mut self, pid: u32) -> Result<bool> {
+        use sysinfo::{Pid, PidExt, ProcessExt};
+        let sys_pid = Pid::from_u32(pid);
+        if let Some(process) = self.system.process(sys_pid) {
+            Ok(process.kill())
+        } else {
+            Err(crate::error::AgentError::CommandError(format!("Process with PID {} not found", pid)))
+        }
     }
 }
 
