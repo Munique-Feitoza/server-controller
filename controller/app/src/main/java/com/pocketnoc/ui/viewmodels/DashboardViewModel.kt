@@ -3,12 +3,10 @@ package com.pocketnoc.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketnoc.data.local.entities.ServerEntity
-import com.pocketnoc.data.models.CommandResult
-import com.pocketnoc.data.models.EmergencyCommand
-import com.pocketnoc.data.models.HealthCheckResponse
-import com.pocketnoc.data.models.SystemTelemetry
+import com.pocketnoc.data.models.*
 import com.pocketnoc.data.repository.ServerRepository
 import com.pocketnoc.utils.JwtUtils
+import com.pocketnoc.utils.HealthStatusCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -24,16 +22,58 @@ sealed class TelemetryUiState {
     data class Error(val message: String) : TelemetryUiState()
 }
 
+sealed class CommandsUiState {
+    object Loading : CommandsUiState()
+    data class Success(val commands: List<CommandInfo>) : CommandsUiState()
+    data class Error(val message: String) : CommandsUiState()
+}
+
+sealed class ProcessesUiState {
+    object Loading : ProcessesUiState()
+    data class Success(val processes: List<ProcessInfo>) : ProcessesUiState()
+    data class Error(val message: String) : ProcessesUiState()
+}
+
+sealed class LogsUiState {
+    object Loading : LogsUiState()
+    data class Success(val logs: String) : LogsUiState()
+    data class Error(val message: String) : LogsUiState()
+}
+
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
-    private val repository: ServerRepository
+    private val repository: ServerRepository,
+    private val alertThresholdRepository: com.pocketnoc.data.local.AlertThresholdRepository
 ) : ViewModel() {
+
+    // PADRÃO UNIDIRECIAL DE DADOS (UDF):
+    // Utilizei StateFlow para garantir que a UI reflita sempre a única fonte de verdade.
+    // O ViewModel encapsula a lógica de negócio e expõe apenas estados imutáveis para as Screens.
 
     private val _telemetryState = MutableStateFlow<TelemetryUiState>(TelemetryUiState.Loading)
     val telemetryState: StateFlow<TelemetryUiState> = _telemetryState
 
+    private val _commandsState = MutableStateFlow<CommandsUiState>(CommandsUiState.Loading)
+    val commandsState: StateFlow<CommandsUiState> = _commandsState
+
+    private val _serverHealthMap = MutableStateFlow<Map<Int, ServerHealth>>(emptyMap())
+    val serverHealthMap: StateFlow<Map<Int, ServerHealth>> = _serverHealthMap.asStateFlow()
+
+    private val _processesState = MutableStateFlow<ProcessesUiState>(ProcessesUiState.Loading)
+    val processesState: StateFlow<ProcessesUiState> = _processesState
+
+    private val _logsState = MutableStateFlow<LogsUiState>(LogsUiState.Loading)
+    val logsState: StateFlow<LogsUiState> = _logsState
+
+    val alertHistory: StateFlow<List<AlertEntity>> = repository.getAllAlertHistory()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val allServers: StateFlow<List<ServerEntity>> = repository.getAllServers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val alertThresholds: StateFlow<com.pocketnoc.data.local.AlertThresholdConfig> = 
+        alertThresholdRepository.alertThresholdsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.pocketnoc.data.local.AlertThresholdConfig())
 
     init {
         syncDefaultServers()
@@ -119,12 +159,21 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Coleta telemetria em tempo real com tratamento de erro resiliente.
+     * 
+     * Implementei aqui o conceito de 'Observabilidade Reativa'. Se a conexão falhar,
+     * o sistema sinaliza visualmente via State, sem travar a navegação do usuário.
+     */
     fun fetchTelemetry(server: ServerEntity) {
         viewModelScope.launch {
             _telemetryState.value = TelemetryUiState.Loading
             try {
                 val result = repository.getTelemetry(server)
                 _telemetryState.value = TelemetryUiState.Success(result)
+                
+                // Calcula saúde do servidor
+                updateServerHealth(server, result)
                 
                 // Reseta status ou sinaliza warning de CPU alta
                 val targetStatus = if (result.cpu.usagePercent > PocketNOCConfig.maxCpuThreshold) 1 else 0
@@ -214,6 +263,19 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun fetchCommands(server: ServerEntity) {
+        viewModelScope.launch {
+            _commandsState.value = CommandsUiState.Loading
+            try {
+                val commands = repository.listCommands(server).values.flatten()
+                _commandsState.value = CommandsUiState.Success(commands)
+            } catch (e: Exception) {
+                val errorMsg = e.localizedMessage ?: "Failed to load commands"
+                _commandsState.value = CommandsUiState.Error(errorMsg)
+            }
+        }
+    }
+
     fun loadCommands(server: ServerEntity) {
         viewModelScope.launch {
             try {
@@ -229,6 +291,116 @@ class DashboardViewModel @Inject constructor(
                 _eventFlow.emit("Sync Error: ${e.localizedMessage}")
                 e.printStackTrace()
             }
+        }
+    }
+
+    private suspend fun updateServerHealth(server: ServerEntity, telemetry: SystemTelemetry) {
+        try {
+            val health = HealthStatusCalculator.calculateStatus(telemetry)
+            val alerts = repository.getAlerts(server)
+
+                if (alerts.isNotEmpty()) {
+                    alerts.forEach { alert ->
+                        repository.saveAlert(
+                            com.pocketnoc.data.local.entities.AlertEntity(
+                                serverId = server.id,
+                                serverName = server.name,
+                                type = alert.type,
+                                message = alert.message,
+                                value = alert.value,
+                                threshold = alert.threshold
+                            )
+                        )
+                    }
+                }
+
+                val serverHealth = ServerHealth(
+                serverId = server.id,
+                serverName = server.name,
+                status = health,
+                cpuUsage = telemetry.cpu.usagePercent,
+                memoryUsage = telemetry.memory.usagePercent,
+                diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
+                temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
+                activeAlerts = alerts.count,
+                lastUpdate = System.currentTimeMillis()
+            )
+
+            // Atualiza o mapa de saúde
+            val currentMap = _serverHealthMap.value.toMutableMap()
+            currentMap[server.id] = serverHealth
+            _serverHealthMap.value = currentMap
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun updateAlertSettings(config: com.pocketnoc.data.local.AlertThresholdConfig) {
+        viewModelScope.launch {
+            try {
+                // 1. Salva localmente no DataStore
+                alertThresholdRepository.updateAllThresholds(config)
+                
+                // 2. Sincroniza com todos os servidores ativos
+                val servers = allServers.value
+                _eventFlow.emit("Propagating thresholds to ${servers.size} nodes...")
+                
+                for (server in servers) {
+                    try {
+                        repository.updateAlertConfig(server, config)
+                    } catch (e: Exception) {
+                        _eventFlow.emit("Failed to sync ${server.name}: ${e.message}")
+                    }
+                }
+                
+                _eventFlow.emit("Global sync complete!")
+            } catch (e: Exception) {
+                _eventFlow.emit("Local save failed: ${e.localizedMessage}")
+                e.printStackTrace()
+            }
+        }
+    }
+    fun fetchProcesses(server: ServerEntity) {
+        viewModelScope.launch {
+            _processesState.value = ProcessesUiState.Loading
+            try {
+                val processes = repository.listProcesses(server)
+                _processesState.value = ProcessesUiState.Success(processes)
+            } catch (e: Exception) {
+                _processesState.value = ProcessesUiState.Error(e.localizedMessage ?: "Failed to fetch processes")
+            }
+        }
+    }
+
+    fun killProcess(server: ServerEntity, pid: Long) {
+        viewModelScope.launch {
+            try {
+                _eventFlow.emit("Signaling termination for PID $pid...")
+                repository.killProcess(server, pid)
+                _eventFlow.emit("Process $pid terminated.")
+                // Refresh list
+                fetchProcesses(server)
+            } catch (e: Exception) {
+                _eventFlow.emit("Kill failed: ${e.localizedMessage}")
+        }
+    }
+
+    fun fetchLogs(server: ServerEntity, service: String = "pocket-noc-agent") {
+        viewModelScope.launch {
+            _logsState.value = LogsUiState.Loading
+            try {
+                val response = repository.fetchLogs(server, service)
+                _logsState.value = LogsUiState.Success(response.logs)
+            } catch (e: Exception) {
+                _logsState.value = LogsUiState.Error(e.localizedMessage ?: "Failed to fetch logs")
+            }
+        }
+    }
+
+    fun clearAlertHistory() {
+        viewModelScope.launch {
+            repository.clearAlertHistory()
+            _eventFlow.emit("Alert audit history cleared.")
         }
     }
 }

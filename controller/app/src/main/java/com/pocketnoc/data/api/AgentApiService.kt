@@ -13,6 +13,10 @@ interface AgentApiService {
     @GET("telemetry")
     suspend fun getTelemetry(): SystemTelemetry
 
+    // Alerts
+    @GET("alerts")
+    suspend fun getAlerts(): AlertsResponse
+
     // Services
     @GET("services/{service_name}")
     suspend fun getServiceStatus(
@@ -42,4 +46,26 @@ interface AgentApiService {
     // Metrics (Prometheus compatible)
     @GET("metrics")
     suspend fun getMetrics(): String
+
+    // Dynamic Alert Configuration
+    @POST("alerts/config")
+    suspend fun updateAlertConfig(
+        @Body config: AlertThresholdConfig
+    ): GenericResponse
+
+    // Processes
+    @GET("processes")
+    suspend fun getTopProcesses(): ProcessListResponse
+
+    @DELETE("processes/{pid}")
+    suspend fun killProcess(
+        @Path("pid") pid: Long
+    ): GenericResponse
+
+    // Logs
+    @GET("logs")
+    suspend fun getLogs(
+        @Query("service") service: String,
+        @Query("lines") lines: Int = 100
+    ): LogResponse
 }
