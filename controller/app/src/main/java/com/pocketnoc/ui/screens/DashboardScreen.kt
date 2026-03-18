@@ -36,14 +36,9 @@ import com.pocketnoc.ui.viewmodels.TelemetryUiState
 fun DashboardScreen(
     navController: androidx.navigation.NavHostController,
     viewModel: DashboardViewModel,
-    onNavigateToAddServer: () -> Unit,
-    onNavigateToServerList: () -> Unit = {},
-    onNavigateToServerDetails: (Int) -> Unit = {},
-    onNavigateToActionCenter: (Int) -> Unit = {},
-    onNavigateToAlertSettings: () -> Unit = {}
+    onNavigateToAddServer: () -> Unit
 ) {
     val servers by viewModel.allServers.collectAsState()
-    val serverHealthMap by viewModel.serverHealthMap.collectAsState()
     var selectedServerIndex by remember { mutableStateOf(0) }
     
     // Garantir que o index é válido
@@ -156,10 +151,10 @@ fun DashboardScreen(
                     containerColor = DarkSurface.copy(alpha = 0.7f),
                     contentColor = NeonMagenta,
                     edgePadding = 16.dp,
-                    divider = { Divider(color = NeonCyan.copy(alpha = 0.2f)) },
+                    divider = { HorizontalDivider(color = NeonCyan.copy(alpha = 0.2f)) },
                     indicator = { tabPositions ->
                         if (safeIndex < tabPositions.size) {
-                            TabRowDefaults.Indicator(
+                            TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier.tabIndicatorOffset(tabPositions[safeIndex]),
                                 color = NeonCyan
                             )
@@ -353,7 +348,7 @@ fun StatusCard(pulseAlpha: State<Float>, server: ServerEntity?) {
             
             if (server != null) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Divider(color = NeonCyan.copy(alpha = 0.1f))
+                HorizontalDivider(color = NeonCyan.copy(alpha = 0.1f))
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

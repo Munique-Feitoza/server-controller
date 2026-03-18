@@ -7,6 +7,10 @@ use sysinfo::{System, SystemExt, DiskExt};
 pub struct DiskMetrics {
     /// Lista de discos
     pub disks: Vec<DiskInfo>,
+    /// Total bytes lidos do disco (acumulado)
+    pub total_read_bytes: u64,
+    /// Total bytes escritos no disco (acumulado)
+    pub total_write_bytes: u64,
 }
 
 /// Informações de um disco
@@ -26,6 +30,18 @@ pub struct DiskInfo {
 
 impl DiskMetrics {
     pub fn collect(system: &System) -> Result<Self> {
+        let mut total_read_bytes = 0;
+        let mut total_write_bytes = 0;
+        
+        // Coletando I/O bruto via Linux procfs
+        if let Ok(stats) = procfs::diskstats() {
+            for stat in stats {
+                // Sectors geralmente tem 512 bytes
+                total_read_bytes += stat.sectors_read * 512;
+                total_write_bytes += stat.sectors_written * 512;
+            }
+        }
+
         let disks = system
             .disks()
             .iter()
@@ -48,6 +64,6 @@ impl DiskMetrics {
             })
             .collect();
 
-        Ok(Self { disks })
+        Ok(Self { disks, total_read_bytes, total_write_bytes })
     }
 }

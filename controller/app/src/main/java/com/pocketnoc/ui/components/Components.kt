@@ -364,7 +364,7 @@ fun FuturisticResourceCard(
 
             // Progress Indicator
             CircularProgressIndicator(
-                progress = percentage / 100f,
+                progress = { percentage / 100f },
                 modifier = Modifier.size(56.dp),
                 color = color,
                 trackColor = DarkSurface,
@@ -485,9 +485,9 @@ fun SecurityStatusCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(12.dp, spotColor = if (security.failedLoginAttempts > 5) CriticalRed.copy(alpha = 0.5f) else NeonGreen.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp))
+            .shadow(12.dp, spotColor = if (security.failedLoginAttempts > 10) CriticalRed.copy(alpha = 0.5f) else NeonGreen.copy(alpha = 0.5f), shape = RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
-            .border(2.dp, if (security.failedLoginAttempts > 5) CriticalRed.copy(alpha = 0.6f) else NeonGreen.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
+            .border(2.dp, if (security.failedLoginAttempts > 10) CriticalRed.copy(alpha = 0.6f) else NeonGreen.copy(alpha = 0.6f), RoundedCornerShape(16.dp)),
         colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.6f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -517,7 +517,7 @@ fun SecurityStatusCard(
 
             if (security.failedLogins.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Divider(color = Color.White.copy(alpha = 0.1f))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("FAILED ATTEMPTS BY IP:", style = MaterialTheme.typography.labelSmall, color = TextMuted)
                 Spacer(modifier = Modifier.height(8.dp))
@@ -569,14 +569,35 @@ fun ProcessesCard(processes: com.pocketnoc.data.models.ProcessMetrics) {
             Spacer(modifier = Modifier.height(12.dp))
             processes.topProcesses.take(5).forEach { process ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(process.name, style = MaterialTheme.typography.bodyMedium, color = Color.White, modifier = Modifier.weight(1f))
-                    Text("${process.cpuUsage.toInt()}% CPU", color = NeonMagenta, style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("${process.memoryMb}MB", color = NeonBlue, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = process.name, 
+                        style = MaterialTheme.typography.bodyMedium, 
+                        color = Color.White, 
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "${process.cpuUsage.toInt()}% CPU", 
+                            color = NeonMagenta, 
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${process.memoryMb} MB", 
+                            color = NeonBlue, 
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
+                HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
             }
         }
     }
@@ -674,7 +695,7 @@ fun ServicesCard(
                         }
                     }
                 }
-                Divider(color = NeonCyan.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = NeonCyan.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 4.dp))
             }
         }
     }
@@ -924,7 +945,7 @@ private fun MetricRow(
         Spacer(modifier = Modifier.height(4.dp))
 
         LinearProgressIndicator(
-            progress = (value / 100f).coerceIn(0f, 1f),
+            progress = { (value / 100f).coerceIn(0f, 1f) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)

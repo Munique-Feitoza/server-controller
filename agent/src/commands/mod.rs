@@ -93,10 +93,40 @@ pub fn default_emergency_commands() -> Vec<EmergencyCommand> {
             args: vec!["stop".to_string(), "nginx".to_string()],
         },
         EmergencyCommand {
+            id: "start_nginx".to_string(),
+            description: "Start Nginx web server".to_string(),
+            command: "systemctl".to_string(),
+            args: vec!["start".to_string(), "nginx".to_string()],
+        },
+        EmergencyCommand {
             id: "restart_docker".to_string(),
             description: "Restart Docker daemon".to_string(),
             command: "systemctl".to_string(),
             args: vec!["restart".to_string(), "docker".to_string()],
+        },
+        EmergencyCommand {
+            id: "restart_mysql".to_string(),
+            description: "Restart MySQL server".to_string(),
+            command: "systemctl".to_string(),
+            args: vec!["restart".to_string(), "mysql".to_string()],
+        },
+        EmergencyCommand {
+            id: "stop_mysql".to_string(),
+            description: "Stop MySQL server".to_string(),
+            command: "systemctl".to_string(),
+            args: vec!["stop".to_string(), "mysql".to_string()],
+        },
+        EmergencyCommand {
+            id: "start_mysql".to_string(),
+            description: "Start MySQL server".to_string(),
+            command: "systemctl".to_string(),
+            args: vec!["start".to_string(), "mysql".to_string()],
+        },
+        EmergencyCommand {
+            id: "restart_agent".to_string(),
+            description: "Restart Pocket NOC Agent".to_string(),
+            command: "systemctl".to_string(),
+            args: vec!["restart".to_string(), "pocket-noc-agent".to_string()],
         },
         EmergencyCommand {
             id: "clear_logs".to_string(),

@@ -22,8 +22,13 @@ pub struct FailedLogin {
 impl SecurityMetrics {
     pub fn collect() -> Result<Self> {
         let active_ssh_sessions = Self::count_ssh_sessions().unwrap_or(0);
-        let failed_logins = Self::parse_failed_logins().unwrap_or_default();
+        let mut failed_logins = Self::parse_failed_logins().unwrap_or_default();
+        
+        // Calcula o total de tentativas de invasão considerando TODOS os IPs
         let total_failed = failed_logins.iter().map(|f| f.count).sum();
+        
+        // Lista apenas os agressores insistentes (reduz ruído de IPs que já levaram block)
+        failed_logins.retain(|f| f.count > 10);
         
         Ok(Self {
             active_ssh_sessions,

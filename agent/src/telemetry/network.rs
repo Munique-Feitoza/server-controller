@@ -6,6 +6,8 @@ use sysinfo::{NetworkExt, NetworksExt, System, SystemExt};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkMetrics {
     pub interfaces: Vec<InterfaceMetrics>,
+    /// Latência do ping pro gateway/internet em ms
+    pub ping_latency_ms: Option<f64>,
 }
 
 /// Métricas de uma interface de rede
@@ -36,6 +38,23 @@ impl NetworkMetrics {
             })
             .collect();
 
-        Ok(Self { interfaces })
+        // Extraindo Network Latency/Jitter com ping para a cloudflare
+        // Envolto em 'timeout' do GNU coreutils para evitar travamento da thread caso a rede morra
+        let ping_output = std::process::Command::new("timeout")
+            .args(["2s", "ping", "-c", "1", "-W", "1", "1.1.1.1"])
+            .output()
+            .ok();
+
+        let ping_latency_ms = ping_output.and_then(|output| {
+            let out_str = String::from_utf8_lossy(&output.stdout);
+            if let Some(time_idx) = out_str.find("time=") {
+                let rest = &out_str[time_idx + 5..];
+                if let Some(space_idx) = rest.find(" ms") {
+                    rest[..space_idx].parse::<f64>().ok()
+                } else { None }
+            } else { None }
+        });
+
+        Ok(Self { interfaces, ping_latency_ms })
     }
 }
