@@ -47,8 +47,8 @@ impl SecurityMetrics {
     fn parse_failed_logins() -> Option<Vec<FailedLogin>> {
         use std::collections::HashMap;
         
-        // lastb -n 500 --fulltimes mostra as últimas 500 tentativas com IP e tempo
-        let output = Command::new("lastb").arg("-n").arg("500").arg("-a").output().ok()?;
+        // lastb -s "-15 minutes" -a mostra as tentativas recentes com IP e tempo
+        let output = Command::new("lastb").arg("-s").arg("-15 minutes").arg("-a").output().ok()?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         
         let mut ip_counts: HashMap<String, (usize, String)> = HashMap::new();
