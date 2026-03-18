@@ -74,6 +74,8 @@ impl UptimeInfo {
 /// extremamente granulada, minimizando syscalls e alocações desnecessárias.
 pub struct TelemetryCollector {
     system: System,
+    last_cache: Option<SystemTelemetry>,
+    last_cache_time: std::time::Instant,
 }
 
 impl TelemetryCollector {
@@ -81,11 +83,21 @@ impl TelemetryCollector {
     pub fn new() -> Self {
         Self {
             system: System::new_all(),
+            last_cache: None,
+            last_cache_time: std::time::Instant::now() - std::time::Duration::from_secs(60),
         }
     }
 
-    /// Coleta toda a telemetria do sistema
+    /// Coleta toda a telemetria do sistema (com Cache L1 para poupar CPU)
     pub fn collect(&mut self) -> Result<SystemTelemetry> {
+        // TTL Cache OMNI-DEV: Retorna o cache se a última medição ocorreu há menos de 5 segundos.
+        // Isso impede a exaustão de CPU via fork() se múltiplos requests baterem na API.
+        if let Some(cached) = &self.last_cache {
+            if self.last_cache_time.elapsed() < std::time::Duration::from_secs(5) {
+                return Ok(cached.clone());
+            }
+        }
+
         self.system.refresh_all();
 
         let cpu = CpuMetrics::collect(&self.system)?;
@@ -103,7 +115,7 @@ impl TelemetryCollector {
             .unwrap_or_default()
             .as_secs() as i64;
 
-        Ok(SystemTelemetry {
+        let telemetry = SystemTelemetry {
             cpu,
             memory,
             disk,
@@ -114,7 +126,13 @@ impl TelemetryCollector {
             uptime,
             services,
             timestamp,
-        })
+        };
+
+        // Atualiza a camada de Cache
+        self.last_cache = Some(telemetry.clone());
+        self.last_cache_time = std::time::Instant::now();
+
+        Ok(telemetry)
     }
 
     /// Encerra um processo pelo PID

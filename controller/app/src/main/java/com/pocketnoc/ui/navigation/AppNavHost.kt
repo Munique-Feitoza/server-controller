@@ -13,24 +13,23 @@ import kotlin.reflect.typeOf
 @Composable
 fun AppNavHost(
     navController: NavHostController,
-    startDestination: String = AppRoute.Login.route
+    startDestination: String = AppRoute.Splash.route
 ) {
     val dashboardViewModel: DashboardViewModel = hiltViewModel()
     val servers by dashboardViewModel.allServers.collectAsState()
-
-    // Auto-navegação para o dashboard quando os servidores forem sincronizados
-    LaunchedEffect(servers) {
-        if (servers.isNotEmpty() && navController.currentDestination?.route == AppRoute.Login.route) {
-            navController.navigate(AppRoute.Dashboard.route) {
-                popUpTo(AppRoute.Login.route) { inclusive = true }
-            }
-        }
-    }
 
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
+        // Splash Screen
+        composable(AppRoute.Splash.route) {
+            SplashScreen(
+                navController = navController,
+                servers = servers
+            )
+        }
+
         // Login Screen
         composable(AppRoute.Login.route) {
             LoginScreen(
@@ -50,18 +49,6 @@ fun AppNavHost(
                 viewModel = dashboardViewModel,
                 onNavigateToAddServer = {
                     navController.navigate(AppRoute.Login.route)
-                },
-                onNavigateToServerList = {
-                    navController.navigate(AppRoute.ServerList.route)
-                },
-                onNavigateToServerDetails = { serverId ->
-                    navController.navigate(AppRoute.ServerDetails.createRoute(serverId))
-                },
-                onNavigateToActionCenter = { serverId ->
-                    navController.navigate(AppRoute.ActionCenter.createRoute(serverId))
-                },
-                onNavigateToAlertSettings = {
-                    navController.navigate(AppRoute.AlertSettings.route)
                 }
             )
         }
@@ -96,14 +83,14 @@ fun AppNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onNavigateToActionCenter = { serverId ->
-                    navController.navigate(AppRoute.ActionCenter.createRoute(serverId))
+                onNavigateToActionCenter = { id ->
+                    navController.navigate(AppRoute.ActionCenter.createRoute(id))
                 },
-                onNavigateToProcessExplorer = { serverId ->
-                    navController.navigate(AppRoute.ProcessExplorer.createRoute(serverId))
+                onNavigateToProcessExplorer = { id ->
+                    navController.navigate(AppRoute.ProcessExplorer.createRoute(id))
                 },
-                onNavigateToLogs = { serverId, service ->
-                    navController.navigate(AppRoute.LogViewer.createRoute(serverId, service))
+                onNavigateToLogs = { id, service ->
+                    navController.navigate(AppRoute.LogViewer.createRoute(id, service))
                 }
             )
         }

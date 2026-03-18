@@ -16,16 +16,18 @@ import kotlinx.coroutines.*
 import com.pocketnoc.utils.SecurityNotificationManager
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.pocketnoc.data.local.dao.AlertDao // Added import for AlertDao
-import com.pocketnoc.data.local.entities.AlertEntity // Added import for AlertEntity
+import com.pocketnoc.data.local.dao.AlertDao
+import com.pocketnoc.data.local.entities.AlertEntity
+import java.util.concurrent.ConcurrentHashMap
 
 @Singleton
 class ServerRepository @Inject constructor(
     private val serverDao: ServerDao,
-    private val alertDao: AlertDao, // Added AlertDao injection
+    private val alertDao: AlertDao,
     private val securityNotifications: SecurityNotificationManager,
     private val secureTokenManager: SecureTokenManager
 ) {
+    private val apiCache = ConcurrentHashMap<Int, AgentApiService>()
     fun getAllServers(): Flow<List<ServerEntity>> = serverDao.getAllServers()
 
     suspend fun getServerById(id: Int): ServerEntity? = serverDao.getServerById(id)
@@ -50,12 +52,16 @@ class ServerRepository @Inject constructor(
         server.sshKeyPath?.let { keyContent ->
             secureTokenManager.saveSshKey(server.id, keyContent)
         }
+        // Invalida o cache
+        apiCache.remove(server.id)
     }
 
     suspend fun deleteServer(server: ServerEntity) {
         serverDao.deleteServer(server)
         // Remove credenciais armazenadas
         secureTokenManager.clearServerCredentials(server.id)
+        // Invalida o cache
+        apiCache.remove(server.id)
     }
 
     private suspend fun getApiService(server: ServerEntity): AgentApiService {
@@ -88,7 +94,9 @@ class ServerRepository @Inject constructor(
         }
         
         val url = if (server.localPort != null) "http://localhost:${server.localPort}" else server.url
-        return RetrofitClient.getInstance(url, server.token).create(AgentApiService::class.java)
+        return apiCache.getOrPut(server.id) {
+            RetrofitClient.getInstance(url, server.token).create(AgentApiService::class.java)
+        }
     }
 
     suspend fun getTelemetry(server: ServerEntity): SystemTelemetry = withContext(kotlinx.coroutines.Dispatchers.IO) {

@@ -4,6 +4,7 @@ package com.pocketnoc.ui.navigation
  * Sealed class para definir tipicamente todas as rotas da aplicação
  */
 sealed class AppRoute(val route: String) {
+    data object Splash : AppRoute("splash")
     data object Login : AppRoute("login")
     data object Dashboard : AppRoute("dashboard")
     data object ServerList : AppRoute("server_list")

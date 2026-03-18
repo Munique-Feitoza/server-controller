@@ -6,6 +6,8 @@ use sysinfo::{PidExt, ProcessExt, System, SystemExt};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessMetrics {
     pub top_processes: Vec<ProcessInfo>,
+    /// Quantidade de containers rodando (se docker estiver disponível)
+    pub docker_containers_running: Option<usize>,
 }
 
 /// Informações de um processo
@@ -34,6 +36,22 @@ impl ProcessMetrics {
         processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
         let top_processes = processes.into_iter().take(10).collect();
 
-        Ok(Self { top_processes })
+        // Conta os containers ativos via CLI do Docker (com timeout para evitar hangs do daemon)
+        // O timeout nativo do Linux blinda a thread do Tokio de ficar travada infinitamente
+        let docker_output = std::process::Command::new("timeout")
+            .args(["2s", "docker", "ps", "-q"])
+            .output()
+            .ok();
+
+        let docker_containers_running = docker_output.and_then(|output| {
+            if output.status.success() {
+                let out_str = String::from_utf8_lossy(&output.stdout);
+                Some(out_str.lines().count())
+            } else {
+                None
+            }
+        });
+
+        Ok(Self { top_processes, docker_containers_running })
     }
 }

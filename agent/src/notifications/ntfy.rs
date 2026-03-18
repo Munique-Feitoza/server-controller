@@ -3,7 +3,7 @@ use tracing::{info, error};
 
 /// Cliente para envio de notificações via ntfy.sh
 pub struct NtfyClient {
-    topic: String,
+    url: String,
     client: reqwest::Client,
 }
 
@@ -11,7 +11,7 @@ impl NtfyClient {
     /// Cria um novo cliente com um tópico específico
     pub fn new(topic: &str) -> Self {
         Self {
-            topic: topic.to_string(),
+            url: format!("https://ntfy.sh/{}", topic),
             client: reqwest::Client::new(),
         }
     }
@@ -22,8 +22,6 @@ impl NtfyClient {
     /// Aqui aplicamos o padrão Command/Wrapper para simplificar disparos HTTP
     /// em ambientes de monitoramento.
     pub async fn send_alert(&self, title: &str, message: &str, priority: u8, tags: &str) -> Result<()> {
-        let url = format!("https://ntfy.sh/{}", self.topic);
-        
         let priority_str = match priority {
             5 => "urgent",
             4 => "high",
@@ -32,9 +30,9 @@ impl NtfyClient {
             _ => "min",
         };
 
-        info!("Sending ntfy alert: {} to topic {}", title, self.topic);
+        info!("Sending ntfy alert '{}' (priority: {})", title, priority_str);
 
-        let response = self.client.post(&url)
+        let response = self.client.post(&self.url)
             .header("Title", title)
             .header("Priority", priority_str)
             .header("Tags", tags)
