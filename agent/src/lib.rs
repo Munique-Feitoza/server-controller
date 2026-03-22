@@ -5,5 +5,7 @@ pub mod error;
 pub mod services;
 pub mod telemetry;
 pub mod notifications;
+pub mod watchdog;
 
 pub use error::{AgentError, Result};
+pub use watchdog::{WatchdogEngine, WatchdogConfig, event::WatchdogEventStore};

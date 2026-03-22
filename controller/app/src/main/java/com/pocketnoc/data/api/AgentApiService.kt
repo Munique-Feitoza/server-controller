@@ -74,4 +74,19 @@ interface AgentApiService {
     suspend fun blockIp(
         @Body payload: Map<String, String>
     ): GenericResponse
+
+    // ─── Watchdog / Auto-Remediação ─────────────────────────────────────────
+    /**
+     * Retorna eventos de auto-remediação do Watchdog.
+     * Filtros opcionais:
+     * - server: filtra por server_id (ex: "vps-runcloud-01")
+     * - status: filtra por final_status (ex: "CircuitOpen", "Failed")
+     * - limit: número máximo de eventos retornados (padrão: 50)
+     */
+    @GET("watchdog/events")
+    suspend fun getWatchdogEvents(
+        @Query("server") serverId: String? = null,
+        @Query("status") status: String? = null,
+        @Query("limit") limit: Int = 50
+    ): WatchdogEventsResponse
 }

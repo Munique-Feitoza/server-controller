@@ -302,3 +302,57 @@ data class GenericResponse(
     @SerializedName("current_config")
     val currentConfig: Map<String, Any>? = null
 )
+
+// ==================== Watchdog / Auto-Remediação ====================
+
+/**
+ * Espelho exato do struct `WatchdogEvent` do Rust.
+ * Cada campo usa `@SerializedName` para mapear o snake_case do JSON.
+ *
+ * Campos-chave para multi-servidor:
+ * - `serverId`   → identifica qual máquina gerou o evento
+ * - `serverRole` → perfil (wordpress/erp/database/generic)
+ */
+data class WatchdogEvent(
+    val id: String,
+    val timestamp: Long,
+    @SerializedName("timestamp_iso")
+    val timestampIso: String,
+
+    // Identidade do servidor — CRÍTICO para multi-servidor
+    @SerializedName("server_id")
+    val serverId: String,
+    @SerializedName("server_role")
+    val serverRole: String,
+    @SerializedName("server_hostname")
+    val serverHostname: String,
+
+    // Diagnóstico do probe
+    val service: String,
+    @SerializedName("probe_result")
+    val probeResult: String,   // "Healthy" | "Degraded" | "Down"
+    @SerializedName("probe_latency_ms")
+    val probeLatencyMs: Long?,
+
+    // Remediação
+    @SerializedName("action_taken")
+    val actionTaken: String,   // "RestartService(nginx)" | "EscalateToHuman" | ...
+    @SerializedName("final_status")
+    val finalStatus: String,   // "Success" | "Failed" | "CircuitOpen" | "NotNeeded"
+    val attempts: Int,
+    @SerializedName("circuit_open")
+    val circuitOpen: Boolean,
+
+    val message: String
+)
+
+/** Resposta do endpoint `GET /watchdog/events` */
+data class WatchdogEventsResponse(
+    val events: List<WatchdogEvent>,
+    val count: Int,
+    @SerializedName("total_in_store")
+    val totalInStore: Int,
+    @SerializedName("servers_summary")
+    val serversSummary: Map<String, Int>,
+    val timestamp: String
+)
