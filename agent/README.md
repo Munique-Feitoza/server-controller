@@ -25,6 +25,7 @@ jsonwebtoken = Autenticação JWT
 ## 🚀 Compilação e Instalação
 
 ### Pré-requisitos
+
 - Rust 1.70+
 - Linux (compatível com Ubuntu, Debian, CentOS, etc)
 
@@ -198,24 +199,27 @@ src/
 ## 🐛 Troubleshooting
 
 ### Agent não inicia
+
 ```bash
 journalctl -u pocket-noc-agent -n 50
 ```
 
 ### Verificar compilação
+
 ```bash
 cargo check
 cargo clippy
 ```
 
 ### Testar conexão
+
 ```bash
 curl -v https://localhost:9443/health
 ```
 
 ## 📝 Licença
 
-MIT
+GPL-2.0
 
 ---
 

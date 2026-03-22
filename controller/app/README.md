@@ -26,6 +26,7 @@ Material 3           = Design system
 ## 🚀 Compilação e Instalação
 
 ### Pré-requisitos
+
 - Android SDK 24+ (API Level 24)
 - Android Studio Flamingo ou superior
 - Kotlin 1.9+
@@ -88,6 +89,7 @@ API Service (AgentApiService via Retrofit)
 ### 1. Dashboard (Principal)
 
 Mostra:
+
 - Semáforo de status (verde/amarelo/vermelho)
 - Uso de CPU (global + por core)
 - Uso de RAM e Swap
@@ -106,6 +108,7 @@ fun DashboardScreen(viewModel, serverUrl, token, onNavigate)
 ### 2. Server Details (Detalhes Completo)
 
 Será implementado para:
+
 - Gráficos de histórico (CPU, RAM, Disco)
 - Lista de serviços e seus status
 - Botões de ação rápida (restart nginx, docker, etc)
@@ -116,6 +119,7 @@ Será implementado para:
 ### 3. Server List (Lista de Servidores)
 
 Será implementado para:
+
 - Lista de todos os servidores configurados
 - Status resumido de cada um
 - Adição/remoção de servidores
@@ -128,6 +132,7 @@ Será implementado para:
 ### Autenticação JWT
 
 Todos os requests (exceto `/health`) incluem o header:
+
 ```
 Authorization: Bearer <JWT_TOKEN>
 ```
@@ -196,6 +201,7 @@ result.onFailure { error ->
 ## 🐛 Troubleshooting
 
 ### Erro de conexão
+
 ```
 javax.net.ssl.SSLHandshakeException
 ```
@@ -203,11 +209,13 @@ javax.net.ssl.SSLHandshakeException
 Solução: Adicionar certificado self-signed ao projeto ou validar certificate chain.
 
 ### Retrofit timeout
+
 ```
 java.net.SocketTimeoutException
 ```
 
 Solução: Aumentar timeout em RetrofitClient:
+
 ```kotlin
 .connectTimeout(30, TimeUnit.SECONDS)
 .readTimeout(30, TimeUnit.SECONDS)
@@ -240,7 +248,7 @@ Solução: Implementar Hilt para injeção de dependência ou usar `ViewModelPro
 
 ## 📝 Licença
 
-MIT
+GPL-2.0
 
 ---
 
