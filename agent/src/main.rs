@@ -9,6 +9,7 @@ use pocket_noc_agent::{
     commands::default_emergency_commands,
     telemetry::{TelemetryCollector, AlertManager, AlertType},
     notifications::NtfyClient,
+    watchdog::{WatchdogEngine, event::WatchdogEventStore},
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -41,12 +42,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("✅ JWT configured - protected routes active");
 
-    // Configuração da aplicação
     let collector = Arc::new(Mutex::new(TelemetryCollector::new()));
     let command_executor = Arc::new(pocket_noc_agent::commands::CommandExecutor::new(
         default_emergency_commands(),
     ));
     let alert_manager = Arc::new(Mutex::new(AlertManager::with_defaults()));
+
+    // Store compartilhado de eventos do Watchdog (ring buffer 500 eventos)
+    let watchdog_store = Arc::new(Mutex::new(WatchdogEventStore::with_defaults()));
 
     // Configuração do ntfy (Tópico dinâmico baseado no segredo para evitar stalkers)
     let ntfy_topic = std::env::var("NTFY_TOPIC")
@@ -56,9 +59,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("🔔 Ntfy notifications active on topic: {}", ntfy_topic);
 
     let state = AppState {
-        telemetry_collector: collector.clone(),
+        telemetry_collector:  collector.clone(),
         command_executor,
-        alert_manager: alert_manager.clone(),
+        alert_manager:        alert_manager.clone(),
+        watchdog_event_store: watchdog_store.clone(),
     };
 
     // ========== MONTAGEM FINAL ==========
@@ -75,6 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/commands/:command_id", post(execute_command))
         .route("/security/block-ip", post(block_ip))
         .route("/metrics", get(get_metrics))
+        // ─── Watchdog endpoints ─────────────────────────────────────────────
+        .route("/watchdog/events", get(get_watchdog_events))
         .layer(middleware::from_fn_with_state(
             jwt_config.clone(),
             pocket_noc_agent::api::middleware::jwt_middleware,
@@ -105,7 +111,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("   POST /commands/<id> - Execute command");
     tracing::info!("   GET /metrics - Prometheus format");
 
-    // Spawn telemetry collection background task
+    tracing::info!("   GET /watchdog/events - Watchdog remediation events (filter: ?server=&status=)");
+
+    // Spawn background task — Telemetria (existente)
     let collector_task = collector.clone();
     let alert_manager_task = alert_manager.clone();
     let ntfy_client_task = ntfy_client.clone();
@@ -165,6 +173,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
         }
     });
+
+    // ─── Spawn background task — WatchdogEngine ────────────────────────────
+    {
+        let watchdog_engine = WatchdogEngine::from_env(
+            watchdog_store.clone(),
+            ntfy_client.clone(),
+        );
+        tokio::spawn(async move {
+            watchdog_engine.run().await;
+        });
+        tracing::info!("🐕 WatchdogEngine spawned — auto-remediation ativa");
+    }
 
     axum::serve(listener, app)
         .await

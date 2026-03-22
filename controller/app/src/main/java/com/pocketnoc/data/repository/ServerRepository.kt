@@ -196,6 +196,27 @@ class ServerRepository @Inject constructor(
         }
     }
 
+    /**
+     * Busca os eventos do Watchdog do agente remoto.
+     *
+     * @param serverId filtro por server_id (null = todos)
+     * @param status   filtro por final_status (null = todos)
+     * @param limit    número máximo de eventos retornados
+     */
+    suspend fun getWatchdogEvents(
+        server:   ServerEntity,
+        serverId: String? = null,
+        status:   String? = null,
+        limit:    Int     = 50
+    ): com.pocketnoc.data.models.WatchdogEventsResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.getWatchdogEvents(serverId = serverId, status = status, limit = limit)
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch watchdog events: ${e.message}")
+        }
+    }
+
     // Alert History
     suspend fun saveAlert(alert: AlertEntity) {
         alertDao.insertAlert(alert)

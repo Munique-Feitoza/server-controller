@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{State, Query},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -7,20 +7,24 @@ use axum::{
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use std::collections::HashMap;
 
 use crate::{
     commands::CommandExecutor,
     error::Result,
     services::ServiceMonitor,
     telemetry::{TelemetryCollector, AlertManager},
+    watchdog::event::WatchdogEventStore,
 };
 
 /// Estado compartilhado da aplicação
 #[derive(Clone)]
 pub struct AppState {
-    pub telemetry_collector: Arc<Mutex<TelemetryCollector>>,
-    pub command_executor: Arc<CommandExecutor>,
-    pub alert_manager: Arc<Mutex<AlertManager>>,
+    pub telemetry_collector:  Arc<Mutex<TelemetryCollector>>,
+    pub command_executor:     Arc<CommandExecutor>,
+    pub alert_manager:        Arc<Mutex<AlertManager>>,
+    /// Store de eventos do Watchdog — compartilhado com o engine background
+    pub watchdog_event_store: Arc<Mutex<WatchdogEventStore>>,
 }
 
 /// GET /health - Healthcheck simples
@@ -248,4 +252,50 @@ pub async fn block_ip(
     } else {
         Err(crate::error::AgentError::CommandError(format!("Failed to block IP {}", ip)))
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WATCHDOG HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /watchdog/events?limit=50&server=<server_id>&status=<status>
+///
+/// Retorna eventos de auto-remediação do Watchdog.
+/// Query params opcionais:
+/// - `limit`  — número de eventos retornados (padrão: 50)
+/// - `server` — filtrar por server_id específico
+/// - `status` — filtrar por final_status (Success, Failed, CircuitOpen)
+pub async fn get_watchdog_events(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>> {
+    let limit  = params.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(50);
+    let server = params.get("server").map(|s| s.as_str());
+    let status = params.get("status").map(|s| s.as_str());
+
+    let store = state.watchdog_event_store.lock().await;
+
+    // Aplica filtros em cadeia — padrão Builder aplicado funcionalmente
+    let events: Vec<_> = if let Some(srv) = server {
+        store.by_server(srv)
+    } else if let Some(st) = status {
+        store.by_status(st)
+    } else {
+        store.recent(limit)
+    };
+
+    let events_json: Vec<_> = events.iter()
+        .take(limit)
+        .map(|e| serde_json::to_value(e).unwrap_or_default())
+        .collect();
+
+    let counts = store.count_by_server();
+
+    Ok(Json(json!({
+        "events":          events_json,
+        "count":           events_json.len(),
+        "total_in_store":  store.len(),
+        "servers_summary": counts,
+        "timestamp":       chrono::Utc::now().to_rfc3339(),
+    })))
 }
