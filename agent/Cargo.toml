@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Pocket NOC Team"]
 description = "Ultra-lightweight infrastructure monitoring agent in Rust"
-license = "MIT"
+license = "GPL-2.0-only"
 
 [dependencies]
 # Async runtime
