@@ -9,6 +9,8 @@ import com.pocketnoc.data.models.*
 import com.pocketnoc.data.repository.ServerRepository
 import com.pocketnoc.utils.JwtUtils
 import com.pocketnoc.utils.HealthStatusCalculator
+import com.pocketnoc.utils.NetworkConnectivityObserver
+import com.pocketnoc.utils.ConnectivityStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -46,7 +48,8 @@ sealed class LogsUiState {
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val repository: ServerRepository,
-    private val alertThresholdRepository: com.pocketnoc.data.local.AlertThresholdRepository
+    private val alertThresholdRepository: com.pocketnoc.data.local.AlertThresholdRepository,
+    private val networkObserver: NetworkConnectivityObserver
 ) : ViewModel() {
 
     // PADRÃO UNIDIRECIAL DE DADOS (UDF):
@@ -58,6 +61,14 @@ class DashboardViewModel @Inject constructor(
 
     private val _commandsState = MutableStateFlow<CommandsUiState>(CommandsUiState.Loading)
     val commandsState: StateFlow<CommandsUiState> = _commandsState
+
+    // Estado reativo da conectividade de rede do aparelho
+    val networkStatus: StateFlow<ConnectivityStatus> = networkObserver.observe()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ConnectivityStatus.Available
+        )
 
     private val _serverHealthMap = MutableStateFlow<Map<Int, ServerHealth>>(emptyMap())
     val serverHealthMap: StateFlow<Map<Int, ServerHealth>> = _serverHealthMap.asStateFlow()
@@ -136,15 +147,17 @@ class DashboardViewModel @Inject constructor(
                             ))
                         } else {
                             // Atualiza configurações se mudarem no local.properties
+                            // CRÍTICO: Atualizamos o segredo para garantir que o Dynamic Token Refresh funcione com a nova chave
                             repository.updateServer(existing.copy(
                                 url = url,
+                                secret = secret, // Sincroniza o segredo atualizado
                                 sshUser = sshUser,
                                 sshHost = sshHost,
                                 sshKeyPath = sshKeyContent,
                                 sshPort = sshPort,
                                 remotePort = remoteAgentPort,
                                 localPort = localPort,
-                                name = name, // Atualiza para o novo nome se mudou
+                                name = name,
                                 osInfo = "Ubuntu 22.04",
                                 stackInfo = "Nginx",
                                 locationInfo = "Canada"

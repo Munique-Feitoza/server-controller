@@ -28,7 +28,10 @@ pub async fn jwt_middleware(
 
     // Valida token JWT
     jwt_config.validate_token(token)
-        .map_err(|_| (StatusCode::UNAUTHORIZED, "Invalid or expired token".to_string()))?;
+        .map_err(|e| {
+            tracing::error!("Auth failed: {e}");
+            (StatusCode::UNAUTHORIZED, format!("Auth Error: {e}"))
+        })?;
 
     // Token é válido, continua
     Ok(next.run(request).await)

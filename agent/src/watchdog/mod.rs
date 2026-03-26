@@ -132,15 +132,13 @@ impl WatchdogEngine {
     /// 4. Dispara notificação ntfy para o app
     /// 5. (Opcional) Envia evento JSON via webhook HTTP
     /// 6. Dorme pelo `cycle_secs` configurado
-    pub async fn run(self) {
+    pub async fn run(self, remediation: Arc<Mutex<RemediationEngine>>) {
         let config = self.config.clone();
         let probes = self.probes.clone();
         let event_store = self.event_store;
         let ntfy = self.ntfy_client;
         let webhook_url = config.webhook_url.clone();
 
-        // RemediationEngine — vive dentro do loop (não compartilhado externamente)
-        let mut remediation = RemediationEngine::new(config.max_failures, config.cooldown_secs);
         // HTTP client compartilhado para webhook (reutilizamos conexões TCP via pool)
         let http_client = reqwest::Client::new();
 
@@ -179,7 +177,7 @@ impl WatchdogEngine {
                     }
                 };
 
-                // Serviço saudável — apenas loga em nível debug, sem evento
+                // Serviço saudável — reseta o Circuit Breaker (Auto-Reset)
                 if probe_result.is_healthy() {
                     info!(
                         "✅ [{}] {} — OK ({}ms)",
@@ -187,18 +185,34 @@ impl WatchdogEngine {
                         probe_result.service,
                         probe_result.latency_ms.map(|l| l.to_string()).unwrap_or("-".to_string())
                     );
+                    {
+                        let mut rem = remediation.lock().await;
+                        rem.record_success(&probe_result.service);
+                    }
                     continue;
                 }
 
-                // ─── Serviço Down ou Degraded → Remediação ───────────────────
-                warn!(
-                    "⚠️  [{}] {} — {} | {}",
-                    config.server_id, probe_result.service,
-                    probe_result.status, probe_result.message
-                );
-
+                // ─── Remediação / Circuit Breaker ───────────────────────────
                 let action = RemediationEngine::recommended_action(&probe_result.service);
-                let rem_result = remediation.execute(&probe_result.service, action.clone());
+                let rem_result = {
+                    let mut rem = remediation.lock().await;
+                    rem.execute(&probe_result.service, action.clone())
+                };
+
+                // ─── Serviço Down ou Degraded ────────────────────────────────
+                // Se o circuito estiver aberto, usamos um log mais discreto para não parecer que estamos "tentando"
+                if rem_result.status == RemediationStatus::CircuitOpen {
+                    info!(
+                        "💤 [{}] {} está DOWN, mas a remediação está BLOQUEADA (Circuit Breaker Aberto).",
+                        config.server_id, probe_result.service
+                    );
+                } else {
+                    warn!(
+                        "⚠️  [{}] {} — {} | {} | Ação: {}",
+                        config.server_id, probe_result.service,
+                        probe_result.status, probe_result.message, rem_result.action
+                    );
+                }
 
                 // ─── Monta o WatchdogEvent ────────────────────────────────────
                 let event = WatchdogEvent::new(
@@ -229,7 +243,19 @@ impl WatchdogEngine {
                     probe_result.service,
                     probe_result.status
                 );
-                let _ = ntfy.send_alert(&ntfy_title, &rem_result.message, priority, tags).await;
+
+                // Evita spam: Notifica apenas em transições de estado ou falhas/sucessos reais.
+                let should_notify = match rem_result.status {
+                    RemediationStatus::CircuitOpen => rem_result.just_opened,
+                    RemediationStatus::NotNeeded => false,
+                    _ => true // Success e Failed (tentativas ainda permitidas) notificam
+                };
+
+                if should_notify {
+                    let _ = ntfy.send_alert(&ntfy_title, &rem_result.message, priority, tags).await;
+                    // Pequeno respiro para evitar 429 (Too Many Requests) se houver múltiplos alertas
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                }
 
                 // ─── Webhook para o servidor controlador (opcional) ───────────
                 if let Some(url) = &webhook_url {

@@ -17,6 +17,8 @@ pub struct JwtConfig {
 pub struct Claims {
     /// Subject (identificador do cliente)
     pub sub: String,
+    /// Issuer (origem do token)
+    pub iss: String,
     /// Tempo de expiração
     pub exp: u64,
     /// Tempo de emissão
@@ -73,6 +75,7 @@ impl JwtConfig {
 
         let claims = Claims {
             sub: sub.to_string(),
+            iss: "pocket-noc-agent".to_string(),
             exp: now + self.expiration,
             iat: now,
             scopes,
@@ -103,7 +106,7 @@ impl JwtConfig {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.validate_exp = true;
         validation.validate_nbf = false; // nbf é opcional
-        validation.leeway = 0; // Sem tolerância de tempo
+        validation.leeway = 60; // Tolerância de 60 segundos para clock drift
 
         decode::<Claims>(
             token,

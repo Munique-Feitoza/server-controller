@@ -1,5 +1,5 @@
 use crate::error::Result;
-use tracing::{info, error};
+use tracing::{info, error, warn};
 
 /// Cliente para envio de notificações via ntfy.sh
 pub struct NtfyClient {
@@ -32,28 +32,41 @@ impl NtfyClient {
 
         info!("Sending ntfy alert '{}' (priority: {})", title, priority_str);
 
-        let response = self.client.post(&self.url)
-            .header("Title", title)
-            .header("Priority", priority_str)
-            .header("Tags", tags)
-            .body(message.to_string())
-            .send()
-            .await;
+        let mut attempts = 0;
+        let max_retries = 3;
 
-        match response {
-            Ok(resp) if resp.status().is_success() => {
-                info!("Ntfy notification sent successfully");
-                Ok(())
-            },
-            Ok(resp) => {
-                let status = resp.status();
-                error!("Failed to send ntfy notification. Status: {}", status);
-                Err(crate::error::AgentError::InternalError(format!("Ntfy error: {}", status)))
-            },
-            Err(e) => {
-                error!("Network error sending ntfy notification: {}", e);
-                Err(crate::error::AgentError::InternalError(format!("Network error: {}", e)))
+        while attempts <= max_retries {
+            let response = self.client.post(&self.url)
+                .header("Title", title)
+                .header("Priority", priority_str)
+                .header("Tags", tags)
+                .body(message.to_string())
+                .send()
+                .await;
+
+            match response {
+                Ok(resp) if resp.status().is_success() => {
+                    info!("Ntfy notification sent successfully");
+                    return Ok(());
+                },
+                Ok(resp) if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                    attempts += 1;
+                    let wait_secs = attempts * 2; // Exponencial simples: 2s, 4s, 6s...
+                    warn!("Ntfy rate limited (429). Retry {}/{} in {}s...", attempts, max_retries, wait_secs);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(wait_secs)).await;
+                },
+                Ok(resp) => {
+                    let status = resp.status();
+                    error!("Failed to send ntfy notification. Status: {}", status);
+                    return Err(crate::error::AgentError::InternalError(format!("Ntfy error: {}", status)));
+                },
+                Err(e) => {
+                    error!("Network error sending ntfy notification: {}", e);
+                    return Err(crate::error::AgentError::InternalError(format!("Network error: {}", e)));
+                }
             }
         }
+
+        Err(crate::error::AgentError::InternalError("Max retries reached for Ntfy".to_string()))
     }
 }

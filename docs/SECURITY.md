@@ -16,10 +16,9 @@ Toda a comunicação REST passa por um túnel SSH (Local Port Forwarding).
 
 - **Criptografia**: AES-256 de nível militar.
 - **Autenticação**: Baseada em par de chaves (Ed25519 preferencialmente).
-- **Proteção contra Intrusão (Sentinel Security)**: O Controller monitora falhas de autenticação SSH e login do sistema (`lastb`).
-  - **Visibilidade Expandida**: O dashboard exibe os top 10 IPs atacantes em tempo real.
-  - **Deep Log Parsing**: O agente analisa as últimas 500 entradas de log de segurança para identificar padrões de força bruta mesmo sob alta carga.
-  - **Intervenção Manual (BAN)**: Bloqueio instantâneo via IPTables diretamente pelo Controller mobile.
+- **Proteção contra Intrusão (Sentinel Security)**: O Controller monitora falhas de login do sistema (`lastb`) com inteligência de filtragem.
+  - **Filtro de Ruído**: A telemetria ignora tentativas isoladas e reporta apenas IPs que atingiram o threshold de segurança (padrão: 10 tentativas/hora), focando apenas em ameaças reais.
+  - **Intervenção Manual (BAN)**: Bloqueio instantâneo via IPTables diretamente pelo Controller. O agente usa `iptables -I` para garantir que o bloqueio fique no topo da cadeia `INPUT`.
 
 ### 3. Aplicação: JWT Auth (HMAC-SHA256)
 

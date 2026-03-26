@@ -9,7 +9,7 @@ use pocket_noc_agent::{
     commands::default_emergency_commands,
     telemetry::{TelemetryCollector, AlertManager, AlertType},
     notifications::NtfyClient,
-    watchdog::{WatchdogEngine, event::WatchdogEventStore},
+    watchdog::{WatchdogEngine, WatchdogConfig, event::WatchdogEventStore, remediation::RemediationEngine},
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -32,15 +32,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Configuração do JWT (CRÍTICO: use POCKET_NOC_SECRET em produção!)
     let jwt_secret = std::env::var("POCKET_NOC_SECRET")
+        .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| {
             tracing::warn!("⚠️  POCKET_NOC_SECRET não definido - usando padrão inseguro (TESTE APENAS)");
-            "test-insecure-secret-key-minimum-32-bytes-required-prodctn".to_string()
+            "super-secret-key-change-me-123".to_string()
         });
 
     let jwt_config = Arc::new(JwtConfig::new(jwt_secret.clone(), 3600)
         .expect("Failed to create JWT config"));
 
-    tracing::info!("✅ JWT configured - protected routes active");
+    let masked_secret = if jwt_secret.len() >= 4 {
+        format!("{}****", &jwt_secret[..4])
+    } else {
+        "****".to_string()
+    };
+    tracing::info!("✅ JWT configured - secret loaded (mask: {})", masked_secret);
 
     let collector = Arc::new(Mutex::new(TelemetryCollector::new()));
     let command_executor = Arc::new(pocket_noc_agent::commands::CommandExecutor::new(
@@ -48,8 +54,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let alert_manager = Arc::new(Mutex::new(AlertManager::with_defaults()));
 
+    // Configuração do Watchdog (lida do .env)
+    let config = WatchdogConfig::from_env();
+
     // Store compartilhado de eventos do Watchdog (ring buffer 500 eventos)
     let watchdog_store = Arc::new(Mutex::new(WatchdogEventStore::with_defaults()));
+    
+    // Motor de remediação compartilhado entre API e WatchdogEngine
+    let remediation_engine = Arc::new(Mutex::new(RemediationEngine::new(
+        config.max_failures,
+        config.cooldown_secs,
+    )));
 
     // Configuração do ntfy (Tópico dinâmico baseado no segredo para evitar stalkers)
     let ntfy_topic = std::env::var("NTFY_TOPIC")
@@ -63,6 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         command_executor,
         alert_manager:        alert_manager.clone(),
         watchdog_event_store: watchdog_store.clone(),
+        remediation_engine:   remediation_engine.clone(),
     };
 
     // ========== MONTAGEM FINAL ==========
@@ -81,6 +97,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/metrics", get(get_metrics))
         // ─── Watchdog endpoints ─────────────────────────────────────────────
         .route("/watchdog/events", get(get_watchdog_events))
+        .route("/watchdog/events", delete(clear_watchdog_events))
+        .route("/watchdog/reset", post(reset_watchdog))
+        .route("/watchdog/breakers", get(get_watchdog_breakers))
         .layer(middleware::from_fn_with_state(
             jwt_config.clone(),
             pocket_noc_agent::api::middleware::jwt_middleware,
@@ -119,7 +138,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ntfy_client_task = ntfy_client.clone();
     
     tokio::spawn(async move {
-        let mut last_notified_alerts: std::collections::HashMap<AlertType, String> = std::collections::HashMap::new();
+        // Padrão OMNI-DEV: Deduplicação inteligente com Cooldown
+        // Chave: (Tipo de Alerta, Componente/IP) -> Valor: Timestamp da última notificação
+        let mut last_notified_alerts: std::collections::HashMap<(AlertType, Option<String>), i64> = std::collections::HashMap::new();
         
         loop {
             // Coleta telemetria
@@ -128,33 +149,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Analisa alertas
                 let alert_mgr = alert_manager_task.lock().await;
                 if let Ok(alerts) = alert_mgr.analyze(&telemetry) {
-                    // Limpa do histórico alertas que não estão mais ativos
-                    let active_types: Vec<AlertType> = alerts.iter().map(|a| a.alert_type.clone()).collect();
-                    last_notified_alerts.retain(|k, _| active_types.contains(k));
+                    let now = chrono::Utc::now().timestamp();
+
+                    // Limpa do histórico alertas que não estão mais ativos para permitir novos disparos se voltarem
+                    let active_keys: Vec<(AlertType, Option<String>)> = alerts.iter().map(|a| (a.alert_type.clone(), a.component.clone())).collect();
+                    last_notified_alerts.retain(|k, _| active_keys.contains(k));
 
                     for alert in alerts {
-                        // DEDUPLICAÇÃO: Só notifica se a mensagem mudou ou se é um novo alerta
-                        if let Some(last_msg) = last_notified_alerts.get(&alert.alert_type) {
-                            if last_msg == &alert.message {
+                        let key = (alert.alert_type.clone(), alert.component.clone());
+
+                        // DEDUPLICAÇÃO & COOLDOWN: 
+                        // Só notifica se for novo ou se passaram 30 min (1800s) desde o último aviso do MESMO IP/Tipo
+                        if let Some(last_ts) = last_notified_alerts.get(&key) {
+                            if now - last_ts < 1800 {
                                 continue;
                             }
                         }
 
-                        // Envia notificação ntfy para cada novo alerta
-                        let priority = match alert.alert_type {
-                            AlertType::HighCpu | 
-                            AlertType::HighDisk |
-                            AlertType::HighTemperature |
-                            AlertType::SecurityThreat => 4, // High
-                            _ => 3, // Default
-                        };
-                        
-                        let tags = match alert.alert_type {
-                            AlertType::HighCpu => "cpu,warning",
-                            AlertType::SecurityThreat => "lock,skull,danger",
-                            AlertType::RecentReboot => "reboot,info",
-                            _ => "warning",
-                        };
+                        // Envia notificação ntfy para cada novo alerta ou após cooldown
+                        let priority = alert.alert_type.ntfy_priority();
+                        let tags = alert.alert_type.ntfy_tags();
 
                         let _ = ntfy_client_task.send_alert(
                             alert.alert_type.label(),
@@ -163,8 +177,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             tags
                         ).await;
 
-                        // Atualiza o histórico
-                        last_notified_alerts.insert(alert.alert_type, alert.message);
+                        // Atualiza o histórico com o timestamp atual
+                        last_notified_alerts.insert(key, now);
                     }
                 }
                 drop(alert_mgr);
@@ -180,8 +194,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             watchdog_store.clone(),
             ntfy_client.clone(),
         );
+        let rem_clone = remediation_engine.clone();
         tokio::spawn(async move {
-            watchdog_engine.run().await;
+            watchdog_engine.run(rem_clone).await;
         });
         tracing::info!("🐕 WatchdogEngine spawned — auto-remediation ativa");
     }

@@ -14,6 +14,7 @@ O **Pocket NOC Ultra** é uma solução de monitoramento e gestão de servidores
 - 🦀 **Agente Non-Intrusive (Rust)**: Monitoramento ultra eficiente com footprint de memória < 15MB. Zero-cost abstractions garantem que o monitor não afete a carga do host.
 - 📱 **Interface Cyber-Modern (Compose)**: Design inspirado em estética cyberpunk com Glassmorphism, otimizado para observabilidade rápida.
 - 🔐 **HackerSec Core**: Segurança Zero-Trust. Comunicação via túnel SSH criptografado e autenticação robusta com JWT (HMAC-SHA256).
+- 🐕 **Watchdog (Auto-Remediation)**: Sistema inteligente que monitora serviços e os reinicia automaticamente caso detecte falhas, com Circuit Breaker integrado para evitar loops infinitos.
 - 💀 **Hunter Mode (Process Management)**: Identifique e encerre processos zumbis ou pesados remotamente com precisão cirúrgica.
 
 ---
@@ -37,6 +38,8 @@ graph LR
         E[REST API] --> F[Telemetry Engine]
         F --> G[(Linux Kernel /proc)]
         E --> H[Action Center]
+        E --> I[Watchdog Engine]
+        I --> J[Circuit Breaker]
     end
 
     B -.-> D -.-> E
@@ -60,12 +63,14 @@ Para manter o padrão de excelência, a documentação está organizada por dom�
 ### Servidor (Ubuntu Server recomendado)
 
 ```bash
-# Compile com otimizações de release
+# Compile para binário estático (zero dependências)
 cd agent
-cargo build --release
+rustup target add x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-musl
 
+# O binário estará em target/x86_64-unknown-linux-musl/release/pocket-noc-agent
 # O binário bindará apenas em localhost para segurança máxima
-./target/release/pocket-noc-agent
+./target/x86_64-unknown-linux-musl/release/pocket-noc-agent
 ```
 
 ### Android

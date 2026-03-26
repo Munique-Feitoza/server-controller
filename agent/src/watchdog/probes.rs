@@ -298,12 +298,11 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
                 port:         3306,
                 timeout_secs: 3,
             }),
-            AnyProbeConfig::Http(HttpProbeConfig {
-                service:             "nginx-http-80".to_string(),
-                url:                 "http://127.0.0.1".to_string(),
-                timeout_secs:        5,
-                expected_status:     200,
-                degraded_latency_ms: 3000,
+            AnyProbeConfig::Tcp(TcpProbeConfig {
+                service:      "nginx-tcp-80".to_string(),
+                host:         "127.0.0.1".to_string(),
+                port:         80,
+                timeout_secs: 3,
             }),
         ],
 
@@ -318,17 +317,15 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
                 port:         3306,
                 timeout_secs: 3,
             }),
-            AnyProbeConfig::Http(HttpProbeConfig {
-                service:             "nginx-http-80".to_string(),
-                url:                 "http://127.0.0.1".to_string(),
-                timeout_secs:        5,
-                expected_status:     200,
-                degraded_latency_ms: 3000,
+            AnyProbeConfig::Tcp(TcpProbeConfig {
+                service:      "nginx-tcp-80".to_string(),
+                host:         "127.0.0.1".to_string(),
+                port:         80,
+                timeout_secs: 3,
             }),
             AnyProbeConfig::Http(HttpProbeConfig {
                 service:             "python-api".to_string(),
                 url:                 "http://127.0.0.1:8000/health".to_string(),
-                // Se a API não tiver /health, podemos testar só a raiz ou remover
                 timeout_secs:        5,
                 expected_status:     200,
                 degraded_latency_ms: 2000,
@@ -378,12 +375,11 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
                 port:         3000,
                 timeout_secs: 3,
             }),
-            AnyProbeConfig::Http(HttpProbeConfig {
-                service:             "nginx-http-80".to_string(),
-                url:                 "http://127.0.0.1".to_string(),
-                timeout_secs:        5,
-                expected_status:     200,
-                degraded_latency_ms: 2000,
+            AnyProbeConfig::Tcp(TcpProbeConfig {
+                service:      "nginx-tcp-80".to_string(),
+                host:         "127.0.0.1".to_string(),
+                port:         80,
+                timeout_secs: 3,
             }),
         ],
 
