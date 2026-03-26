@@ -14,7 +14,10 @@ use crate::{
     error::Result,
     services::ServiceMonitor,
     telemetry::{TelemetryCollector, AlertManager},
-    watchdog::event::WatchdogEventStore,
+    watchdog::{
+        event::WatchdogEventStore,
+        remediation::RemediationEngine,
+    },
 };
 
 /// Estado compartilhado da aplicação
@@ -25,6 +28,8 @@ pub struct AppState {
     pub alert_manager:        Arc<Mutex<AlertManager>>,
     /// Store de eventos do Watchdog — compartilhado com o engine background
     pub watchdog_event_store: Arc<Mutex<WatchdogEventStore>>,
+    /// Motor de remediação — compartilhado para reset manual de Circuit Breakers
+    pub remediation_engine:   Arc<Mutex<RemediationEngine>>,
 }
 
 /// GET /health - Healthcheck simples
@@ -298,4 +303,54 @@ pub async fn get_watchdog_events(
         "servers_summary": counts,
         "timestamp":       chrono::Utc::now().to_rfc3339(),
     })))
+}
+
+/// DELETE /watchdog/events - Limpa o histórico de eventos (logs) do Watchdog
+pub async fn clear_watchdog_events(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let mut store = state.watchdog_event_store.lock().await;
+    store.clear();
+    tracing::info!("🧹 Histórico do Watchdog limpo pelo usuário remoto.");
+    
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "success",
+            "message": "Watchdog event history cleared"
+        })),
+    )
+}
+
+/// POST /watchdog/reset - Reseta todos os Circuit Breakers do Watchdog no servidor
+pub async fn reset_watchdog(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let mut remediation = state.remediation_engine.lock().await;
+    remediation.reset_all();
+    
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "success",
+            "message": "All circuit breakers have been reset to CLOSED"
+        })),
+    )
+}
+
+/// GET /watchdog/breakers - Diagnóstico detalhado dos Circuit Breakers ativos
+pub async fn get_watchdog_breakers(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let remediation = state.remediation_engine.lock().await;
+    let states = remediation.circuit_states();
+    
+    (
+        StatusCode::OK,
+        Json(json!({
+            "breakers": states,
+            "count": states.len(),
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
 }

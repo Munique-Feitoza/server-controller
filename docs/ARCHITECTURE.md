@@ -43,13 +43,13 @@ sequenceDiagram
 
 ---
 
-## 🔔 Gestão Inteligente de Alertas (Deduplicação)
+## 🔔 Gestão Inteligente de Alertas (Deduplicação & Cooldown)
 
-Para evitar o "Flood" de notificações (problema comum em sistemas de monitoramento), o Pocket NOC Agent implementa uma camada de deduplicação stateful:
+Para evitar o "Flood" de notificações e exaustão de API (rate limiting), o Pocket NOC Agent implementa uma camada de deduplicação stateful e temporal:
 
-- **State Tracking**: O loop de telemetria mantém um mapa em memória dos últimos alertas notificados.
-- **Delta Notification**: Uma nova notificação só é disparada se a mensagem do alerta mudar (ex: aumento no número de tentativas de intrusão) ou se for um novo tipo de alerta.
-- **Auto-Cleanup**: Quando o threshold volta ao normal e o alerta deixa de existir na análise, o estado é limpo automaticamente.
+- **State Tracking**: O loop de telemetria mantém um mapa em memória dos últimos alertas notificados usando a tupla `(Tipo de Alerta, Componente/IP)` como chave.
+- **Cooldown de 30 Minutos**: Uma nova notificação para o mesmo componente e tipo só é disparada se houver um intervalo de 1800 segundos desde o último aviso. Isso garante que você seja notificado do ataque inicial, mas não receba spam de cada incremento no contador de falhas.
+- **Auto-Cleanup**: Quando o threshold volta ao normal e o alerta deixa de existir na análise, o estado é limpo automaticamente para permitir que futuros eventos disparem notificações imediatas.
 
 ---
 

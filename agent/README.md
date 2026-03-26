@@ -8,9 +8,12 @@ Um agente ultra-leve, escrito em Rust, que coleta telemetria de sistema em tempo
 - ✅ **Telemetria em tempo real**: CPU, RAM, Disco, Temperatura, Uptime, Load Average
 - ✅ **Monitoramento de Serviços**: Verifica status de serviços systemd
 - ✅ **Comandos de Emergência**: Execute ações pré-aprovadas (restart nginx, docker, etc)
-- ✅ **API REST**: Endpoints simples e eficientes
-- ✅ **Autenticação**: JWT e API Key
-- ✅ **Logging estruturado**: Integrado com journald
+- ✅ **Watchdog (Auto-Remediation)**: Reinicia serviços falhos automaticamente com lógica de Circuit Breaker.
+- ✅ **Anti-Spam de Alertas**: Cooldown de 30 minutos e deduplicação inteligente por IP/Tipo.
+- ✅ **Sentinel Security**: Filtragem de ataques de força bruta (mostra apenas IPs com 10+ tentativas).
+- ✅ **API REST**: Endpoints simples e eficientes via HTTPS/SSH Tunnel.
+- ✅ **Autenticação**: JWT e API Key.
+- ✅ **Logging estruturado**: Integrado com journald.
 
 ## 📦 Dependências Principais
 
@@ -29,14 +32,24 @@ jsonwebtoken = Autenticação JWT
 - Rust 1.70+
 - Linux (compatível com Ubuntu, Debian, CentOS, etc)
 
-### Build
+### Build (Binário Estático - Recomendado)
+
+```bash
+cd agent
+rustup target add x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-musl
+```
+
+O binário compilado estará em `target/x86_64-unknown-linux-musl/release/pocket-noc-agent`.
+
+### Build (Dependências Dinâmicas)
 
 ```bash
 cd agent
 cargo build --release
 ```
 
-O binário compilado estará em `target/release/pocket-noc-agent`.
+O binário estará em `target/release/pocket-noc-agent`.
 
 ### Instalação como Serviço
 
@@ -98,6 +111,13 @@ curl -X POST -H "Authorization: Bearer <token>" https://localhost:9443/commands/
 # Resposta: { "command_id": "restart_nginx", "exit_code": 0, "stdout": "...", "stderr": "..." }
 ```
 
+### Histórico do Watchdog
+
+```bash
+curl -H "Authorization: Bearer <token>" https://localhost:9443/watchdog/events
+# Resposta: Lista dos últimos 500 eventos de auto-remediação (ring buffer)
+```
+
 ### Métricas Prometheus
 
 ```bash
@@ -128,7 +148,7 @@ Apenas os comandos definidos em `default_emergency_commands()` podem ser executa
 
 ## 🛠️ Estrutura do Código
 
-```
+```text
 src/
 ├── main.rs             # Entrypoint e configuração do servidor
 ├── lib.rs              # Declaração de módulos
@@ -147,6 +167,12 @@ src/
 │   ├── mod.rs
 │   ├── handlers.rs     # Endpoints REST
 │   └── middleware.rs   # Autenticação e logging
+├── watchdog/
+│   ├── mod.rs          # Engine principal do Watchdog
+│   ├── probes.rs       # Sensores (HTTP, TCP, Service)
+│   ├── remediation.rs  # Lógica de recuperação automática
+│   ├── circuit_breaker.rs # Estabilidade e prevenção de loops
+│   └── event.rs        # Store de eventos reativo
 └── auth/
     └── mod.rs          # JWT e API Key
 ```

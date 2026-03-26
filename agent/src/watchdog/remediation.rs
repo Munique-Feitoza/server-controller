@@ -72,6 +72,7 @@ pub struct RemediationResult {
     pub status:    RemediationStatus,
     pub attempts:  u32,
     pub circuit_open: bool,
+    pub just_opened:  bool, // Novo: indica se o circuito ACABOU de abrir
     pub message:   String,
 }
 
@@ -134,19 +135,17 @@ impl RemediationEngine {
                 service, remaining
             );
             return RemediationResult {
-                action:       action.clone(),
-                status:       RemediationStatus::CircuitOpen,
-                attempts:     breaker.failure_count(),
+                action: action.clone(),
+                status: RemediationStatus::CircuitOpen,
+                attempts: breaker.failure_count(),
                 circuit_open: true,
-                message:      format!(
-                    "[{}] Remediação bloqueada pelo Circuit Breaker. \
-                     Intervenção humana necessária. Cooldown: {}s",
-                    service, remaining
+                just_opened: false, // Já estava aberto em ciclos anteriores
+                message: format!(
+                    "[{}] Ação '{}' BLOQUEADA pelo Circuit Breaker (Aberto). Cooldown: {}s",
+                    service, action, remaining
                 ),
             };
         }
-
-        let attempts_before = breaker.failure_count();
 
         // 2. Executa a ação no sistema operacional
         let success = self.execute_action(&action);
@@ -160,7 +159,10 @@ impl RemediationEngine {
 
         let breaker = self.breaker_for(service);
         let circuit_open = breaker.is_open();
-        let attempts = attempts_before + 1;
+        let attempts = breaker.failure_count();
+        
+        // Determina se o circuito se abriu NESTA tentativa
+        let just_opened = circuit_open && (attempts == self.max_failures);
 
         let (status, message) = if success {
             (
@@ -193,6 +195,7 @@ impl RemediationEngine {
             status,
             attempts,
             circuit_open,
+            just_opened,
             message,
         }
     }
@@ -250,33 +253,88 @@ impl RemediationEngine {
     /// Retorna o mapa de action recomendada dado um nome de serviço
     /// (usado pelo WatchdogEngine para decidir o que fazer quando um probe falha)
     pub fn recommended_action(service: &str) -> RemediationAction {
-        match service {
-            // Serviços web — restart direto
-            s if s.contains("nginx")       => RemediationAction::RestartService(s.to_string()),
-            s if s.contains("apache")      => RemediationAction::RestartService(s.to_string()),
-            s if s.contains("php-fpm")     => RemediationAction::RestartService(s.to_string()),
-            s if s.contains("php8")        => RemediationAction::RestartService(s.to_string()),
-            // ERP/backends — restart
-            s if s.contains("gunicorn")    => RemediationAction::RestartService(s.to_string()),
-            s if s.contains("uvicorn")     => RemediationAction::RestartService(s.to_string()),
-            // Bancos de dados — CUIDADO: restart de BD pode corromper dados
-            // Usamos reload primeiro, escalamos se falhar
-            s if s.contains("mysql")       => RemediationAction::ReloadConfig(s.to_string()),
-            s if s.contains("postgresql")  => RemediationAction::ReloadConfig(s.to_string()),
-            s if s.contains("postgres")    => RemediationAction::ReloadConfig(s.to_string()),
-            // Probes TCP/HTTP — não têm ação direta de systemctl
-            s if s.ends_with("-tcp")       => RemediationAction::EscalateToHuman,
-            s if s.ends_with("-http")      => RemediationAction::EscalateToHuman,
-            // Fallback genérico
-            s                              => RemediationAction::RestartService(s.to_string()),
+        // 1. Normalização inteligente: extrai o nome base do serviço
+        // Remove sufixos comuns de probes (ex: "nginx-http-80" -> "nginx")
+        let base_name = service
+            .split("-http")
+            .next().unwrap()
+            .split("-tcp")
+            .next().unwrap()
+            .to_string();
+
+        match base_name.as_str() {
+            // Pilha RunCloud (Smarter Mapping para Munique)
+            s if s.contains("nginx")  => {
+                // No RunCloud, mesmo sensores http/tcp para nginx devem resetar o nginx-rc
+                if service.contains("-rc") || service.contains("http") || service.contains("80") { 
+                    RemediationAction::RestartService("nginx-rc".to_string()) 
+                } else { 
+                    RemediationAction::RestartService("nginx".to_string()) 
+                }
+            },
+            s if s.contains("apache") => {
+                if service.contains("-rc") { RemediationAction::RestartService("apache2-rc".to_string()) }
+                else { RemediationAction::RestartService("apache2".to_string()) }
+            },
+            "mariadb" | "mysql" => RemediationAction::RestartService("mariadb".to_string()),
+            "postgresql" | "postgres" => {
+                if service.contains("@") { RemediationAction::RestartService(service.to_string()) }
+                else { RemediationAction::RestartService("postgresql".to_string()) }
+            },
+            
+            // PHP dinâmico (RunCloud usa phpXXrc-fpm)
+            s if s.starts_with("php") => {
+                let version = s.chars().filter(|c| c.is_digit(10)).collect::<String>();
+                if !version.is_empty() {
+                    RemediationAction::RestartService(format!("php{}rc-fpm", version))
+                } else {
+                    RemediationAction::RestartService("php81rc-fpm".to_string())
+                }
+            },
+            
+            // ERP / Python Stacks (Winup)
+            "gunicorn" | "uvicorn" | "python" | "python-api" => {
+                RemediationAction::RestartService("gunicorn".to_string())
+            },
+            
+            // Nodes & Frontends
+            "nextjs" | "node" | "npm" => RemediationAction::RestartService("nextjs".to_string()),
+
+            // Fallback genérico: se o nome base parecer um serviço systemd, tenta ele.
+            // Probes TCP/HTTP puras que não casarem com os nomes acima caem aqui.
+            s if s.len() > 1 && !s.contains('.') => RemediationAction::RestartService(s.to_string()),
+            
+            _ => RemediationAction::EscalateToHuman,
         }
     }
 
+    /// Registra sucesso para um serviço (fecha o Circuit Breaker)
+    /// Chamado pelo WatchdogEngine quando o probe volta a ser Healthy
+    pub fn record_success(&mut self, service: &str) {
+        self.breaker_for(service).record_success();
+    }
+
+    /// Reseta todos os circuit breakers (Reset Manual)
+    pub fn reset_all(&mut self) {
+        for breaker in self.breakers.values_mut() {
+            breaker.record_success();
+        }
+        tracing::info!("♻️ Todos os Circuit Breakers foram resetados manualmente.");
+    }
+
     /// Retorna o estado atual de todos os circuit breakers (para debug e dashboard)
-    pub fn circuit_states(&self) -> HashMap<String, String> {
+    pub fn circuit_states(&self) -> Vec<serde_json::Value> {
         self.breakers
             .iter()
-            .map(|(k, v)| (k.clone(), v.state().to_string()))
+            .map(|(k, v)| {
+                serde_json::json!({
+                    "service": k,
+                    "state": v.state().to_string(),
+                    "failure_count": v.failure_count(),
+                    "is_open": v.is_open(),
+                    "remaining_cooldown": v.remaining_cooldown_secs()
+                })
+            })
             .collect()
     }
 }

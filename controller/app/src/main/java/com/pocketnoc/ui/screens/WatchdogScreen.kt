@@ -11,7 +11,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -85,6 +87,9 @@ fun WatchdogScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.clearLogs(server) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Clear Logs", tint = ColorFailed.copy(alpha = 0.8f))
+                    }
                     IconButton(onClick = { viewModel.fetchEvents(server) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = NeonCyan)
                     }
@@ -166,7 +171,12 @@ fun WatchdogScreen(
 
                             // Timeline de eventos
                             items(s.events, key = { it.id }) { event ->
-                                WatchdogEventCard(event = event)
+                                WatchdogEventCard(
+                                    event = event,
+                                    onReset = { 
+                                        viewModel.performAtomicReset(server, event.service)
+                                    }
+                                )
                             }
                         }
                     }
@@ -329,7 +339,10 @@ private fun WatchdogSummaryCard(
 // ─── Card de evento individual — coração da timeline ─────────────────────────
 
 @Composable
-fun WatchdogEventCard(event: WatchdogEvent) {
+fun WatchdogEventCard(
+    event: WatchdogEvent,
+    onReset: () -> Unit
+) {
     val statusColor = when (event.finalStatus) {
         "Success"     -> ColorSuccess
         "Failed"      -> ColorFailed
@@ -470,14 +483,40 @@ fun WatchdogEventCard(event: WatchdogEvent) {
 
                 // ─── Badge do role do servidor ────────────────────────────────
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    RoleBadge(event.serverRole)
-                    Text(
-                        event.serverHostname,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary.copy(alpha = 0.6f),
-                        fontFamily = FontFamily.Monospace
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        RoleBadge(event.serverRole)
+                        Text(
+                            event.serverHostname,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary.copy(alpha = 0.6f),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    
+                    // BOTÃO DE RESET (Só aparece quando o circuito está aberto)
+                    if (event.circuitOpen) {
+                        Button(
+                            onClick = onReset,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ColorCircuit.copy(alpha = 0.2f),
+                                contentColor = ColorCircuit
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            modifier = Modifier
+                                .height(28.dp)
+                                .border(1.dp, ColorCircuit.copy(alpha = 0.5f), RoundedCornerShape(20.dp)),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Reset & Restart", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

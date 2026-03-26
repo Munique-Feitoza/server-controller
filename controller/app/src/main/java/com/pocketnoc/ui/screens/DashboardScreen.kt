@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pocketnoc.ui.components.*
 import com.pocketnoc.ui.theme.*
@@ -30,12 +32,16 @@ import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.ui.navigation.AppRoute
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.TelemetryUiState
+import com.pocketnoc.ui.viewmodels.WatchdogViewModel
+import com.pocketnoc.utils.ConnectivityStatus
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     navController: androidx.navigation.NavHostController,
     viewModel: DashboardViewModel,
+    watchdogViewModel: WatchdogViewModel = hiltViewModel(),
     onNavigateToAddServer: () -> Unit
 ) {
     val servers by viewModel.allServers.collectAsState()
@@ -46,6 +52,7 @@ fun DashboardScreen(
     val selectedServer = if (servers.isNotEmpty()) servers[safeIndex] else null
     
     val telemetryState = viewModel.telemetryState.collectAsState()
+    val networkStatus by viewModel.networkStatus.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -79,11 +86,11 @@ fun DashboardScreen(
     }
 
     // Auto-refresh a cada 30 segundos
-    LaunchedEffect(selectedServer) {
+    LaunchedEffect(selectedServer, networkStatus) {
         while (true) {
             kotlinx.coroutines.delay(30000)
-            selectedServer?.let {
-                viewModel.fetchTelemetry(it)
+            if (networkStatus == ConnectivityStatus.Available && selectedServer != null) {
+                viewModel.fetchTelemetry(selectedServer)
             }
         }
     }
@@ -143,6 +150,27 @@ fun DashboardScreen(
                     )
                 )
         ) {
+            // ========== OFFLINE BANNER ==========
+            if (networkStatus == ConnectivityStatus.Unavailable || networkStatus == ConnectivityStatus.Lost) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Red.copy(alpha = 0.85f))
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.CloudOff, contentDescription = "Offline", tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "MODO OFFLINE — Dados em Cache",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
             // ========== SERVER TABS ==========
             if (servers.isNotEmpty()) {
                 ScrollableTabRow(
@@ -173,9 +201,42 @@ fun DashboardScreen(
                 }
             }
 
+            // ========== FEATURE TABS ==========
+            var selectedFeatureTabIndex by remember { mutableStateOf(0) }
+            if (servers.isNotEmpty()) {
+                TabRow(
+                    selectedTabIndex = selectedFeatureTabIndex,
+                    containerColor = DarkBackground,
+                    contentColor = NeonCyan,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedFeatureTabIndex]),
+                            color = NeonCyan
+                        )
+                    }
+                ) {
+                    Tab(
+                        selected = selectedFeatureTabIndex == 0,
+                        onClick = { selectedFeatureTabIndex = 0 },
+                        text = { Text("📊 METRICS") },
+                        selectedContentColor = NeonCyan,
+                        unselectedContentColor = TextSecondary
+                    )
+                    Tab(
+                        selected = selectedFeatureTabIndex == 1,
+                        onClick = { selectedFeatureTabIndex = 1 },
+                        text = { Text("🐕 WATCHDOG") },
+                        selectedContentColor = NeonMagenta,
+                        unselectedContentColor = TextSecondary
+                    )
+                }
+            }
+
             // ========== CONTENT ==========
             Box(modifier = Modifier.fillMaxSize()) {
-                when (val state = telemetryState.value) {
+                if (selectedFeatureTabIndex == 1 && selectedServer != null) {
+                    WatchdogScreen(server = selectedServer, viewModel = watchdogViewModel)
+                } else when (val state = telemetryState.value) {
                     is TelemetryUiState.Loading -> {
                         CircularProgressIndicator(
                             modifier = Modifier.align(Alignment.Center),

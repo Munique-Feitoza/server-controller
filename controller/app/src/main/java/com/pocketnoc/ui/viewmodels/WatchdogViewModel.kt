@@ -10,7 +10,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.pocketnoc.utils.ConnectivityStatus
+import com.pocketnoc.utils.NetworkConnectivityObserver
 import javax.inject.Inject
 
 // ─── State Machine para a UI ──────────────────────────────────────────────────
@@ -43,11 +47,19 @@ sealed class WatchdogUiState {
  */
 @HiltViewModel
 class WatchdogViewModel @Inject constructor(
-    private val repository: ServerRepository
+    private val repository: ServerRepository,
+    private val networkObserver: NetworkConnectivityObserver
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<WatchdogUiState>(WatchdogUiState.Loading)
     val state: StateFlow<WatchdogUiState> = _state.asStateFlow()
+
+    private val networkStatus: StateFlow<ConnectivityStatus> = networkObserver.observe()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ConnectivityStatus.Available
+        )
 
     // Filtros selecionados pelo usuário na UI
     private val _selectedServerId = MutableStateFlow<String?>(null)
@@ -61,25 +73,77 @@ class WatchdogViewModel @Inject constructor(
     val knownServers: StateFlow<List<String>> = _knownServers.asStateFlow()
 
     // Controle de polling
-    private var pollingActive = false
+    private var pollingJob: kotlinx.coroutines.Job? = null
 
     /**
-     * Inicia polling automático a cada 30s quando a tela entra em foreground.
-     * O polling para quando o ViewModel é destruído (viewModelScope cancela tudo).
+     * Inicia polling automático a cada 30s.
+     * Se já houver um polling ativo, ele é cancelado e reiniciado para o novo servidor.
+     * Isso garante reatividade total na troca de abas/servidores na UI.
      */
     fun startPolling(server: ServerEntity) {
-        if (pollingActive) return
-        pollingActive = true
-        viewModelScope.launch {
-            while (pollingActive) {
-                fetchEvents(server)
+        pollingJob?.cancel()
+        pollingJob = viewModelScope.launch {
+            while (true) {
+                if (networkStatus.value == ConnectivityStatus.Available) {
+                    fetchEvents(server)
+                }
                 delay(30_000L)
             }
         }
     }
 
     fun stopPolling() {
-        pollingActive = false
+        pollingJob?.cancel()
+        pollingJob = null
+    }
+
+    /**
+     * Limpa o histórico de eventos remotamente no agente.
+     */
+    fun clearLogs(server: ServerEntity) {
+        viewModelScope.launch {
+            try {
+                repository.clearWatchdogEvents(server)
+                _state.value = WatchdogUiState.Empty
+            } catch (e: Exception) {
+                _state.value = WatchdogUiState.Error("Falha ao limpar logs: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Reseta todos os Circuit Breakers do servidor.
+     * Útil quando o administrador já resolveu os problemas e quer que o Watchdog volte ao modo normal.
+     */
+    fun resetCircuits(server: ServerEntity) {
+        viewModelScope.launch {
+            try {
+                repository.resetWatchdogCircuits(server)
+                fetchEvents(server) // Atualiza a lista para ver o estado fechado
+            } catch (e: Exception) {
+                _state.value = WatchdogUiState.Error("Falha ao resetar circuitos: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Reinicia um serviço e também tenta resetar os circuitos (Ação Combinada)
+     */
+    fun performAtomicReset(server: ServerEntity, serviceName: String) {
+        viewModelScope.launch {
+            _state.value = WatchdogUiState.Loading
+            try {
+                // 1. Reinicia o serviço via systemctl
+                repository.performServiceAction(server, serviceName, "restart")
+                // 2. Reseta os circuitos do watchdog (para limpar o "Circuit Open")
+                repository.resetWatchdogCircuits(server)
+                // 3. Atualiza eventos
+                delay(1000) // Pequeno delay para o agente processar o restart
+                fetchEvents(server)
+            } catch (e: Exception) {
+                _state.value = WatchdogUiState.Error("Falha no reset atômico: ${e.message}")
+            }
+        }
     }
 
     /** Busca os eventos do agente com os filtros atualmente selecionados */

@@ -89,4 +89,10 @@ interface AgentApiService {
         @Query("status") status: String? = null,
         @Query("limit") limit: Int = 50
     ): WatchdogEventsResponse
+
+    @DELETE("watchdog/events")
+    suspend fun deleteWatchdogEvents(): GenericResponse
+
+    @POST("watchdog/reset")
+    suspend fun resetWatchdog(): GenericResponse
 }

@@ -91,7 +91,11 @@ object SshTunnelManager {
                 config["server_host_key"] = algorithms
                 
                 session?.setConfig(config)
-
+                
+                // Resiliência: Keep-Alive para evitar que o servidor dê "Connection Reset"
+                session.setServerAliveInterval(30000) // 30s
+                session.setServerAliveCountMax(3)
+                
                 session.connect(15000) // 15s timeout
                 
                 // Se chegou aqui, a autenticação foi um sucesso! Reseta o contador.
@@ -122,6 +126,10 @@ object SshTunnelManager {
 
             val finalError = "Falha no SSH: $errorMsg"
             Log.e(TAG, "❌ $finalError", e)
+            
+            // Cleanup: Garante que sessões falhas não fiquem presas em "reset"
+            sessions.remove(serverId)?.disconnect()
+            
             Result.failure(Exception(finalError))
         }
     }

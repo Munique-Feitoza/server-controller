@@ -27,8 +27,8 @@ impl SecurityMetrics {
         // Calcula o total de tentativas de invasão considerando TODOS os IPs
         let total_failed = failed_logins.iter().map(|f| f.count).sum();
         
-        // Lista apenas os agressores insistentes (reduz ruído de IPs que já levaram block)
-        failed_logins.retain(|f| f.count > 10);
+        // Retorna todos os suspeitos para que o AlertManager decida o threshold
+        failed_logins.sort_by(|a, b| b.count.cmp(&a.count));
         
         Ok(Self {
             active_ssh_sessions,
@@ -47,8 +47,8 @@ impl SecurityMetrics {
     fn parse_failed_logins() -> Option<Vec<FailedLogin>> {
         use std::collections::HashMap;
         
-        // lastb -s "-15 minutes" -a mostra as tentativas recentes com IP e tempo
-        let output = Command::new("lastb").arg("-s").arg("-15 minutes").arg("-a").output().ok()?;
+        // lastb -s "-1 hours" -a mostra as tentativas na última hora com IP e tempo
+        let output = Command::new("lastb").arg("-s").arg("-1 hours").arg("-a").output().ok()?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         
         let mut ip_counts: HashMap<String, (usize, String)> = HashMap::new();
@@ -74,6 +74,7 @@ impl SecurityMetrics {
 
         let mut result: Vec<FailedLogin> = ip_counts
             .into_iter()
+            .filter(|(_, (count, _))| *count >= crate::telemetry::AlertThresholds::default().security_threat_threshold) // Padrão OMNI-DEV: Foca apenas em ameaças reais
             .map(|(ip, (count, last_attempt))| FailedLogin { ip, count, last_attempt })
             .collect();
             
@@ -91,7 +92,7 @@ impl SecurityMetrics {
         }
 
         let status = Command::new("iptables")
-            .arg("-A")
+            .arg("-I") // Usa -I (Insert) em vez de -A (Append) para garantir que fique no TOPO da regra
             .arg("INPUT")
             .arg("-s")
             .arg(ip)

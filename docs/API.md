@@ -42,7 +42,8 @@ Atualiza os thresholds de alerta em tempo real.
 {
   "cpu_threshold_percent": 85.0,
   "memory_threshold_percent": 90.0,
-  "disk_threshold_percent": 95.0
+  "disk_threshold_percent": 95.0,
+  "security_threat_threshold": 15
 }
 ```
 

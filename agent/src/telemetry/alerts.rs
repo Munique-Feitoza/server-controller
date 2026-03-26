@@ -52,6 +52,29 @@ impl AlertType {
             Self::RecentReboot => "#2196F3",                   // Blue
         }
     }
+
+    /// Retorna a prioridade para o ntfy (1-5)
+    pub fn ntfy_priority(&self) -> u8 {
+        match self {
+            Self::HighCpu | 
+            Self::HighDisk |
+            Self::HighTemperature |
+            Self::SecurityThreat => 4, // High
+            _ => 3, // Default
+        }
+    }
+
+    /// Retorna as tags para o ntfy
+    pub fn ntfy_tags(&self) -> &str {
+        match self {
+            Self::HighCpu => "cpu,warning",
+            Self::SecurityThreat => "lock,skull,danger",
+            Self::RecentReboot => "reboot,info",
+            Self::HighDisk => "floppy_disk,warning",
+            Self::HighTemperature => "thermometer,warning",
+            _ => "warning",
+        }
+    }
 }
 
 /// Representa um alerta individual
@@ -73,6 +96,7 @@ pub struct Alert {
 
 /// Configuração de thresholds para alertas
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AlertThresholds {
     /// CPU acima de X% (padrão: 80%)
     pub cpu_threshold_percent: f32,
@@ -84,6 +108,8 @@ pub struct AlertThresholds {
     pub temperature_threshold_celsius: f32,
     /// Minutos desde o boot para alertar de reboot (padrão: 5)
     pub reboot_threshold_minutes: u64,
+    /// Mínimo de tentativas de login falhas por IP (padrão: 10)
+    pub security_threat_threshold: usize,
 }
 
 impl Default for AlertThresholds {
@@ -94,6 +120,7 @@ impl Default for AlertThresholds {
             disk_threshold_percent: 90.0,
             temperature_threshold_celsius: 80.0,
             reboot_threshold_minutes: 5,
+            security_threat_threshold: 10,
         }
     }
 }
@@ -207,18 +234,19 @@ impl AlertManager {
             });
         }
 
-        // Verificar ameaças de segurança
-        if telemetry.security.failed_login_attempts > 5 {
+        // Verificar ameaças de segurança — Filtrado por IP individual (HackerSec Core)
+        // Só dispara se um ÚNICO IP atingir o threshold configurado
+        if let Some(offender) = telemetry.security.failed_logins.iter().find(|f| f.count >= self.thresholds.security_threat_threshold) {
             alerts.push(Alert {
                 alert_type: AlertType::SecurityThreat,
                 message: format!(
-                    "Múltiplas tentativas de login falhadas detectadas: {}",
-                    telemetry.security.failed_login_attempts
+                    "Detectado ataque massivo: IP {} com {} tentativas de acesso",
+                    offender.ip, offender.count
                 ),
-                current_value: telemetry.security.failed_login_attempts as f32,
-                threshold: 5.0,
+                current_value: offender.count as f32,
+                threshold: self.thresholds.security_threat_threshold as f32,
                 timestamp: now,
-                component: None,
+                component: Some(offender.ip.clone()),
             });
         }
 

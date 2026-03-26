@@ -94,8 +94,13 @@ class ServerRepository @Inject constructor(
         }
         
         val url = if (server.localPort != null) "http://localhost:${server.localPort}" else server.url
+        
+        // Geração dinâmica de token para garantir sincronia com local.properties e mitigar expiração
+        val currentSecret = server.secret ?: PocketNOCConfig.secret
+        val dynamicToken = com.pocketnoc.utils.JwtUtils.generateToken(currentSecret)
+        
         return apiCache.getOrPut(server.id) {
-            RetrofitClient.getInstance(url, server.token).create(AgentApiService::class.java)
+            RetrofitClient.getInstance(url, dynamicToken).create(AgentApiService::class.java)
         }
     }
 
@@ -214,6 +219,30 @@ class ServerRepository @Inject constructor(
             apiService.getWatchdogEvents(serverId = serverId, status = status, limit = limit)
         } catch (e: Exception) {
             throw Exception("Failed to fetch watchdog events: ${e.message}")
+        }
+    }
+
+    /**
+     * Limpa remotamente o histórico de eventos no agente.
+     */
+    suspend fun clearWatchdogEvents(server: ServerEntity) = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.deleteWatchdogEvents()
+        } catch (e: Exception) {
+            throw Exception("Failed to clear watchdog logs: ${e.message}")
+        }
+    }
+
+    /**
+     * Reseta manualmente todos os Circuit Breakers no agente remoto.
+     */
+    suspend fun resetWatchdogCircuits(server: ServerEntity) = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.resetWatchdog()
+        } catch (e: Exception) {
+            throw Exception("Failed to reset watchdog circuits: ${e.message}")
         }
     }
 

@@ -6,7 +6,7 @@ import java.util.*
 
 object JwtUtils {
     fun generateToken(secret: String, username: String = "admin-pocket-noc"): String {
-        val algorithm = Algorithm.HMAC256(secret)
+        val algorithm = Algorithm.HMAC256(secret.trim())
         return JWT.create()
             .withSubject(username)
             .withIssuer("pocket-noc-android")
