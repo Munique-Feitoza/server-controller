@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * Cores de status fixas — iguais em dark e light.
- * Vermelho é sempre vermelho, independente do tema.
+ * Vermelho e sempre vermelho, independente do tema.
  */
 object StatusColors {
     val critical = Color(0xFFEF5350)
@@ -20,7 +20,7 @@ object StatusColors {
 
 /**
  * Cores neon/accent que variam entre dark e light.
- * Providas via CompositionLocal pelo PocketNOCTheme.
+ * Disponibilizadas via CompositionLocal pelo PocketNOCTheme.
  */
 data class ExtendedColors(
     val cyan: Color,
@@ -52,7 +52,7 @@ val LightExtended = ExtendedColors(
 val LocalExtendedColors = staticCompositionLocalOf { DarkExtended }
 
 /**
- * Accessors semânticos que delegam para MaterialTheme.colorScheme.
+ * Acessores semanticos que delegam para MaterialTheme.colorScheme.
  * Usar estes em vez de cores hardcoded para dark/light funcionar.
  */
 object AppColors {
@@ -73,7 +73,7 @@ object AppColors {
 
     val error: Color         @Composable get() = MaterialTheme.colorScheme.error
 
-    // Extended neon colors
+    // Cores neon estendidas
     val cyan: Color    @Composable get() = LocalExtendedColors.current.cyan
     val magenta: Color @Composable get() = LocalExtendedColors.current.magenta
     val blue: Color    @Composable get() = LocalExtendedColors.current.blue
