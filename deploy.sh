@@ -24,18 +24,18 @@ fi
 echo "✅ Binário compilado: $BINARY"
 echo ""
 
-# Dados dos servidores
+# Dados dos servidores (de local.properties)
 declare -A SERVERS
-SERVERS[1]="1.2.3.4"
-SERVERS[2]="5.6.7.8"
-SERVERS[3]="9.10.11.12"
-SERVERS[4]="13.14.15.16"
+SERVERS[1]="158.69.126.90"
+SERVERS[2]="66.70.178.190"
+SERVERS[3]="142.44.137.130"
+SERVERS[4]="144.217.255.109"
 
 declare -A NAMES
-NAMES[1]="server1"
-NAMES[2]="server2"
-NAMES[3]="server3"
-NAMES[4]="server4"
+NAMES[1]="Host Genix"
+NAMES[2]="HOST Viral"
+NAMES[3]="Host WINUP"
+NAMES[4]="WINUP"
 
 SSH_USER="runcloud"
 

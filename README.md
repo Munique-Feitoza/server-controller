@@ -1,4 +1,4 @@
-# 🌌 Pocket NOC Ultra — Comandos de Infraestrutura no seu Bolso
+# Pocket NOC Ultra — Comandos de Infraestrutura no seu Bolso
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-blue?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
@@ -9,73 +9,116 @@ O **Pocket NOC Ultra** é uma solução de monitoramento e gestão de servidores
 
 ---
 
-## 💎 Diferenciais Técnicos
+## Diferenciais Técnicos
 
-- 🦀 **Agente Non-Intrusive (Rust)**: Monitoramento ultra eficiente com footprint de memória < 15MB. Zero-cost abstractions garantem que o monitor não afete a carga do host.
-- 📱 **Interface Cyber-Modern (Compose)**: Design inspirado em estética cyberpunk com Glassmorphism, otimizado para observabilidade rápida.
-- 🔐 **HackerSec Core**: Segurança Zero-Trust. Comunicação via túnel SSH criptografado e autenticação robusta com JWT (HMAC-SHA256).
-- 🐕 **Watchdog (Auto-Remediation)**: Sistema inteligente que monitora serviços e os reinicia automaticamente caso detecte falhas, com Circuit Breaker integrado para evitar loops infinitos.
-- 💀 **Hunter Mode (Process Management)**: Identifique e encerre processos zumbis ou pesados remotamente com precisão cirúrgica.
+- **Agente Non-Intrusive (Rust)**: Monitoramento ultra eficiente com footprint de memória < 15 MB. Zero-cost abstractions garantem que o monitor não afete a carga do host. Limites de CPU (5%) e RAM (128 MB) aplicados pelo kernel via systemd.
+- **Interface Cyber-Modern (Compose)**: Design com Glassmorphism, otimizado para observabilidade rápida no mobile.
+- **Munux Security**: Segurança Zero-Trust. Comunicação via túnel SSH criptografado + autenticação JWT (HMAC-SHA256) com mínimo de 32 bytes enforçado.
+- **WatchdogEngine (Auto-Remediation)**: Motor inteligente que monitora serviços via probes HTTP, systemctl e TCP, reinicia serviços com falha automaticamente e usa Circuit Breaker para evitar loops infinitos de remediação.
+- **Alertas com ntfy.sh**: Notificações push para o celular sem FCM ou servidor próprio, com deduplicação inteligente e cooldown de 30 minutos por alerta.
+- **Hunter Mode (Process Management)**: Identifique e encerre processos pesados remotamente com precisão cirúrgica.
+- **Prometheus Metrics**: Endpoint `/metrics` compatível com Prometheus/Grafana para integração com stacks de observabilidade existentes.
 
 ---
 
-## 🏗️ Arquitetura de Engenharia
+## Arquitetura de Engenharia
 
 O ecossistema segue o **Protocolo OMNI-DEV**, priorizando desacoplamento e resiliência:
 
 ```mermaid
 graph LR
-    subgraph "📱 Mobile Controller (Kotlin/MVVM)"
+    subgraph "Mobile Controller (Kotlin/MVVM)"
         A[UI Analytics] --> B[Server Repository]
         B --> C[Secure Token Storage]
     end
     
-    subgraph "🔐 Security Tunnel"
+    subgraph "Security Tunnel"
         D[SSH Tunneling]
     end
     
-    subgraph "🦀 Host Agent (Rust/Axum)"
+    subgraph "Host Agent (Rust/Axum)"
         E[REST API] --> F[Telemetry Engine]
-        F --> G[(Linux Kernel /proc)]
+        F --> G[(Linux Kernel /proc /sys)]
         E --> H[Action Center]
-        E --> I[Watchdog Engine]
+        E --> I[WatchdogEngine]
         I --> J[Circuit Breaker]
+        I --> K[RemediationEngine]
+        F --> L[AlertManager]
+        L --> M[ntfy.sh]
     end
 
     B -.-> D -.-> E
 ```
 
+### Runtime do Agente
+
+O agente Tokio executa três contextos simultâneos:
+
+| Contexto | Responsabilidade |
+|----------|-----------------|
+| **Axum HTTP Server** | Serve requisições REST (JWT validado por middleware) |
+| **Background: Alert Loop (60s)** | Coleta telemetria, analisa thresholds, dispara ntfy com deduplicação |
+| **Background: WatchdogEngine (30s)** | Executa probes, gerencia Circuit Breakers, remedia falhas |
+
 ---
 
-## 📂 Ecossistema de Documentação
+## API Endpoints
 
-Para manter o padrão de excelência, a documentação está organizada por domínios:
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| `GET` | `/health` | Não | Health check |
+| `GET` | `/telemetry` | JWT | Snapshot completo do sistema |
+| `GET` | `/alerts` | JWT | Alertas ativos |
+| `POST` | `/alerts/config` | JWT | Atualiza thresholds em runtime |
+| `GET` | `/processes` | JWT | Top 10 processos por CPU |
+| `DELETE` | `/processes/:pid` | JWT | Encerra processo por PID |
+| `GET` | `/logs` | JWT | Logs do journalctl |
+| `GET` | `/services/:name` | JWT | Status de serviço systemd |
+| `GET` | `/commands` | JWT | Lista comandos da whitelist |
+| `POST` | `/commands/:id` | JWT | Executa comando da whitelist |
+| `POST` | `/security/block-ip` | JWT | Bloqueia IP via iptables |
+| `GET` | `/metrics` | JWT | Métricas formato Prometheus |
+| `GET` | `/watchdog/events` | JWT | Eventos do Watchdog |
+| `DELETE` | `/watchdog/events` | JWT | Limpa histórico do Watchdog |
+| `POST` | `/watchdog/reset` | JWT | Reseta Circuit Breakers |
+| `GET` | `/watchdog/breakers` | JWT | Estado dos Circuit Breakers |
 
-- 🛠️ **[Guia de Instalação (SETUP)](./docs/SETUP.md)**: Deployment do agente no Ubuntu e configuração do app.
-- 📐 **[Arquitetura e Design (ARCHITECTURE)](./docs/ARCHITECTURE.md)**: Detalhes sobre o fluxo de dados e stack.
-- 🛡️ **[Protocolos de Segurança (SECURITY)](./docs/SECURITY.md)**: Como protegemos seus acessos e chaves SSH.
-- 📡 **[Referência da API (API)](./docs/API.md)**: Documentação funcional dos endpoints do agente.
+> Documentação completa em [docs/API.md](./docs/API.md)
 
 ---
 
-## 🚀 Deployment Rápido
+## Ecossistema de Documentação
 
-### Servidor (Ubuntu Server recomendado)
+- **[Guia de Instalação (SETUP)](./docs/SETUP.md)**: Deployment do agente, variáveis de ambiente e configuração do app.
+- **[Arquitetura e Design (ARCHITECTURE)](./docs/ARCHITECTURE.md)**: Fluxo de dados, WatchdogEngine, decisões de engenharia.
+- **[Protocolos de Segurança (SECURITY)](./docs/SECURITY.md)**: Zero Trust, JWT enforcement, whitelist de comandos.
+- **[Referência da API (API)](./docs/API.md)**: Documentação completa de todos os endpoints.
+
+---
+
+## Deployment Rápido
+
+### Servidor
 
 ```bash
-# Compile para binário estático (zero dependências)
+# Na máquina local — compila e faz deploy em todos os servidores configurados
+./deploy.sh
+```
+
+Ou manualmente:
+
+```bash
 cd agent
 rustup target add x86_64-unknown-linux-musl
 cargo build --release --target x86_64-unknown-linux-musl
 
-# O binário estará em target/x86_64-unknown-linux-musl/release/pocket-noc-agent
-# O binário bindará apenas em localhost para segurança máxima
-./target/x86_64-unknown-linux-musl/release/pocket-noc-agent
+# Binário estático em:
+# target/x86_64-unknown-linux-musl/release/pocket-noc-agent
 ```
 
 ### Android
 
-Basta compilar via Android Studio ou Gradle e configurar o arquivo `local.properties` com suas chaves.
+Compile via Android Studio ou Gradle e configure o arquivo `local.properties` com suas chaves. Veja o guia completo em [docs/SETUP.md](./docs/SETUP.md).
 
 ---
 

@@ -7,7 +7,7 @@ Seja bem-vindo ao guia de colaboração do **Pocket NOC Ultra**. Fico feliz em v
 ## 🏛️ Filosofia de Desenvolvimento
 
 - **Performance First**: O agente em Rust deve ser mantido com o mínimo de overhead possível.
-- **Segurança Nativa**: Zero Trust e HackerSec Core são inegociáveis.
+- **Segurança Nativa**: Zero Trust e Munux Security são inegociáveis.
 - **Código Limpo**: Siga os princípios SOLID e as convenções da linguagem.
 
 ---
