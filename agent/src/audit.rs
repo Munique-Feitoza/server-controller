@@ -16,7 +16,7 @@ pub struct AuditEntry {
 }
 
 /// Ring buffer de entradas de auditoria com capacidade fixa.
-/// Similar ao WatchdogEventStore mas para ações da API.
+/// Implementei de forma similar ao WatchdogEventStore, mas direcionada para ações da API.
 pub struct AuditLog {
     entries: VecDeque<AuditEntry>,
     capacity: usize,
@@ -70,7 +70,7 @@ impl AuditLog {
         self.entries.iter().rev().take(limit).collect()
     }
 
-    /// Filtra entradas por ação (substring match).
+    /// Filtra entradas por ação (correspondência por substring).
     pub fn by_action(&self, action: &str) -> Vec<&AuditEntry> {
         self.entries
             .iter()

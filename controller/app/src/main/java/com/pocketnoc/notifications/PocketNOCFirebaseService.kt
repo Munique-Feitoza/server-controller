@@ -11,17 +11,17 @@ import com.pocketnoc.MainActivity
 import com.pocketnoc.R
 
 /**
- * Firebase Cloud Messaging Service para push notifications.
+ * Servico de notificacoes push via Firebase Cloud Messaging.
  *
  * Para ativar, adicione o google-services.json ao projeto e descomente
- * a herança de FirebaseMessagingService.
+ * a heranca de FirebaseMessagingService.
  *
- * Tipos de notificação suportados:
+ * Tipos de notificacao suportados:
  * - alert: Alertas de CPU/RAM/Disk
- * - watchdog: Eventos de auto-remediação
- * - security: Ameaças de segurança
+ * - watchdog: Eventos de auto-remediacao
+ * - security: Ameacas de seguranca
  *
- * O agente Rust pode enviar notificações via Firebase Admin SDK
+ * O agente Rust pode enviar notificacoes via Firebase Admin SDK
  * ou via HTTP v1 API diretamente.
  */
 object PocketNOCNotificationHelper {
@@ -39,7 +39,7 @@ object PocketNOCNotificationHelper {
                 "Server Alerts",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Critical server alerts (CPU, RAM, Disk)"
+                description = "Alertas criticos do servidor (CPU, RAM, Disco)"
                 enableVibration(true)
             }
 
@@ -48,7 +48,7 @@ object PocketNOCNotificationHelper {
                 "Watchdog Events",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Auto-remediation events from WatchdogEngine"
+                description = "Eventos de auto-remediacao do WatchdogEngine"
             }
 
             val securityChannel = NotificationChannel(
@@ -56,7 +56,7 @@ object PocketNOCNotificationHelper {
                 "Security Alerts",
                 NotificationManager.IMPORTANCE_MAX
             ).apply {
-                description = "Security threats and intrusion attempts"
+                description = "Ameacas de seguranca e tentativas de intrusao"
                 enableVibration(true)
                 enableLights(true)
             }
@@ -126,8 +126,8 @@ object PocketNOCNotificationHelper {
  *     }
  *
  *     override fun onNewToken(token: String) {
- *         // Enviar token para o backend para registrar este device
- *         Log.d("FCM", "New token: $token")
+ *         // Envia token para o backend para registrar este dispositivo
+ *         Log.d("FCM", "Novo token: $token")
  *     }
  * }
  */

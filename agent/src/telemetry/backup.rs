@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-/// Informações sobre um arquivo/diretório de backup.
+/// Informações sobre um arquivo de backup encontrado no servidor.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupInfo {
     pub path: String,
@@ -18,7 +18,7 @@ pub struct BackupStatus {
     pub any_stale: bool,
 }
 
-/// Caminhos comuns onde backups podem estar armazenados.
+/// Caminhos comuns onde backups costumam ser armazenados.
 const BACKUP_PATHS: &[&str] = &[
     "/var/backups",
     "/backup",
@@ -27,7 +27,7 @@ const BACKUP_PATHS: &[&str] = &[
     "/opt/backups",
 ];
 
-/// Extensões de arquivo que indicam backup.
+/// Extensões de arquivo que identificam backups.
 const BACKUP_EXTENSIONS: &[&str] = &[
     ".sql.gz", ".sql.bz2", ".sql.xz", ".sql",
     ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz",
@@ -38,7 +38,7 @@ const BACKUP_EXTENSIONS: &[&str] = &[
 const STALE_THRESHOLD_HOURS: f64 = 25.0;
 
 /// Coleta informações sobre os backups do servidor.
-/// Varre diretórios conhecidos procurando por arquivos de backup.
+/// Implementei a varredura de diretórios conhecidos procurando por arquivos de backup.
 pub fn collect_backup_status() -> BackupStatus {
     let mut backups = Vec::new();
     let now = std::time::SystemTime::now();
@@ -49,13 +49,13 @@ pub fn collect_backup_status() -> BackupStatus {
             continue;
         }
 
-        // Procura arquivos de backup no diretório (1 nível)
+        // Procura arquivos de backup no diretório (apenas 1 nível de profundidade)
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let file_path = entry.path();
                 let file_name = file_path.to_string_lossy().to_string();
 
-                // Verifica se o arquivo tem extensão de backup
+                // Verifica se o arquivo possui extensão de backup conhecida
                 let is_backup = BACKUP_EXTENSIONS.iter().any(|ext| file_name.ends_with(ext));
                 if !is_backup {
                     continue;
@@ -80,7 +80,7 @@ pub fn collect_backup_status() -> BackupStatus {
         }
     }
 
-    // Ordena por mais recente primeiro
+    // Ordena pelo mais recente primeiro
     backups.sort_by(|a, b| a.age_hours.partial_cmp(&b.age_hours).unwrap_or(std::cmp::Ordering::Equal));
 
     let any_stale = backups.iter().any(|b| b.is_stale);

@@ -36,7 +36,7 @@ class ServerRepository @Inject constructor(
     suspend fun getServerById(id: Int): ServerEntity? = serverDao.getServerById(id)
 
     suspend fun addServer(server: ServerEntity) = serverDao.insertServer(server).also {
-        // Salva credenciais de forma segura
+        // Salva credenciais de forma segura no armazenamento criptografado
         secureTokenManager.saveToken(server.id, server.token)
         server.secret?.let { secret ->
             secureTokenManager.saveSecret(server.id, secret)
@@ -47,7 +47,7 @@ class ServerRepository @Inject constructor(
     }
 
     suspend fun updateServer(server: ServerEntity) = serverDao.updateServer(server).also {
-        // Atualiza credenciais de forma segura
+        // Atualiza credenciais de forma segura no armazenamento criptografado
         secureTokenManager.saveToken(server.id, server.token)
         server.secret?.let { secret ->
             secureTokenManager.saveSecret(server.id, secret)
@@ -55,23 +55,23 @@ class ServerRepository @Inject constructor(
         server.sshKeyPath?.let { keyContent ->
             secureTokenManager.saveSshKey(server.id, keyContent)
         }
-        // Invalida o cache
+        // Invalida cache da API
         apiCache.remove(server.id)
     }
 
     suspend fun deleteServer(server: ServerEntity) {
         serverDao.deleteServer(server)
-        // Remove credenciais armazenadas
+        // Remove credenciais armazenadas do servidor
         secureTokenManager.clearServerCredentials(server.id)
-        // Invalida o cache
+        // Invalida cache da API
         apiCache.remove(server.id)
     }
 
     private suspend fun getApiService(server: ServerEntity): AgentApiService {
-        // Recupera a chave SSH do gerenciador seguro
+        // Recupera a chave SSH do gerenciador de credenciais seguro
         val sshKeyContent = secureTokenManager.getSshKey(server.id)
         
-        // Garante que o túnel está ativo se tivermos dados de SSH
+        // Garante que o tunel SSH esta ativo se tivermos dados configurados
         if (server.sshHost != null && server.sshUser != null && sshKeyContent != null && server.localPort != null) {
             val tunnelResult = SshTunnelManager.startTunnel(
                 serverId = server.id,
@@ -86,7 +86,7 @@ class ServerRepository @Inject constructor(
             if (tunnelResult.isFailure) {
                 val errorMsg = tunnelResult.exceptionOrNull()?.message ?: "Unknown SSH Error"
                 
-                // Trata alertas de segurança do SshTunnelManager (Munux Security)
+                // Trata alertas de seguranca do SshTunnelManager
                 if (errorMsg.contains("ALERTA DE SEGURANÇA")) {
                     val failures = SshTunnelManager.getAuthFailures(server.id)
                     securityNotifications.sendIntrusionAlert(server.name, failures)
@@ -98,7 +98,7 @@ class ServerRepository @Inject constructor(
         
         val url = if (server.localPort != null) "http://localhost:${server.localPort}" else server.url
         
-        // Geração dinâmica de token para garantir sincronia com local.properties e mitigar expiração
+        // Geracao dinamica de token para garantir sincronia com local.properties e mitigar expiracao
         val currentSecret = server.secret ?: PocketNOCConfig.secret
         val dynamicToken = com.pocketnoc.utils.JwtUtils.generateToken(currentSecret)
         
@@ -112,7 +112,7 @@ class ServerRepository @Inject constructor(
             val apiService = getApiService(server)
             val telemetry = apiService.getTelemetry()
             
-            // Verifica o uso de CPU para alertas (Munux Security)
+            // Verifica o uso de CPU para disparar alertas de seguranca
             if (telemetry.cpu.usagePercent > PocketNOCConfig.maxCpuThreshold) {
                 securityNotifications.sendHighCpuAlert(server.name, telemetry.cpu.usagePercent.toDouble())
             }
@@ -155,7 +155,7 @@ class ServerRepository @Inject constructor(
     suspend fun updateAlertConfig(server: ServerEntity, config: com.pocketnoc.data.local.AlertThresholdConfig) = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
-            // Map local config to API model
+            // Mapeia configuracao local para o modelo da API
             val apiConfig = com.pocketnoc.data.models.AlertThresholdConfig(
                 limitCpu = config.cpuThresholdPercent,
                 limitMemory = config.memoryThresholdPercent,
@@ -249,7 +249,7 @@ class ServerRepository @Inject constructor(
         }
     }
 
-    // Telemetry History
+    // Historico de Telemetria
     suspend fun saveTelemetrySnapshot(serverId: Int, telemetry: SystemTelemetry) {
         val entry = TelemetryHistoryEntity(
             serverId = serverId,
@@ -261,7 +261,7 @@ class ServerRepository @Inject constructor(
             loadAvg1m = telemetry.uptime.loadAverage.getOrNull(0)?.toFloat() ?: 0f
         )
         telemetryHistoryDao.insert(entry)
-        // Mantém apenas as últimas 24 horas de dados por servidor
+        // Mantem apenas as ultimas 24 horas de dados por servidor
         telemetryHistoryDao.pruneOldEntries(serverId, System.currentTimeMillis() - 86_400_000L)
     }
 
@@ -269,7 +269,7 @@ class ServerRepository @Inject constructor(
         return telemetryHistoryDao.getRecentHistory(serverId, limit)
     }
 
-    // Alert History
+    // Historico de Alertas
     suspend fun saveAlert(alert: AlertEntity) {
         alertDao.insertAlert(alert)
     }
@@ -286,7 +286,7 @@ class ServerRepository @Inject constructor(
         alertDao.deleteAll()
     }
 
-    // Audit Log
+    // Log de Auditoria
     suspend fun getAuditLogs(server: ServerEntity, limit: Int = 100): List<com.pocketnoc.data.models.AuditEntry> = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
@@ -296,7 +296,7 @@ class ServerRepository @Inject constructor(
         }
     }
 
-    // Docker
+    // Monitoramento Docker
     suspend fun getDockerContainers(server: ServerEntity): com.pocketnoc.data.models.DockerMetrics = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
@@ -306,7 +306,7 @@ class ServerRepository @Inject constructor(
         }
     }
 
-    // Backup Status
+    // Status de Backup
     suspend fun getBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)
@@ -316,7 +316,7 @@ class ServerRepository @Inject constructor(
         }
     }
 
-    // Agent Config
+    // Configuracao do Agente
     suspend fun getAgentConfig(server: ServerEntity): com.pocketnoc.data.models.AgentRuntimeConfig = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {
             val apiService = getApiService(server)

@@ -10,8 +10,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Gerencia autenticação biométrica para proteger o acesso ao PocketNOC.
- * Suporta biometria forte (impressão digital, face) e credenciais do dispositivo (PIN/padrão).
+ * Gerencia autenticacao biometrica para proteger o acesso ao PocketNOC.
+ * Implementei suporte a biometria forte (impressao digital, face) e credenciais do dispositivo (PIN/padrao).
  */
 @Singleton
 class BiometricAuthManager @Inject constructor(
@@ -20,7 +20,7 @@ class BiometricAuthManager @Inject constructor(
     private val biometricManager = BiometricManager.from(context)
 
     /**
-     * Verifica se o dispositivo suporta autenticação biométrica ou por credencial.
+     * Verifica se o dispositivo suporta autenticacao biometrica ou por credencial.
      */
     fun canAuthenticate(): Boolean {
         return biometricManager.canAuthenticate(
@@ -30,8 +30,8 @@ class BiometricAuthManager @Inject constructor(
     }
 
     /**
-     * Inicia o fluxo de autenticação.
-     * Suporta biometria (fingerprint/face) + fallback para PIN/Pattern/Password do dispositivo.
+     * Inicia o fluxo de autenticacao.
+     * Configurei suporte a biometria (fingerprint/face) + fallback para PIN/Pattern/Password do dispositivo.
      */
     fun authenticate(
         activity: FragmentActivity,
@@ -50,7 +50,7 @@ class BiometricAuthManager @Inject constructor(
                 super.onAuthenticationError(errorCode, errString)
                 if (errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
                     errorCode == BiometricPrompt.ERROR_USER_CANCELED) {
-                    onError("Authentication cancelled")
+                    onError("Autenticacao cancelada")
                 } else {
                     onError(errString.toString())
                 }
@@ -58,13 +58,13 @@ class BiometricAuthManager @Inject constructor(
 
             override fun onAuthenticationFailed() {
                 super.onAuthenticationFailed()
-                // O sistema já mostra feedback visual — não chamamos onError aqui
+                // O sistema ja mostra feedback visual — nao chamamos onError aqui
             }
         }
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("PocketNOC")
-            .setSubtitle("Authenticate to access server controls")
+            .setSubtitle("Autentique-se para acessar os controles do servidor")
             .setAllowedAuthenticators(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL
