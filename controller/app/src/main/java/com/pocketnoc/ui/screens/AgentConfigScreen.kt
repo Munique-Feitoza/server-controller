@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +32,9 @@ fun AgentConfigScreen(
     serverId: Int,
     onNavigateBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val servers by viewModel.allServers.collectAsState()
     val server = servers.find { it.id == serverId }
 
@@ -42,7 +43,7 @@ fun AgentConfigScreen(
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var isSaving by remember { mutableStateOf(false) }
 
-    // Editable fields
+    // Campos editaveis
     var watchdogInterval by remember { mutableStateOf("") }
     var maxFailures by remember { mutableStateOf("") }
     var cooldownSecs by remember { mutableStateOf("") }
@@ -70,42 +71,42 @@ fun AgentConfigScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color(0xFF0A0F1E), DarkSurface.copy(alpha = 0.95f))))
+                    .background(colors.surface)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.RadiusLg),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(NeonCyan.copy(alpha = 0.10f))
-                            .border(1.dp, NeonCyan.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+                            .clip(AppShapes.medium)
+                            .background(colors.primary.copy(alpha = 0.10f))
+                            .border(Dimens.BorderThin, colors.primary.copy(alpha = 0.35f), AppShapes.medium)
                             .clickable(onClick = onNavigateBack),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonCyan, modifier = Modifier.size(17.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = colors.primary, modifier = Modifier.size(17.dp))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(Dimens.SpaceLg))
                     Column {
                         Text(
                             "AGENT CONFIG",
-                            color = NeonCyan,
+                            color = colors.primary,
                             fontWeight = FontWeight.Black,
                             fontSize = 18.sp,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 3.sp
                         )
-                        Text(server?.name ?: "Servidor", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        Text(server?.name ?: "Servidor", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 }
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(1.dp)
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, NeonCyan.copy(alpha = 0.6f), Color.Transparent)))
+                    modifier = Modifier.fillMaxWidth().height(Dimens.BorderThin)
+                        .background(colors.primary.copy(alpha = 0.3f))
                 )
             }
         },
@@ -115,30 +116,30 @@ fun AgentConfigScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Brush.verticalGradient(listOf(DarkBackground, Color(0xFF0A1428), DarkBackground)))
+                .background(colors.background)
         ) {
             when {
                 isLoading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = NeonCyan)
+                        CircularProgressIndicator(color = colors.primary)
                     }
                 }
                 errorMsg != null -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("ERR", color = CriticalRedHealth, fontFamily = FontFamily.Monospace, fontSize = 24.sp)
-                            Text(errorMsg ?: "", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                            Text("ERR", color = StatusColors.critical, fontFamily = FontFamily.Monospace, fontSize = 24.sp)
+                            Text(errorMsg ?: "", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
                 config != null -> {
                     val cfg = config!!
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.RadiusCard),
+                        contentPadding = PaddingValues(vertical = Dimens.ScreenPadding)
                     ) {
-                        // Read-only info
+                        // Informacoes somente leitura
                         item {
                             InfoCard(
                                 title = "SERVER IDENTITY",
@@ -151,25 +152,25 @@ fun AgentConfigScreen(
                             )
                         }
 
-                        // Editable fields
+                        // Campos editaveis
                         item {
                             Card(
-                                modifier = Modifier.fillMaxWidth().shadow(8.dp, spotColor = NeonGreen.copy(alpha = 0.2f)),
-                                colors = CardDefaults.cardColors(containerColor = DarkCard),
-                                shape = RoundedCornerShape(14.dp)
+                                modifier = Modifier.fillMaxWidth().shadow(8.dp, spotColor = colors.tertiary.copy(alpha = 0.2f)),
+                                colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+                                shape = AppShapes.card
                             ) {
-                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("WATCHDOG CONFIG", style = MaterialTheme.typography.labelSmall, color = NeonGreen, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                Column(modifier = Modifier.padding(Dimens.ScreenPadding), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)) {
+                                    Text("WATCHDOG CONFIG", style = MaterialTheme.typography.labelSmall, color = colors.tertiary, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
 
-                                    ConfigField("Cycle Interval (seconds)", watchdogInterval, NeonGreen) { watchdogInterval = it }
-                                    ConfigField("Max Failures (circuit breaker)", maxFailures, AlertYellow) { maxFailures = it }
-                                    ConfigField("Cooldown (seconds)", cooldownSecs, NeonCyan) { cooldownSecs = it }
-                                    ConfigField("Rate Limit (req/min)", rateLimitPerMin, NeonMagenta) { rateLimitPerMin = it }
+                                    ConfigField("Cycle Interval (seconds)", watchdogInterval, colors.tertiary) { watchdogInterval = it }
+                                    ConfigField("Max Failures (circuit breaker)", maxFailures, StatusColors.warning) { maxFailures = it }
+                                    ConfigField("Cooldown (seconds)", cooldownSecs, colors.primary) { cooldownSecs = it }
+                                    ConfigField("Rate Limit (req/min)", rateLimitPerMin, ext.magenta) { rateLimitPerMin = it }
                                 }
                             }
                         }
 
-                        // Save button
+                        // Botao de salvar
                         item {
                             Button(
                                 onClick = {
@@ -185,16 +186,16 @@ fun AgentConfigScreen(
                                     }
                                 },
                                 enabled = !isSaving,
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
-                                shape = RoundedCornerShape(12.dp)
+                                modifier = Modifier.fillMaxWidth().height(Dimens.ButtonHeight),
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.tertiary),
+                                shape = AppShapes.xl
                             ) {
                                 if (isSaving) {
-                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = DarkBackground)
+                                    CircularProgressIndicator(modifier = Modifier.size(Dimens.IconSm), color = colors.background)
                                 } else {
-                                    Icon(Icons.Default.Save, contentDescription = null, tint = DarkBackground, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("SAVE & APPLY", color = DarkBackground, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                    Icon(Icons.Default.Save, contentDescription = null, tint = colors.background, modifier = Modifier.size(Dimens.IconSm))
+                                    Spacer(Modifier.width(Dimens.SpaceMd))
+                                    Text("SAVE & APPLY", color = colors.background, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                                 }
                             }
                         }
@@ -207,21 +208,23 @@ fun AgentConfigScreen(
 
 @Composable
 private fun InfoCard(title: String, items: List<Pair<String, String>>) {
+    val colors = MaterialTheme.colorScheme
+
     Card(
-        modifier = Modifier.fillMaxWidth().shadow(8.dp, spotColor = NeonCyan.copy(alpha = 0.2f)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard),
-        shape = RoundedCornerShape(14.dp)
+        modifier = Modifier.fillMaxWidth().shadow(8.dp, spotColor = colors.primary.copy(alpha = 0.2f)),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+        shape = AppShapes.card
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.labelSmall, color = NeonCyan, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-            Spacer(Modifier.height(12.dp))
+        Column(modifier = Modifier.padding(Dimens.ScreenPadding)) {
+            Text(title, style = MaterialTheme.typography.labelSmall, color = colors.primary, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+            Spacer(Modifier.height(Dimens.SpaceLg))
             items.forEach { (label, value) ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = Dimens.SpaceXs),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    Text(value, style = MaterialTheme.typography.bodySmall, color = Color.White, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                    Text(label, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                    Text(value, style = MaterialTheme.typography.bodySmall, color = colors.onSurface, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
                 }
             }
         }
@@ -235,6 +238,8 @@ private fun ConfigField(
     accentColor: Color,
     onValueChange: (String) -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -246,9 +251,9 @@ private fun ConfigField(
             focusedBorderColor = accentColor,
             unfocusedBorderColor = accentColor.copy(alpha = 0.3f),
             focusedLabelColor = accentColor,
-            unfocusedLabelColor = TextSecondary,
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
+            unfocusedLabelColor = colors.onSurfaceVariant,
+            focusedTextColor = colors.onSurface,
+            unfocusedTextColor = colors.onSurface,
             cursorColor = accentColor,
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent

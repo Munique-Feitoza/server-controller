@@ -1,14 +1,12 @@
 package com.pocketnoc.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -39,6 +37,9 @@ fun LogViewerScreen(
     serviceName: String,
     onNavigateBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val servers by viewModel.allServers.collectAsState()
     val selectedServer = servers.find { it.id == serverId }
     val logsState by viewModel.logsState.collectAsState()
@@ -65,39 +66,39 @@ fun LogViewerScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("LOG VIEWER", style = MaterialTheme.typography.titleLarge, color = NeonGreen, fontFamily = FontFamily.Monospace)
-                        Text(currentService, style = MaterialTheme.typography.labelSmall, color = TextMuted, fontFamily = FontFamily.Monospace)
+                        Text("LOG VIEWER", style = MaterialTheme.typography.titleLarge, color = colors.tertiary, fontFamily = FontFamily.Monospace)
+                        Text(currentService, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant, fontFamily = FontFamily.Monospace)
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonGreen)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = colors.tertiary)
                     }
                 },
                 actions = {
                     IconButton(onClick = { selectedServer?.let { viewModel.fetchLogs(it, currentService) } }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = NeonGreen)
+                        Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.tertiary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF050A0A))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.background.copy(alpha = 0.95f))
             )
         },
-        containerColor = Color.Black
+        containerColor = colors.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFF060A06))
+                .background(colors.background)
         ) {
             // Seletor de serviço horizontal
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF080E08))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .background(colors.surface.copy(alpha = 0.5f))
+                    .padding(horizontal = Dimens.SpaceLg, vertical = Dimens.SpaceSm)
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)
             ) {
                 logServices.forEach { service ->
                     val selected = service == currentService
@@ -108,40 +109,40 @@ fun LogViewerScreen(
                             Text(
                                 service,
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                color = if (selected) Color.Black else NeonGreen.copy(alpha = 0.7f)
+                                fontSize = 13.sp,
+                                color = if (selected) colors.background else colors.tertiary.copy(alpha = 0.7f)
                             )
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NeonGreen,
+                            selectedContainerColor = colors.tertiary,
                             containerColor = Color.Transparent,
-                            selectedLabelColor = Color.Black
+                            selectedLabelColor = colors.background
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = selected,
-                            borderColor = NeonGreen.copy(alpha = 0.3f),
-                            selectedBorderColor = NeonGreen
+                            borderColor = colors.tertiary.copy(alpha = 0.3f),
+                            selectedBorderColor = colors.tertiary
                         ),
                         modifier = Modifier.height(28.dp)
                     )
                 }
             }
 
-            HorizontalDivider(color = NeonGreen.copy(alpha = 0.1f))
+            HorizontalDivider(color = colors.tertiary.copy(alpha = 0.1f))
 
             Box(modifier = Modifier.weight(1f)) {
                 when (logsState) {
                     is LogsUiState.Loading -> {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier.fillMaxSize().padding(Dimens.SpaceLg),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)
                         ) {
                             items(12) { i ->
                                 val width = if (i % 3 == 0) 0.9f else if (i % 3 == 1) 0.7f else 0.55f
                                 ShimmerBox(
                                     modifier = Modifier.fillMaxWidth(width).height(12.dp),
-                                    shape = RoundedCornerShape(2.dp)
+                                    shape = AppShapes.small
                                 )
                             }
                         }
@@ -152,7 +153,7 @@ fun LogViewerScreen(
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
                                     "Nenhum log encontrado para $currentService",
-                                    color = NeonGreen.copy(alpha = 0.4f),
+                                    color = colors.tertiary.copy(alpha = 0.4f),
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 12.sp
                                 )
@@ -160,8 +161,8 @@ fun LogViewerScreen(
                         } else {
                             LazyColumn(
                                 state = listState,
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                                contentPadding = PaddingValues(vertical = 8.dp)
+                                modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.SpaceMd),
+                                contentPadding = PaddingValues(vertical = Dimens.SpaceMd)
                             ) {
                                 itemsIndexed(logLines) { index, line ->
                                     LogLine(index = index, line = line)
@@ -174,14 +175,14 @@ fun LogViewerScreen(
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
                             ) {
-                                Text("ERR", color = CriticalRedHealth, fontFamily = FontFamily.Monospace, fontSize = 24.sp)
+                                Text("ERR", color = StatusColors.critical, fontFamily = FontFamily.Monospace, fontSize = 24.sp)
                                 Text(
                                     (logsState as LogsUiState.Error).message,
-                                    color = CriticalRedHealth.copy(alpha = 0.7f),
+                                    color = StatusColors.critical.copy(alpha = 0.7f),
                                     fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -198,10 +199,10 @@ fun LogViewerScreen(
                         },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(12.dp)
-                            .size(40.dp),
-                        containerColor = NeonGreen.copy(alpha = 0.2f),
-                        contentColor = NeonGreen
+                            .padding(Dimens.SpaceLg)
+                            .size(Dimens.TopBarButton),
+                        containerColor = colors.tertiary.copy(alpha = 0.2f),
+                        contentColor = colors.tertiary
                     ) {
                         Icon(Icons.Default.ArrowDownward, contentDescription = "Ir ao final", modifier = Modifier.size(18.dp))
                     }
@@ -213,12 +214,12 @@ fun LogViewerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF080E08))
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                        .background(colors.surface.copy(alpha = 0.5f))
+                        .padding(horizontal = Dimens.SpaceLg, vertical = Dimens.SpaceXs),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("${logLines.size} linhas", color = NeonGreen.copy(alpha = 0.4f), fontFamily = FontFamily.Monospace, fontSize = 10.sp)
-                    Text(currentService, color = NeonGreen.copy(alpha = 0.3f), fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                    Text("${logLines.size} linhas", color = colors.tertiary.copy(alpha = 0.4f), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                    Text(currentService, color = colors.tertiary.copy(alpha = 0.3f), fontFamily = FontFamily.Monospace, fontSize = 13.sp)
                 }
             }
         }
@@ -227,39 +228,42 @@ fun LogViewerScreen(
 
 @Composable
 private fun LogLine(index: Int, line: String) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     // Coloração semântica de linhas de log
     val (lineColor, _) = when {
         line.contains("ERROR", ignoreCase = true) || line.contains("CRIT", ignoreCase = true) ->
-            Pair(CriticalRedHealth, "ERR")
+            Pair(StatusColors.critical, "ERR")
         line.contains("WARN", ignoreCase = true) ->
-            Pair(AlertYellow, "WRN")
+            Pair(StatusColors.warning, "WRN")
         line.contains("INFO", ignoreCase = true) ->
-            Pair(NeonGreen.copy(alpha = 0.8f), "INF")
+            Pair(colors.tertiary.copy(alpha = 0.8f), "INF")
         line.contains("DEBUG", ignoreCase = true) ->
-            Pair(NeonCyan.copy(alpha = 0.6f), "DBG")
-        else -> Pair(NeonGreen.copy(alpha = 0.55f), "   ")
+            Pair(colors.primary.copy(alpha = 0.6f), "DBG")
+        else -> Pair(colors.tertiary.copy(alpha = 0.55f), "   ")
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 1.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
     ) {
         // Número da linha
         Text(
             "${index + 1}".padStart(4),
-            color = NeonGreen.copy(alpha = 0.18f),
+            color = colors.tertiary.copy(alpha = 0.18f),
             fontFamily = FontFamily.Monospace,
-            fontSize = 10.sp,
-            modifier = Modifier.width(32.dp)
+            fontSize = 13.sp,
+            modifier = Modifier.width(Dimens.Space4xl)
         )
         // Conteúdo
         Text(
             text = line,
             color = lineColor,
             fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
+            fontSize = 14.sp,
             lineHeight = 15.sp
         )
     }

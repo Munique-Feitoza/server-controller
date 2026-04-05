@@ -8,7 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -18,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +39,9 @@ fun ExportScreen(
     viewModel: DashboardViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val context = LocalContext.current
     val alertHistory by viewModel.alertHistory.collectAsState()
     val telemetryHistory by viewModel.telemetryHistory.collectAsState()
@@ -51,44 +52,44 @@ fun ExportScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color(0xFF0A0F1E), DarkSurface.copy(alpha = 0.95f))))
+                    .background(colors.surface)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.RadiusLg),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(NeonGreen.copy(alpha = 0.10f))
-                            .border(1.dp, NeonGreen.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+                            .clip(AppShapes.medium)
+                            .background(colors.tertiary.copy(alpha = 0.10f))
+                            .border(Dimens.BorderThin, colors.tertiary.copy(alpha = 0.35f), AppShapes.medium)
                             .clickable(onClick = onNavigateBack),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonGreen, modifier = Modifier.size(17.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = colors.tertiary, modifier = Modifier.size(17.dp))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(Dimens.SpaceLg))
                     Column {
                         Text(
                             "EXPORT CENTER",
-                            color = NeonGreen,
+                            color = colors.tertiary,
                             fontWeight = FontWeight.Black,
                             fontSize = 18.sp,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 3.sp
                         )
-                        Text("Exportar dados e relatórios", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        Text("Exportar dados e relat\u00F3rios", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, NeonGreen.copy(alpha = 0.6f), Color.Transparent)))
+                        .height(Dimens.BorderThin)
+                        .background(colors.primary.copy(alpha = 0.3f))
                 )
             }
         },
@@ -98,19 +99,19 @@ fun ExportScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Brush.verticalGradient(listOf(DarkBackground, Color(0xFF0A1428), DarkBackground)))
+                .background(colors.background)
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
+                modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                verticalArrangement = Arrangement.spacedBy(Dimens.RadiusCard),
+                contentPadding = PaddingValues(vertical = Dimens.ScreenPadding)
             ) {
                 item {
                     ExportOptionCard(
                         title = "ALERT HISTORY",
                         subtitle = "${alertHistory.size} alertas registrados",
                         icon = Icons.Default.Security,
-                        color = NeonMagenta,
+                        color = ext.magenta,
                         formats = listOf("CSV", "TXT"),
                         onExport = { format ->
                             exporting = true
@@ -125,7 +126,7 @@ fun ExportScreen(
                         title = "TELEMETRY DATA",
                         subtitle = "${telemetryHistory.size} snapshots",
                         icon = Icons.Default.Analytics,
-                        color = NeonCyan,
+                        color = colors.primary,
                         formats = listOf("CSV", "TXT"),
                         onExport = { format ->
                             exporting = true
@@ -138,9 +139,9 @@ fun ExportScreen(
                 item {
                     ExportOptionCard(
                         title = "FULL REPORT",
-                        subtitle = "Relatório completo do sistema",
+                        subtitle = "Relat\u00F3rio completo do sistema",
                         icon = Icons.Default.Description,
-                        color = NeonGreen,
+                        color = colors.tertiary,
                         formats = listOf("TXT"),
                         onExport = { _ ->
                             exporting = true
@@ -156,7 +157,7 @@ fun ExportScreen(
                     Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = NeonCyan)
+                    CircularProgressIndicator(color = colors.primary)
                 }
             }
         }
@@ -172,47 +173,49 @@ private fun ExportOptionCard(
     formats: List<String>,
     onExport: (String) -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(8.dp, spotColor = color.copy(alpha = 0.2f)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard),
-        shape = RoundedCornerShape(14.dp)
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+        shape = AppShapes.card
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Dimens.ScreenPadding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(AppShapes.xl)
                         .background(color.copy(alpha = 0.1f))
-                        .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
+                        .border(Dimens.BorderThin, color.copy(alpha = 0.4f), AppShapes.xl),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Dimens.SpaceLg))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                    Text(subtitle, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                    Text(subtitle, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(Dimens.RadiusCard))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(Dimens.RadiusLg)
             ) {
                 formats.forEach { format ->
                     Button(
                         onClick = { onExport(format) },
-                        modifier = Modifier.weight(1f).height(40.dp),
+                        modifier = Modifier.weight(1f).height(Dimens.TopBarButton),
                         colors = ButtonDefaults.buttonColors(containerColor = color.copy(alpha = 0.12f)),
                         border = ButtonDefaults.outlinedButtonBorder,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = AppShapes.medium
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(format, color = color, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        Spacer(Modifier.width(Dimens.SpaceSm))
+                        Text(format, color = color, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }
@@ -280,13 +283,13 @@ private fun exportFullReport(context: Context, alerts: List<AlertEntity>, histor
     val fileName = "pocketnoc_report_${dateFormat.format(Date())}.txt"
 
     val content = buildString {
-        appendLine("╔══��═══════════════════════════════════════╗")
-        appendLine("║       POCKET NOC — SYSTEM REPORT        ║")
-        appendLine("╚══════���═══════════════════════════════════╝")
+        appendLine("\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557")
+        appendLine("\u2551       POCKET NOC \u2014 SYSTEM REPORT        \u2551")
+        appendLine("\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D")
         appendLine("Generated: ${Date()}")
         appendLine()
 
-        appendLine("── ALERT SUMMARY ──────────────────────────")
+        appendLine("\u2500\u2500 ALERT SUMMARY \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
         appendLine("Total Alerts: ${alerts.size}")
         val grouped = alerts.groupBy { it.type }
         grouped.forEach { (type, list) ->
@@ -294,7 +297,7 @@ private fun exportFullReport(context: Context, alerts: List<AlertEntity>, histor
         }
         appendLine()
 
-        appendLine("── TELEMETRY SUMMARY ──────────────────────")
+        appendLine("\u2500\u2500 TELEMETRY SUMMARY \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
         appendLine("Snapshots: ${history.size}")
         if (history.isNotEmpty()) {
             val avgCpu = history.map { it.cpuPercent }.average()
@@ -308,12 +311,12 @@ private fun exportFullReport(context: Context, alerts: List<AlertEntity>, histor
         }
         appendLine()
 
-        appendLine("── RECENT ALERTS ──────────────────────────")
+        appendLine("\u2500\u2500 RECENT ALERTS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
         alerts.takeLast(20).forEach { a ->
             appendLine("  [${a.type}] ${a.serverName}: ${a.message}")
         }
         appendLine()
-        appendLine("── END OF REPORT ───────────────���──────────")
+        appendLine("\u2500\u2500 END OF REPORT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
     }
 
     shareFile(context, fileName, content)
@@ -339,6 +342,6 @@ private fun shareFile(context: Context, fileName: String, content: String) {
 
         context.startActivity(Intent.createChooser(intent, "Exportar $fileName"))
     } catch (e: Exception) {
-        Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Falha na exportacao: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

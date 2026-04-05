@@ -4,7 +4,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.Icon
@@ -15,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -41,6 +39,9 @@ fun SplashScreen(
     navController: NavController,
     servers: List<ServerEntity>
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     var stepIndex by remember { mutableIntStateOf(0) }
     var progress by remember { mutableFloatStateOf(0f) }
     var bootDone by remember { mutableStateOf(false) }
@@ -90,19 +91,19 @@ fun SplashScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(colors.background)
     ) {
         // Scan line – linha de luz horizontal animada
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(2.dp)
+                .height(Dimens.SpaceXxs)
                 .offset(y = with(androidx.compose.ui.platform.LocalDensity.current) {
                     (scanY * 900).dp
                 })
                 .background(
                     Brush.horizontalGradient(
-                        listOf(Color.Transparent, NeonCyan.copy(alpha = 0.6f), Color.Transparent)
+                        listOf(Color.Transparent, colors.primary.copy(alpha = 0.6f), Color.Transparent)
                     )
                 )
         )
@@ -111,7 +112,7 @@ fun SplashScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 40.dp),
+                .padding(horizontal = Dimens.Icon2xl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -121,43 +122,43 @@ fun SplashScreen(
                 modifier = Modifier
                     .size(120.dp)
                     .shadow(
-                        elevation = 32.dp,
-                        spotColor = NeonCyan.copy(alpha = iconGlow),
-                        shape = RoundedCornerShape(32.dp)
+                        elevation = Dimens.Space4xl,
+                        spotColor = colors.primary.copy(alpha = iconGlow),
+                        shape = AppShapes.sheet
                     )
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(DarkCard)
+                    .clip(AppShapes.sheet)
+                    .background(colors.surfaceVariant)
                     .border(
-                        1.5.dp,
+                        Dimens.BorderMedium,
                         Brush.linearGradient(
-                            listOf(NeonCyan.copy(alpha = iconGlow), NeonMagenta.copy(alpha = iconGlow * 0.6f))
+                            listOf(colors.primary.copy(alpha = iconGlow), ext.magenta.copy(alpha = iconGlow * 0.6f))
                         ),
-                        RoundedCornerShape(32.dp)
+                        AppShapes.sheet
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Terminal,
                     contentDescription = null,
-                    tint = NeonCyan.copy(alpha = iconGlow),
+                    tint = colors.primary.copy(alpha = iconGlow),
                     modifier = Modifier.size(60.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(Dimens.Space4xl))
 
             Text(
                 text = "POCKET NOC",
-                color = Color.White,
+                color = colors.onSurface,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 6.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Dimens.SpaceXs))
             Text(
                 text = "ZERO TRUST MOBILE EDITION",
-                color = NeonCyan.copy(alpha = 0.7f),
-                fontSize = 11.sp,
+                color = colors.primary.copy(alpha = 0.7f),
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 3.sp,
                 fontFamily = FontFamily.Monospace
@@ -168,7 +169,7 @@ fun SplashScreen(
             // Boot log — cada etapa aparece como linha de terminal
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXxs)
             ) {
                 bootSequence.forEachIndexed { i, line ->
                     val isActive = i == stepIndex
@@ -179,32 +180,32 @@ fun SplashScreen(
                         else     -> 0.15f
                     }
                     val color = when {
-                        isDone   -> NeonGreen
-                        isActive -> NeonCyan
-                        else     -> TextMuted
+                        isDone   -> colors.tertiary
+                        isActive -> colors.primary
+                        else     -> colors.outlineVariant
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
                     ) {
                         Text(
                             text = if (isDone) "✓" else if (isActive) ">" else " ",
                             color = color.copy(alpha = alpha),
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp
+                            fontSize = 14.sp
                         )
                         Text(
                             text = line,
                             color = color.copy(alpha = alpha),
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
+                            fontSize = 14.sp,
                             letterSpacing = 0.5.sp
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(Dimens.Space3xl))
 
             // Barra de progresso
             val animatedProgress by animateFloatAsState(
@@ -216,28 +217,28 @@ fun SplashScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(DarkSurface)
+                        .height(Dimens.ProgressSm)
+                        .clip(AppShapes.small)
+                        .background(colors.surface)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(animatedProgress)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(2.dp))
+                            .clip(AppShapes.small)
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(NeonCyan, NeonMagenta.copy(alpha = 0.8f))
+                                    listOf(colors.primary, ext.magenta.copy(alpha = 0.8f))
                                 )
                             )
                     )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(Dimens.SpaceSm))
                 Text(
                     text = "${(animatedProgress * 100).toInt()}%",
-                    color = NeonCyan.copy(alpha = 0.6f),
+                    color = colors.primary.copy(alpha = 0.6f),
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
+                    fontSize = 13.sp,
                     modifier = Modifier.align(Alignment.End)
                 )
             }
@@ -246,12 +247,12 @@ fun SplashScreen(
         // Versão no rodapé
         Text(
             text = "v0.3.0 — Munux Security",
-            color = TextMuted.copy(alpha = 0.4f),
+            color = colors.outlineVariant.copy(alpha = 0.4f),
             fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
+            fontSize = 12.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
+                .padding(bottom = Dimens.Space3xl)
         )
     }
 }

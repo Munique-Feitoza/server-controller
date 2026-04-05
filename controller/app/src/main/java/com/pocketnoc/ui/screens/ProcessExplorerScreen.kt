@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -16,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +32,9 @@ fun ProcessExplorerScreen(
     serverId: Int,
     onNavigateBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val servers by viewModel.allServers.collectAsState()
     val selectedServer = servers.find { it.id == serverId }
     val processesState by viewModel.processesState.collectAsState()
@@ -48,24 +49,24 @@ fun ProcessExplorerScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("PROCESS EXPLORER", style = MaterialTheme.typography.titleLarge, color = NeonMagenta, fontWeight = FontWeight.Bold)
+                        Text("PROCESS EXPLORER", style = MaterialTheme.typography.titleLarge, color = ext.magenta, fontWeight = FontWeight.Bold)
                         selectedServer?.let {
-                            Text(it.name, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            Text(it.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonMagenta)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = ext.magenta)
                     }
                 },
                 actions = {
                     IconButton(onClick = { selectedServer?.let { viewModel.fetchProcesses(it) } }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = NeonCyan)
+                        Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.primary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.9f)),
-                modifier = Modifier.shadow(8.dp, spotColor = NeonMagenta.copy(alpha = 0.3f))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface.copy(alpha = 0.9f)),
+                modifier = Modifier.shadow(8.dp, spotColor = ext.magenta.copy(alpha = 0.3f))
             )
         },
         containerColor = Color.Transparent
@@ -74,16 +75,14 @@ fun ProcessExplorerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(listOf(DarkBackground, Color(0xFF140A1F), DarkBackground))
-                )
+                .background(colors.background)
         ) {
             when (val state = processesState) {
                 is ProcessesUiState.Loading -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        modifier = Modifier.fillMaxSize().padding(Dimens.ScreenPadding),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
+                        contentPadding = PaddingValues(bottom = Dimens.ScreenPadding)
                     ) {
                         items(10) {
                             ShimmerBox(modifier = Modifier.fillMaxWidth().height(72.dp))
@@ -95,27 +94,27 @@ fun ProcessExplorerScreen(
                     val processes = state.processes
                     if (processes.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Nenhum processo encontrado", color = TextSecondary)
+                            Text("Nenhum processo encontrado", color = colors.onSurfaceVariant)
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 14.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd),
+                            contentPadding = PaddingValues(vertical = Dimens.RadiusCard)
                         ) {
                             // Header da tabela
                             item {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(DarkSurface)
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        .clip(AppShapes.medium)
+                                        .background(colors.surface)
+                                        .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.SpaceMd),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text("PROCESSO", style = MaterialTheme.typography.labelSmall, color = TextSecondary, modifier = Modifier.weight(1f))
-                                    Text("CPU", style = MaterialTheme.typography.labelSmall, color = NeonMagenta, modifier = Modifier.width(56.dp))
-                                    Text("MEM", style = MaterialTheme.typography.labelSmall, color = NeonBlue, modifier = Modifier.width(56.dp))
+                                    Text("PROCESSO", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant, modifier = Modifier.weight(1f))
+                                    Text("CPU", style = MaterialTheme.typography.labelSmall, color = ext.magenta, modifier = Modifier.width(56.dp))
+                                    Text("MEM", style = MaterialTheme.typography.labelSmall, color = ext.blue, modifier = Modifier.width(56.dp))
                                     Spacer(modifier = Modifier.width(40.dp))
                                 }
                             }
@@ -128,14 +127,14 @@ fun ProcessExplorerScreen(
 
                 is ProcessesUiState.Error -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("⚠", style = MaterialTheme.typography.displayLarge, color = CriticalRedHealth)
-                            Text(state.message, color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                            Text("\u26A0", style = MaterialTheme.typography.displayLarge, color = StatusColors.critical)
+                            Text(state.message, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             Button(
                                 onClick = { selectedServer?.let { viewModel.fetchProcesses(it) } },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan.copy(alpha = 0.15f)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) { Text("Tentar novamente", color = NeonCyan) }
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.15f)),
+                                shape = AppShapes.medium
+                            ) { Text("Tentar novamente", color = colors.primary) }
                         }
                     }
                 }
@@ -149,25 +148,25 @@ fun ProcessExplorerScreen(
         AlertDialog(
             onDismissRequest = { showKillConfirmation = null },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = null, tint = CriticalRedHealth, modifier = Modifier.size(20.dp))
-                    Text("ENCERRAR PROCESSO?", color = CriticalRedHealth, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                    Icon(Icons.Default.Close, contentDescription = null, tint = StatusColors.critical, modifier = Modifier.size(Dimens.IconMd))
+                    Text("ENCERRAR PROCESSO?", color = StatusColors.critical, fontWeight = FontWeight.Bold)
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("PID:", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        Text("[${proc.pid}]", color = NeonCyan, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                        Text("PID:", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text("[${proc.pid}]", color = colors.primary, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Nome:", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        Text(proc.name, color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                        Text("Nome:", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text(proc.name, color = colors.onSurface, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Dimens.SpaceXs))
                     Text(
                         "Esta ação é irreversível. O processo receberá um sinal SIGKILL.",
-                        color = TextSecondary,
+                        color = colors.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -180,55 +179,58 @@ fun ProcessExplorerScreen(
                         }
                         showKillConfirmation = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CriticalRedHealth),
-                    shape = RoundedCornerShape(8.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusColors.critical),
+                    shape = AppShapes.medium
                 ) {
                     Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("KILL", color = Color.White, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(Dimens.SpaceXs))
+                    Text("KILL", color = colors.onSurface, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showKillConfirmation = null }, shape = RoundedCornerShape(8.dp)) {
-                    Text("Cancelar", color = NeonCyan)
+                OutlinedButton(onClick = { showKillConfirmation = null }, shape = AppShapes.medium) {
+                    Text("Cancelar", color = colors.primary)
                 }
             },
-            containerColor = DarkCard,
-            modifier = Modifier.border(1.dp, CriticalRedHealth.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            containerColor = colors.surfaceVariant,
+            modifier = Modifier.border(Dimens.BorderThin, StatusColors.critical.copy(alpha = 0.4f), AppShapes.xl)
         )
     }
 }
 
 @Composable
 fun ProcessCard(process: ProcessInfo, onKill: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val isHeavy = process.cpuUsage > 50f
     val borderColor = when {
-        isHeavy              -> CriticalRedHealth.copy(alpha = 0.7f)
-        process.cpuUsage > 20 -> AlertYellow.copy(alpha = 0.5f)
-        else                  -> NeonPurple.copy(alpha = 0.2f)
+        isHeavy              -> StatusColors.critical.copy(alpha = 0.7f)
+        process.cpuUsage > 20 -> StatusColors.warning.copy(alpha = 0.5f)
+        else                  -> ext.purple.copy(alpha = 0.2f)
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isHeavy) CriticalRedHealth.copy(alpha = 0.06f) else DarkCard.copy(alpha = 0.9f))
-            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .clip(AppShapes.large)
+            .background(if (isHeavy) StatusColors.critical.copy(alpha = 0.06f) else colors.surfaceVariant.copy(alpha = 0.9f))
+            .border(Dimens.BorderThin, borderColor, AppShapes.large)
+            .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.SpaceLg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
                 Text(
                     text = "[${process.pid}]",
                     style = MaterialTheme.typography.labelSmall,
-                    color = NeonCyan.copy(alpha = 0.7f),
+                    color = colors.primary.copy(alpha = 0.7f),
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
                     text = process.name,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
+                    color = colors.onSurface,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -239,42 +241,42 @@ fun ProcessCard(process: ProcessInfo, onKill: () -> Unit) {
             Text(
                 "${String.format("%.1f", process.cpuUsage.toDouble())}%",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isHeavy) CriticalRedHealth else NeonMagenta,
+                color = if (isHeavy) StatusColors.critical else ext.magenta,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Dimens.SpaceXxs))
             LinearProgressIndicator(
                 progress = { (process.cpuUsage / 100f).coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
-                color = if (isHeavy) CriticalRedHealth else NeonMagenta,
-                trackColor = DarkSurface
+                modifier = Modifier.fillMaxWidth().height(Dimens.ProgressSm).clip(AppShapes.small),
+                color = if (isHeavy) StatusColors.critical else ext.magenta,
+                trackColor = colors.surface
             )
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(Dimens.SpaceMd))
 
         // RAM
         Text(
             "${process.memoryMb}MB",
             style = MaterialTheme.typography.labelSmall,
-            color = NeonBlue,
+            color = ext.blue,
             modifier = Modifier.width(56.dp),
             fontWeight = FontWeight.Medium
         )
 
-        // Kill button — só visível em processos pesados ou sempre clicável
+        // Botao de encerrar processo
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(Dimens.ChipHeight)
+                .clip(AppShapes.medium)
                 .background(
-                    if (isHeavy) CriticalRedHealth.copy(alpha = 0.2f)
-                    else DarkSurface.copy(alpha = 0.6f)
+                    if (isHeavy) StatusColors.critical.copy(alpha = 0.2f)
+                    else colors.surface.copy(alpha = 0.6f)
                 )
                 .border(
-                    1.dp,
-                    if (isHeavy) CriticalRedHealth.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.08f),
-                    RoundedCornerShape(8.dp)
+                    Dimens.BorderThin,
+                    if (isHeavy) StatusColors.critical.copy(alpha = 0.5f) else colors.onSurface.copy(alpha = 0.08f),
+                    AppShapes.medium
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -282,7 +284,7 @@ fun ProcessCard(process: ProcessInfo, onKill: () -> Unit) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Kill",
-                    tint = if (isHeavy) CriticalRedHealth else TextMuted,
+                    tint = if (isHeavy) StatusColors.critical else colors.outlineVariant,
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -292,8 +294,9 @@ fun ProcessCard(process: ProcessInfo, onKill: () -> Unit) {
 
 @Composable
 fun MetricLabel(label: String, value: String, color: Color) {
+    val colors = MaterialTheme.colorScheme
     Column {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
         Text(text = value, style = MaterialTheme.typography.bodyMedium, color = color, fontWeight = FontWeight.Bold)
     }
 }

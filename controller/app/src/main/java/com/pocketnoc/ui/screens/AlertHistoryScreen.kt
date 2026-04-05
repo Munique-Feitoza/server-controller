@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -21,12 +20,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
@@ -40,23 +37,26 @@ import com.pocketnoc.utils.formatAlertTimestamp
 
 private data class AlertStyle(val color: Color, val icon: ImageVector, val label: String)
 
+@Composable
 private fun alertStyle(type: String): AlertStyle {
+    val ext = LocalExtendedColors.current
+    val colors = MaterialTheme.colorScheme
     val t = type.uppercase()
     return when {
         t.contains("SECURITY") || t.contains("THREAT") ->
-            AlertStyle(CriticalRedHealth, Icons.Default.Security, "SEGURANÇA")
+            AlertStyle(StatusColors.critical, Icons.Default.Security, "SEGURAN\u00C7A")
         t.contains("CPU") ->
-            AlertStyle(NeonMagenta, Icons.Default.Speed, "CPU")
+            AlertStyle(ext.magenta, Icons.Default.Speed, "CPU")
         t.contains("MEMORY") || t.contains("MEM") ->
-            AlertStyle(NeonBlue, Icons.Default.Memory, "MEMÓRIA")
+            AlertStyle(ext.blue, Icons.Default.Memory, "MEM\u00D3RIA")
         t.contains("DISK") ->
-            AlertStyle(NeonCyan, Icons.Default.Storage, "DISCO")
+            AlertStyle(colors.primary, Icons.Default.Storage, "DISCO")
         t.contains("TEMP") ->
-            AlertStyle(WarningOrange, Icons.Default.Thermostat, "TEMPERATURA")
+            AlertStyle(StatusColors.warning, Icons.Default.Thermostat, "TEMPERATURA")
         t.contains("REBOOT") ->
-            AlertStyle(NeonGreen, Icons.Default.Refresh, "REBOOT")
+            AlertStyle(colors.tertiary, Icons.Default.Refresh, "REBOOT")
         else ->
-            AlertStyle(AlertYellow, Icons.Default.Warning, "ALERTA")
+            AlertStyle(StatusColors.warning, Icons.Default.Warning, "ALERTA")
     }
 }
 
@@ -66,6 +66,9 @@ fun AlertHistoryScreen(
     viewModel: DashboardViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val alertHistory by viewModel.alertHistory.collectAsState()
 
     Scaffold(
@@ -73,34 +76,34 @@ fun AlertHistoryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Color(0xFF0A0F1E), DarkSurface.copy(alpha = 0.95f))))
+                    .background(colors.surface)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.RadiusLg),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Botão voltar
+                    // Bot\u00E3o voltar
                     Box(
                         modifier = Modifier
                             .size(34.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(NeonMagenta.copy(alpha = 0.10f))
-                            .border(1.dp, NeonMagenta.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+                            .clip(AppShapes.medium)
+                            .background(ext.magenta.copy(alpha = 0.10f))
+                            .border(Dimens.BorderThin, ext.magenta.copy(alpha = 0.35f), AppShapes.medium)
                             .clickable(onClick = onNavigateBack),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonMagenta, modifier = Modifier.size(17.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = ext.magenta, modifier = Modifier.size(17.dp))
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "ALERT AUDIT",
-                            color = NeonMagenta,
+                            color = ext.magenta,
                             fontWeight = FontWeight.Black,
                             fontSize = 18.sp,
                             fontFamily = FontFamily.Monospace,
@@ -109,7 +112,7 @@ fun AlertHistoryScreen(
                         Text(
                             "${alertHistory.size} eventos registrados",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
+                            color = colors.outlineVariant,
                             fontFamily = FontFamily.Monospace
                         )
                     }
@@ -118,13 +121,13 @@ fun AlertHistoryScreen(
                         Box(
                             modifier = Modifier
                                 .size(34.dp)
-                                .clip(RoundedCornerShape(9.dp))
-                                .background(CriticalRedHealth.copy(alpha = 0.10f))
-                                .border(1.dp, CriticalRedHealth.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+                                .clip(AppShapes.medium)
+                                .background(StatusColors.critical.copy(alpha = 0.10f))
+                                .border(Dimens.BorderThin, StatusColors.critical.copy(alpha = 0.35f), AppShapes.medium)
                                 .clickable { viewModel.clearAlertHistory() },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Limpar histórico", tint = CriticalRedHealth, modifier = Modifier.size(17.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Limpar hist\u00F3rico", tint = StatusColors.critical, modifier = Modifier.size(17.dp))
                         }
                     }
                 }
@@ -132,12 +135,8 @@ fun AlertHistoryScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(1.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(Color.Transparent, NeonMagenta.copy(alpha = 0.6f), NeonCyan.copy(alpha = 0.4f), Color.Transparent)
-                            )
-                        )
+                        .height(Dimens.BorderThin)
+                        .background(colors.primary.copy(alpha = 0.3f))
                 )
             }
         },
@@ -147,26 +146,24 @@ fun AlertHistoryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(listOf(DarkBackground, Color(0xFF140F1F), DarkBackground))
-                )
+                .background(colors.background)
         ) {
             if (alertHistory.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
                     ) {
-                        Text("✓", style = MaterialTheme.typography.displayLarge, color = NeonGreen)
-                        Text("Nenhum alerta registrado", style = MaterialTheme.typography.titleMedium, color = NeonCyan)
-                        Text("O sistema está operando normalmente.", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                        Text("\u2713", style = MaterialTheme.typography.displayLarge, color = colors.tertiary)
+                        Text("Nenhum alerta registrado", style = MaterialTheme.typography.titleMedium, color = colors.primary)
+                        Text("O sistema est\u00E1 operando normalmente.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(vertical = 14.dp)
+                    modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.RadiusLg),
+                    contentPadding = PaddingValues(vertical = Dimens.RadiusCard)
                 ) {
                     items(alertHistory) { alert ->
                         AlertHistoryCard(alert = alert)
@@ -179,7 +176,10 @@ fun AlertHistoryScreen(
 
 @Composable
 fun AlertHistoryCard(alert: AlertEntity) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
     val style = alertStyle(alert.type)
+
     val unit = when {
         alert.type.uppercase().let { it.contains("CPU") || it.contains("MEM") || it.contains("DISK") } -> "%"
         alert.type.uppercase().contains("REBOOT") -> "min"
@@ -189,26 +189,26 @@ fun AlertHistoryCard(alert: AlertEntity) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .border(1.dp, style.color.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .shadow(4.dp, AppShapes.xl)
+            .clip(AppShapes.xl)
+            .background(colors.surfaceVariant)
+            .border(Dimens.BorderThin, style.color.copy(alpha = 0.3f), AppShapes.xl)
+            .padding(Dimens.RadiusCard),
         verticalAlignment = Alignment.Top
     ) {
-        // Ícone por tipo
+        // \u00CDcone por tipo
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(DarkCard)
-                .border(1.dp, style.color.copy(alpha = 0.4f), RoundedCornerShape(10.dp)),
+                .size(Dimens.TopBarButton)
+                .clip(AppShapes.large)
+                .background(colors.surfaceVariant)
+                .border(Dimens.BorderThin, style.color.copy(alpha = 0.4f), AppShapes.large),
             contentAlignment = Alignment.Center
         ) {
-            Icon(style.icon, contentDescription = null, tint = style.color, modifier = Modifier.size(20.dp))
+            Icon(style.icon, contentDescription = null, tint = style.color, modifier = Modifier.size(Dimens.IconMd))
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(
@@ -218,7 +218,7 @@ fun AlertHistoryCard(alert: AlertEntity) {
             ) {
                 // Tipo + servidor
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -228,40 +228,40 @@ fun AlertHistoryCard(alert: AlertEntity) {
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
-                    Text("·", color = TextMuted, fontSize = 10.sp)
+                    Text("\u00B7", color = colors.outlineVariant, fontSize = 13.sp)
                     Text(
                         alert.serverName.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = NeonCyan,
+                        color = colors.primary,
                         letterSpacing = 0.8.sp
                     )
                 }
                 Text(
                     formatAlertTimestamp(alert.timestamp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
+                    color = colors.outlineVariant
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(Dimens.SpaceXs))
 
             Text(
                 text = alert.message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
+                color = colors.onSurface,
                 fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Dimens.SpaceSm))
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
                 Text(
                     text = "${String.format("%.1f", alert.value.toDouble())}$unit",
                     style = MaterialTheme.typography.labelMedium,
                     color = style.color,
                     fontWeight = FontWeight.Black
                 )
-                Text("→ limite ${alert.threshold.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                Text("\u2192 limite ${alert.threshold.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             }
         }
     }

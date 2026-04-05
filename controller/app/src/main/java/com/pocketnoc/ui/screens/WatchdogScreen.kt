@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -43,6 +42,9 @@ fun WatchdogScreen(
     server: ServerEntity,
     viewModel: WatchdogViewModel
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val state          by viewModel.state.collectAsState()
     val selectedServer by viewModel.selectedServerId.collectAsState()
     val selectedStatus by viewModel.selectedStatus.collectAsState()
@@ -53,38 +55,38 @@ fun WatchdogScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // ── Barra de ações inline ──────────────────────────────────────
+        // -- Barra de acoes inline --
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF080D1A))
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .background(colors.background)
+                .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.SpaceMd),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
                 Text(
-                    "AUTO-REMEDIAÇÃO",
-                    color = NeonCyan,
+                    "AUTO-REMEDIA\u00C7\u00C3O",
+                    color = colors.primary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = 14.sp,
                     fontFamily = FontFamily.Monospace,
                     letterSpacing = 2.sp
                 )
                 Text(
                     server.name,
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
+                    color = colors.outlineVariant,
                     fontFamily = FontFamily.Monospace
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(Dimens.ChipHeight)
+                        .clip(AppShapes.medium)
                         .background(WatchdogFailed.copy(alpha = 0.10f))
-                        .border(1.dp, WatchdogFailed.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                        .border(Dimens.BorderThin, WatchdogFailed.copy(alpha = 0.35f), AppShapes.medium)
                         .clickable { viewModel.clearLogs(server) },
                     contentAlignment = Alignment.Center
                 ) {
@@ -92,19 +94,19 @@ fun WatchdogScreen(
                 }
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(NeonCyan.copy(alpha = 0.10f))
-                        .border(1.dp, NeonCyan.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                        .size(Dimens.ChipHeight)
+                        .clip(AppShapes.medium)
+                        .background(colors.primary.copy(alpha = 0.10f))
+                        .border(Dimens.BorderThin, colors.primary.copy(alpha = 0.35f), AppShapes.medium)
                         .clickable { viewModel.fetchEvents(server) },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = NeonCyan, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.primary, modifier = Modifier.size(15.dp))
                 }
             }
         }
 
-        HorizontalDivider(color = NeonCyan.copy(alpha = 0.08f))
+        HorizontalDivider(color = colors.primary.copy(alpha = 0.08f))
 
         // Filtro de servidores
         if (knownServers.isNotEmpty()) {
@@ -123,15 +125,15 @@ fun WatchdogScreen(
             onClear        = { viewModel.filterByStatus(null, server) }
         )
 
-        HorizontalDivider(color = NeonCyan.copy(alpha = 0.08f))
+        HorizontalDivider(color = colors.primary.copy(alpha = 0.08f))
 
         Box(modifier = Modifier.weight(1f)) {
             when (val s = state) {
                 is WatchdogUiState.Loading -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        modifier = Modifier.fillMaxSize().padding(Dimens.ScreenPadding),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.RadiusLg),
+                        contentPadding = PaddingValues(bottom = Dimens.ScreenPadding)
                     ) {
                         items(8) {
                             ShimmerBox(modifier = Modifier.fillMaxWidth().height(110.dp))
@@ -143,29 +145,29 @@ fun WatchdogScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(DarkCard)
-                                    .border(1.dp, WatchdogSuccess.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
+                                    .clip(AppShapes.panel)
+                                    .background(colors.surfaceVariant)
+                                    .border(Dimens.BorderThin, WatchdogSuccess.copy(alpha = 0.4f), AppShapes.panel),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = WatchdogSuccess, modifier = Modifier.size(32.dp))
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = WatchdogSuccess, modifier = Modifier.size(Dimens.IconXl))
                             }
-                            Text("Nenhum evento de remediação", style = MaterialTheme.typography.titleMedium, color = WatchdogSuccess)
-                            Text("Todos os serviços estão saudáveis.", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                            Text("Nenhum evento de remedia\u00E7\u00E3o", style = MaterialTheme.typography.titleMedium, color = WatchdogSuccess)
+                            Text("Todos os servi\u00E7os est\u00E3o saud\u00E1veis.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
 
                 is WatchdogUiState.Success -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(vertical = 12.dp)
+                        modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.RadiusLg),
+                        contentPadding = PaddingValues(vertical = Dimens.SpaceLg)
                     ) {
                         item {
                             WatchdogSummaryCard(
@@ -186,15 +188,15 @@ fun WatchdogScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
                         ) {
                             Text("ERR", color = WatchdogFailed, fontFamily = FontFamily.Monospace, fontSize = 24.sp)
-                            Text(s.message, color = WatchdogFailed.copy(alpha = 0.7f), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                            Text(s.message, color = WatchdogFailed.copy(alpha = 0.7f), fontFamily = FontFamily.Monospace, fontSize = 14.sp)
                             Button(
                                 onClick = { viewModel.fetchEvents(server) },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan.copy(alpha = 0.15f)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) { Text("Tentar novamente", color = NeonCyan) }
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.15f)),
+                                shape = AppShapes.medium
+                            ) { Text("Tentar novamente", color = colors.primary) }
                         }
                     }
                 }
@@ -210,26 +212,29 @@ private fun ServerFilterRow(
     onSelect: (String?) -> Unit,
     onClear: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .background(DarkSurface.copy(alpha = 0.5f))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .background(colors.surface.copy(alpha = 0.5f))
+            .padding(horizontal = Dimens.SpaceLg, vertical = Dimens.SpaceSm),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)
     ) {
         item {
             FilterChip(
                 selected = selectedServer == null,
                 onClick  = onClear,
-                label    = { Text("Todos", fontFamily = FontFamily.Monospace, fontSize = 10.sp) },
+                label    = { Text("Todos", fontFamily = FontFamily.Monospace, fontSize = 13.sp) },
                 colors   = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NeonCyan,
+                    selectedContainerColor = colors.primary,
                     containerColor         = Color.Transparent,
-                    selectedLabelColor     = Color.Black
+                    selectedLabelColor     = colors.background
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true, selected = selectedServer == null,
-                    borderColor = NeonCyan.copy(alpha = 0.3f), selectedBorderColor = NeonCyan
+                    borderColor = colors.primary.copy(alpha = 0.3f), selectedBorderColor = colors.primary
                 ),
                 modifier = Modifier.height(28.dp)
             )
@@ -239,15 +244,15 @@ private fun ServerFilterRow(
             FilterChip(
                 selected = sel,
                 onClick  = { onSelect(if (sel) null else svr) },
-                label    = { Text(svr, fontFamily = FontFamily.Monospace, fontSize = 10.sp, maxLines = 1) },
+                label    = { Text(svr, fontFamily = FontFamily.Monospace, fontSize = 13.sp, maxLines = 1) },
                 colors   = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NeonMagenta,
+                    selectedContainerColor = ext.magenta,
                     containerColor         = Color.Transparent,
-                    selectedLabelColor     = Color.Black
+                    selectedLabelColor     = colors.background
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true, selected = sel,
-                    borderColor = NeonMagenta.copy(alpha = 0.3f), selectedBorderColor = NeonMagenta
+                    borderColor = ext.magenta.copy(alpha = 0.3f), selectedBorderColor = ext.magenta
                 ),
                 modifier = Modifier.height(28.dp)
             )
@@ -261,6 +266,8 @@ private fun StatusFilterRow(
     onSelect: (String) -> Unit,
     onClear: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+
     val statusOptions = listOf(
         Triple("Success",     WatchdogSuccess, Icons.Default.CheckCircle),
         Triple("Failed",      WatchdogFailed,  Icons.Default.Error),
@@ -269,8 +276,8 @@ private fun StatusFilterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = Dimens.SpaceLg, vertical = Dimens.SpaceSm),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
     ) {
         statusOptions.forEach { (label, color, icon) ->
             val isSel = selectedStatus == label
@@ -278,16 +285,16 @@ private fun StatusFilterRow(
                 selected = isSel,
                 onClick  = { if (isSel) onClear() else onSelect(label) },
                 label    = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs), verticalAlignment = Alignment.CenterVertically) {
                         Icon(icon, contentDescription = null, modifier = Modifier.size(10.dp))
-                        Text(label, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text(label, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                     }
                 },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = color.copy(alpha = 0.2f),
                     selectedLabelColor     = color,
                     containerColor         = Color.Transparent,
-                    labelColor             = TextSecondary
+                    labelColor             = colors.onSurfaceVariant
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true, selected = isSel,
@@ -304,57 +311,60 @@ private fun WatchdogSummaryCard(
     totalEvents: Int,
     serversSummary: Map<String, Int>
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .border(1.dp, NeonCyan.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .clip(AppShapes.xl)
+            .background(colors.surfaceVariant)
+            .border(Dimens.BorderThin, colors.primary.copy(alpha = 0.25f), AppShapes.xl)
+            .padding(Dimens.RadiusCard),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .background(NeonCyan.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
-                .border(1.dp, NeonCyan.copy(alpha = 0.35f), RoundedCornerShape(10.dp)),
+                .size(Dimens.TopBarButton)
+                .background(colors.primary.copy(alpha = 0.1f), AppShapes.large)
+                .border(Dimens.BorderThin, colors.primary.copy(alpha = 0.35f), AppShapes.large),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Analytics, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.Analytics, contentDescription = null, tint = colors.primary, modifier = Modifier.size(Dimens.IconMd))
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 "RESUMO DOS SERVIDORES",
                 style = MaterialTheme.typography.labelSmall,
-                color = NeonCyan,
+                color = colors.primary,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(Dimens.SpaceSm))
             serversSummary.forEach { (srv, count) ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(srv, style = MaterialTheme.typography.bodySmall, color = Color.White, fontFamily = FontFamily.Monospace)
-                    Text("$count eventos", style = MaterialTheme.typography.bodySmall, color = NeonMagenta, fontWeight = FontWeight.Bold)
+                    Text(srv, style = MaterialTheme.typography.bodySmall, color = colors.onSurface, fontFamily = FontFamily.Monospace)
+                    Text("$count eventos", style = MaterialTheme.typography.bodySmall, color = ext.magenta, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "$totalEvents",
                 style = MaterialTheme.typography.titleLarge,
-                color = NeonCyan,
+                color = colors.primary,
                 fontWeight = FontWeight.Black
             )
-            Text("total", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text("total", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
         }
     }
 }
@@ -364,6 +374,9 @@ fun WatchdogEventCard(
     event: WatchdogEvent,
     onReset: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val statusColor = when (event.finalStatus) {
         "Success"     -> WatchdogSuccess
         "Failed"      -> WatchdogFailed
@@ -399,27 +412,27 @@ fun WatchdogEventCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = statusColor.copy(alpha = 0.25f))
-            .clip(RoundedCornerShape(12.dp))
-            .background(DarkCard)
-            .border(1.dp, animatedBorder, RoundedCornerShape(12.dp))
+            .shadow(4.dp, AppShapes.xl, spotColor = statusColor.copy(alpha = 0.25f))
+            .clip(AppShapes.xl)
+            .background(colors.surfaceVariant)
+            .border(Dimens.BorderThin, animatedBorder, AppShapes.xl)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(Dimens.RadiusCard)
         ) {
             // Dot de status pulsante
             Box(
                 modifier = Modifier
-                    .padding(top = 4.dp)
-                    .size(10.dp)
-                    .background(statusColor.copy(alpha = dotAlpha), RoundedCornerShape(5.dp))
+                    .padding(top = Dimens.SpaceXs)
+                    .size(Dimens.StatusDotLg)
+                    .background(statusColor.copy(alpha = dotAlpha), AppShapes.pill)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
             Column(modifier = Modifier.weight(1f)) {
-                // Cabeçalho: servidor + serviço + badge
+                // Cabecalho: servidor + servico + badge
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -429,28 +442,28 @@ fun WatchdogEventCard(
                         Text(
                             text  = event.serverId,
                             style = MaterialTheme.typography.labelSmall,
-                            color = NeonMagenta,
+                            color = ext.magenta,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(modifier = Modifier.size(6.dp).background(probeColor, RoundedCornerShape(3.dp)))
+                            Box(modifier = Modifier.size(Dimens.SpaceSm).background(probeColor, AppShapes.pill))
                             Text(
                                 text  = event.service,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
+                                color = colors.onSurface,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                     Box(
                         modifier = Modifier
-                            .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
-                            .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                            .background(statusColor.copy(alpha = 0.15f), AppShapes.pill)
+                            .border(Dimens.BorderThin, statusColor.copy(alpha = 0.5f), AppShapes.pill)
+                            .padding(horizontal = Dimens.SpaceMd, vertical = Dimens.ProgressSm)
                     ) {
                         Text(
                             text  = statusLabel,
@@ -462,18 +475,18 @@ fun WatchdogEventCard(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Dimens.SpaceMd))
 
                 // Mensagem
                 Text(
                     text     = event.message,
                     style    = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, lineHeight = 17.sp),
-                    color    = TextSecondary,
+                    color    = colors.onSurfaceVariant,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Dimens.SpaceMd))
 
                 // Rodapé: ação + timestamp + latência
                 Row(
@@ -484,27 +497,27 @@ fun WatchdogEventCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)
                         ) {
-                            Icon(Icons.Default.Build, contentDescription = null, tint = NeonCyan.copy(alpha = 0.6f), modifier = Modifier.size(10.dp))
+                            Icon(Icons.Default.Build, contentDescription = null, tint = colors.primary.copy(alpha = 0.6f), modifier = Modifier.size(10.dp))
                             Text(
                                 text     = event.actionTaken,
                                 style    = MaterialTheme.typography.labelSmall,
-                                color    = NeonCyan.copy(alpha = 0.8f),
+                                color    = colors.primary.copy(alpha = 0.8f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(Dimens.SpaceXxs))
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RoleBadge(event.serverRole)
                             Text(
                                 event.serverHostname,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
+                                color = colors.outlineVariant,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
@@ -514,11 +527,11 @@ fun WatchdogEventCard(
                         Text(
                             text  = formatIsoToBrasilia(event.timestampIso),
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
+                            color = colors.outlineVariant
                         )
                         if (event.circuitOpen) {
                             Text(
-                                "CIRCUIT • ${event.attempts}x",
+                                "CIRCUIT \u2022 ${event.attempts}x",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = WatchdogCircuit,
                                 fontFamily = FontFamily.Monospace
@@ -528,7 +541,7 @@ fun WatchdogEventCard(
                                 Text(
                                     "${ms}ms",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (ms > 2000) WatchdogDegraded else TextMuted
+                                    color = if (ms > 2000) WatchdogDegraded else colors.outlineVariant
                                 )
                             }
                         }
@@ -537,19 +550,19 @@ fun WatchdogEventCard(
 
                 // Botão de reset (só quando circuit open)
                 if (event.circuitOpen) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(Dimens.SpaceMd))
                     Button(
                         onClick = onReset,
                         colors = ButtonDefaults.buttonColors(containerColor = WatchdogCircuit.copy(alpha = 0.15f)),
                         border = ButtonDefaults.outlinedButtonBorder.copy(
                             brush = Brush.horizontalGradient(listOf(WatchdogCircuit.copy(alpha = 0.8f), WatchdogCircuit.copy(alpha = 0.4f)))
                         ),
-                        shape  = RoundedCornerShape(8.dp),
+                        shape  = AppShapes.medium,
                         modifier = Modifier.fillMaxWidth().height(34.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp)
+                        contentPadding = PaddingValues(horizontal = Dimens.SpaceLg)
                     ) {
                         Icon(Icons.Default.RestartAlt, contentDescription = null, tint = WatchdogCircuit, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(Dimens.SpaceSm))
                         Text("RESET & RESTART", color = WatchdogCircuit, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -568,8 +581,8 @@ private fun RoleBadge(role: String) {
     }
     Box(
         modifier = Modifier
-            .background(color.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
-            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+            .background(color.copy(alpha = 0.12f), AppShapes.small)
+            .border(Dimens.BorderThin, color.copy(alpha = 0.4f), AppShapes.small)
             .padding(horizontal = 5.dp, vertical = 1.dp)
     ) {
         Text(
