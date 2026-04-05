@@ -234,7 +234,7 @@ impl AlertManager {
             });
         }
 
-        // Verificar ameaças de segurança — Filtrado por IP individual (HackerSec Core)
+        // Verificar ameaças de segurança — Filtrado por IP individual (Munux Security)
         // Só dispara se um ÚNICO IP atingir o threshold configurado
         if let Some(offender) = telemetry.security.failed_logins.iter().find(|f| f.count >= self.thresholds.security_threat_threshold) {
             alerts.push(Alert {

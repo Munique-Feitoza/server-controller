@@ -31,83 +31,54 @@ pub struct ServiceInfo {
 pub struct ServiceMonitor;
 
 impl ServiceMonitor {
-    /// Verifica o status de um serviço
+    /// Verifica o status de um serviço com uma única chamada ao systemctl
+    /// (ActiveState + Description + MainPID em um único subprocesso)
     pub fn check_service(service_name: &str) -> Result<ServiceInfo> {
-        let status = Self::get_service_status(service_name)?;
+        let output = Command::new("systemctl")
+            .args(["show", "-p", "ActiveState", "-p", "Description", "-p", "MainPID", service_name])
+            .output()
+            .map_err(|e| AgentError::ServiceError(format!("Failed to check service: {}", e)))?;
+
+        let output_str = String::from_utf8_lossy(&output.stdout);
+
+        let mut active_state = "unknown".to_string();
+        let mut description: Option<String> = None;
+        let mut pid: Option<u32> = None;
+
+        for line in output_str.lines() {
+            if let Some(val) = line.strip_prefix("ActiveState=") {
+                active_state = val.trim().to_lowercase();
+            } else if let Some(val) = line.strip_prefix("Description=") {
+                let v = val.trim().to_string();
+                if !v.is_empty() {
+                    description = Some(v);
+                }
+            } else if let Some(val) = line.strip_prefix("MainPID=") {
+                pid = val.trim().parse::<u32>().ok().filter(|&p| p > 0);
+            }
+        }
+
+        let status = match active_state.as_str() {
+            "active" | "activating" | "reloading" => ServiceStatus::Active,
+            "inactive" | "deactivating" | "failed" => {
+                // Fallback: painéis como RunCloud iniciam processos fora do controle do systemd.
+                // Se o systemd diz "inactive" mas o processo existe no sistema, reportamos como Active.
+                let process_exists = Command::new("pgrep")
+                    .args(["-x", service_name])
+                    .status()
+                    .map(|s| s.success())
+                    .unwrap_or(false);
+                if process_exists { ServiceStatus::Active } else { ServiceStatus::Inactive }
+            }
+            _ => ServiceStatus::Unknown,
+        };
 
         Ok(ServiceInfo {
             name: service_name.to_string(),
             status,
-            description: Self::get_service_description(service_name).ok(),
-            pid: Self::get_service_pid(service_name).ok(),
+            description,
+            pid,
         })
-    }
-
-    /// Obtém o status de um serviço via systemctl
-    fn get_service_status(service_name: &str) -> Result<ServiceStatus> {
-        // Usa 'systemctl show' que é mais robusto que 'is-active'
-        let output = Command::new("systemctl")
-            .arg("show")
-            .arg("-p")
-            .arg("ActiveState")
-            .arg("--value")
-            .arg(service_name)
-            .output()
-            .map_err(|e| {
-                AgentError::ServiceError(format!("Failed to check service status: {}", e))
-            })?;
-
-        let status_str = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
-
-        Ok(match status_str.as_str() {
-            // Estados que indicam que o serviço está realmente ativo
-            "active" | "activating" | "reloading" => ServiceStatus::Active,
-            // Estados que indicam inatividade
-            "inactive" | "deactivating" | "failed" => ServiceStatus::Inactive,
-            _ => ServiceStatus::Unknown,
-        })
-    }
-
-    /// Obtém a descrição de um serviço
-    fn get_service_description(service_name: &str) -> Result<String> {
-        let output = Command::new("systemctl")
-            .arg("show")
-            .arg("-p")
-            .arg("Description")
-            .arg("--value")
-            .arg(service_name)
-            .output()
-            .map_err(|e| {
-                AgentError::ServiceError(format!("Failed to get service description: {}", e))
-            })?;
-
-        let description = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if description.is_empty() {
-            Err(AgentError::ServiceError("No description available".to_string()))
-        } else {
-            Ok(description)
-        }
-    }
-
-    /// Obtém o PID de um serviço ativo
-    fn get_service_pid(service_name: &str) -> Result<u32> {
-        let output = Command::new("systemctl")
-            .arg("show")
-            .arg("-p")
-            .arg("MainPID")
-            .arg("--value")
-            .arg(service_name)
-            .output()
-            .map_err(|e| {
-                AgentError::ServiceError(format!("Failed to get service PID: {}", e))
-            })?;
-
-        let pid_str_owned = String::from_utf8_lossy(&output.stdout).to_string();
-        let pid_str = pid_str_owned.trim();
-        pid_str.parse::<u32>()
-            .ok()
-            .and_then(|pid| if pid > 0 { Some(pid) } else { None })
-            .ok_or_else(|| AgentError::ServiceError("No PID available".to_string()))
     }
 
     /// Verifica múltiplos serviços

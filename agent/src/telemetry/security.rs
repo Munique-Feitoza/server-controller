@@ -46,9 +46,12 @@ impl SecurityMetrics {
 
     fn parse_failed_logins() -> Option<Vec<FailedLogin>> {
         use std::collections::HashMap;
-        
+
+        // timeout 3s blinda a thread caso /var/log/btmp seja muito grande
         // lastb -s "-1 hours" -a mostra as tentativas na última hora com IP e tempo
-        let output = Command::new("lastb").arg("-s").arg("-1 hours").arg("-a").output().ok()?;
+        let output = Command::new("timeout")
+            .args(["3s", "lastb", "-s", "-1 hours", "-a"])
+            .output().ok()?;
         let stdout = String::from_utf8_lossy(&output.stdout);
         
         let mut ip_counts: HashMap<String, (usize, String)> = HashMap::new();
@@ -86,10 +89,12 @@ impl SecurityMetrics {
 
     /// Bloqueia um IP usando iptables (requer root)
     pub fn block_ip(ip: &str) -> Result<bool> {
-        // Validação básica de IP para evitar command injection (embora usemos Command::new)
-        if ip.contains(' ') || ip.contains(';') || ip.contains('&') {
-            return Err(crate::error::AgentError::CommandError("Invalid IP format".to_string()));
-        }
+        // Valida como endereço IPv4 ou IPv6 legítimo para evitar bloqueios acidentais
+        // (ex: "0.0.0.0/0" derrubaria todo o tráfego de entrada)
+        ip.parse::<std::net::IpAddr>()
+            .map_err(|_| crate::error::AgentError::CommandError(
+                format!("Endereço IP inválido: '{}'. Apenas IPs individuais são aceitos (ex: 192.168.1.1)", ip)
+            ))?;
 
         let status = Command::new("iptables")
             .arg("-I") // Usa -I (Insert) em vez de -A (Append) para garantir que fique no TOPO da regra
