@@ -3,7 +3,12 @@ package com.pocketnoc.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -46,38 +51,88 @@ val TextPrimary = Color(0xFFE3F2FD)
 val TextSecondary = Color(0xFFB0BEC5)
 val TextMuted = Color(0xFF78909C)
 
+// Light theme colors
+val LightBackground = Color(0xFFF5F7FA)
+val LightSurface = Color(0xFFFFFFFF)
+val LightCard = Color(0xFFE8EDF5)
+
+// Theme state holder — permite alternar dark/light em runtime
+class ThemeState {
+    var isDarkTheme by mutableStateOf(true)
+
+    fun toggle() {
+        isDarkTheme = !isDarkTheme
+    }
+}
+
+val LocalThemeState = compositionLocalOf { ThemeState() }
+
 private val DarkColorScheme = darkColorScheme(
     primary = NeonCyan,
     onPrimary = DarkBackground,
     primaryContainer = NeonBlue,
     onPrimaryContainer = NeonCyan,
-    
+
     secondary = NeonMagenta,
     onSecondary = DarkBackground,
     secondaryContainer = NeonPurple,
     onSecondaryContainer = NeonMagenta,
-    
+
     tertiary = NeonGreen,
     onTertiary = DarkBackground,
     tertiaryContainer = NeonPink,
     onTertiaryContainer = NeonGreen,
-    
+
     background = DarkBackground,
     onBackground = TextPrimary,
-    
+
     surface = DarkSurface,
     onSurface = TextPrimary,
     surfaceVariant = DarkCard,
     onSurfaceVariant = TextSecondary,
-    
+
     error = CriticalRed,
     onError = DarkBackground,
     errorContainer = Color(0xFF9B0020),
     onErrorContainer = CriticalRed,
-    
+
     outline = NeonCyan.copy(alpha = 0.3f),
     outlineVariant = TextMuted,
     scrim = Color.Black.copy(alpha = 0.8f),
+)
+
+private val LightColorScheme = lightColorScheme(
+    primary = Color(0xFF0077B6),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF90E0EF),
+    onPrimaryContainer = Color(0xFF003459),
+
+    secondary = Color(0xFF7B2FBE),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFE8DEF8),
+    onSecondaryContainer = Color(0xFF4A0080),
+
+    tertiary = Color(0xFF00875A),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFA7F3D0),
+    onTertiaryContainer = Color(0xFF004D34),
+
+    background = LightBackground,
+    onBackground = Color(0xFF1A1A2E),
+
+    surface = LightSurface,
+    onSurface = Color(0xFF1A1A2E),
+    surfaceVariant = LightCard,
+    onSurfaceVariant = Color(0xFF546E7A),
+
+    error = Color(0xFFB00020),
+    onError = Color.White,
+    errorContainer = Color(0xFFFCE4EC),
+    onErrorContainer = Color(0xFF93000A),
+
+    outline = Color(0xFF79747E),
+    outlineVariant = Color(0xFF90A4AE),
+    scrim = Color.Black.copy(alpha = 0.3f),
 )
 
 // ========== TIPOGRAFIA FUTURISTA ==========
@@ -106,7 +161,7 @@ private val FuturisticTypography = Typography(
         lineHeight = 28.sp,
         color = NeonMagenta
     ),
-    
+
     // Headline
     headlineLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -129,7 +184,7 @@ private val FuturisticTypography = Typography(
         lineHeight = 24.sp,
         color = TextPrimary
     ),
-    
+
     // Title
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -152,7 +207,7 @@ private val FuturisticTypography = Typography(
         lineHeight = 16.sp,
         color = TextSecondary
     ),
-    
+
     // Body
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -177,7 +232,7 @@ private val FuturisticTypography = Typography(
         lineHeight = 16.sp,
         color = TextMuted
     ),
-    
+
     // Label
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -207,10 +262,13 @@ private val FuturisticTypography = Typography(
 
 @Composable
 fun PocketNOCTheme(
+    themeState: ThemeState = LocalThemeState.current,
     content: @Composable () -> Unit
 ) {
+    val colorScheme = if (themeState.isDarkTheme) DarkColorScheme else LightColorScheme
+
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = colorScheme,
         typography = FuturisticTypography,
         content = content
     )
