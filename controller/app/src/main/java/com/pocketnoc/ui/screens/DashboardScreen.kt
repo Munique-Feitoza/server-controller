@@ -130,7 +130,9 @@ fun DashboardScreen(
         },
         containerColor = Color.Transparent,
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth().background(AppGradients.topBar())) {
+            var menuExpanded by remember { mutableStateOf(false) }
+
+            Column(modifier = Modifier.fillMaxWidth().background(colors.surface)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().statusBarsPadding()
                         .padding(horizontal = Dimens.SpaceXl, vertical = Dimens.SpaceMd),
@@ -161,24 +163,67 @@ fun DashboardScreen(
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
-                        TopBarBtn(if (themeState.isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode, StatusColors.warning) { themeState.toggle() }
-                        selectedServer?.let { s ->
-                            TopBarBtn(Icons.Default.Delete, StatusColors.critical) { serverToDelete = s; showDeleteDialog = true }
+                    // Botao de refresh direto (acao mais comum)
+                    TopBarBtn(Icons.Default.Refresh, colors.primary) {
+                        selectedServer?.let { viewModel.fetchTelemetry(it) }
+                    }
+
+                    Spacer(Modifier.width(Dimens.SpaceSm))
+
+                    // Menu sanduiche
+                    Box {
+                        TopBarBtn(Icons.Default.Menu, colors.onSurfaceVariant) {
+                            menuExpanded = true
                         }
-                        TopBarBtn(Icons.Default.Add, ext.green) { onNavigateToAddServer() }
-                        TopBarBtn(Icons.Default.Refresh, colors.primary) { selectedServer?.let { viewModel.fetchTelemetry(it) } }
-                        TopBarBtn(Icons.Default.Security, ext.magenta) { navController.navigate(AppRoute.AlertHistory.route) }
-                        TopBarBtn(Icons.Default.Download, ext.green) { navController.navigate(AppRoute.Export.route) }
+
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(colors.surfaceVariant)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(if (themeState.isDarkTheme) "Tema Claro" else "Tema Escuro", color = colors.onSurface) },
+                                onClick = { themeState.toggle(); menuExpanded = false },
+                                leadingIcon = { Icon(if (themeState.isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode, null, tint = StatusColors.warning) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Adicionar Servidor", color = colors.onSurface) },
+                                onClick = { onNavigateToAddServer(); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Add, null, tint = ext.green) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Historico de Alertas", color = colors.onSurface) },
+                                onClick = { navController.navigate(AppRoute.AlertHistory.route); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Security, null, tint = ext.magenta) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Exportar Dados", color = colors.onSurface) },
+                                onClick = { navController.navigate(AppRoute.Export.route); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Download, null, tint = ext.green) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Seguranca Dashboard", color = StatusColors.critical) },
+                                onClick = { navController.navigate(AppRoute.SecurityDashboard.route); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Shield, null, tint = StatusColors.critical) }
+                            )
+                            selectedServer?.let { s ->
+                                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                                DropdownMenuItem(
+                                    text = { Text("Remover Servidor", color = StatusColors.critical) },
+                                    onClick = { serverToDelete = s; showDeleteDialog = true; menuExpanded = false },
+                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = StatusColors.critical) }
+                                )
+                            }
+                        }
                     }
                 }
 
-                Box(Modifier.fillMaxWidth().height(Dimens.BorderThin).background(AppGradients.neonLine()))
+                Box(Modifier.fillMaxWidth().height(Dimens.BorderThin).background(colors.primary.copy(alpha = 0.3f)))
             }
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(paddingValues).background(AppGradients.background())
+            modifier = Modifier.fillMaxSize().padding(paddingValues).background(colors.background)
         ) {
             // Banner offline
             if (networkStatus == ConnectivityStatus.Unavailable || networkStatus == ConnectivityStatus.Lost) {
