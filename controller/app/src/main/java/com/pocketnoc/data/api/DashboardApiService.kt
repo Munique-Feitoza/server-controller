@@ -11,15 +11,15 @@ interface DashboardApiService {
 
     @GET("incidents")
     suspend fun getIncidents(
-        @Query("token") token: String,
-        @Query("limit") limit: Int = 50,
-        @Query("severity") severity: String? = null,
-        @Query("hours") hours: Int = 24
+        @Query("noc_token") token: String,
+        @Query("limit") limit: Int = 200,
+        @Query("days") days: Int = 7,
+        @Query("severity") severity: String? = null
     ): DashboardIncidentsResponse
 
-    @GET("incidents/stats")
+    @GET("stats")
     suspend fun getIncidentStats(
-        @Query("token") token: String,
-        @Query("hours") hours: Int = 24
+        @Query("noc_token") token: String,
+        @Query("days") days: Int = 7
     ): DashboardStatsResponse
 }

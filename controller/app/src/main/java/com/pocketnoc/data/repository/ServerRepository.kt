@@ -306,6 +306,16 @@ class ServerRepository @Inject constructor(
         }
     }
 
+    // PHP-FPM Pools
+    suspend fun getPhpFpmPools(server: ServerEntity): com.pocketnoc.data.models.PhpFpmResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.getPhpFpmPools()
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch PHP-FPM pools: ${e.message}")
+        }
+    }
+
     // Status de Backup
     suspend fun getBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus = withContext(kotlinx.coroutines.Dispatchers.IO) {
         try {

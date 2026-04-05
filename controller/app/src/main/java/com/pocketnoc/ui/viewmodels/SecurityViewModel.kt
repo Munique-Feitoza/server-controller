@@ -1,5 +1,6 @@
 package com.pocketnoc.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketnoc.data.api.DashboardApiService
@@ -14,12 +15,16 @@ import javax.inject.Inject
 @HiltViewModel
 class SecurityViewModel @Inject constructor() : ViewModel() {
 
-    // Token para acessar a API do dashboard (mesmo do sync de sheets)
-    // Em producao, puxar do BuildConfig ou SecureTokenManager
-    private val dashboardToken = com.pocketnoc.BuildConfig.POCKET_NOC_SECRET
+    companion object {
+        private const val TAG = "SecurityVM"
+        private const val DASHBOARD_BASE_URL = "https://api.winup.network/api/v1/pocketnoc/"
+    }
+
+    private val nocToken = com.pocketnoc.config.PocketNOCConfig.dashboardNocToken
+    private val baseUrl = com.pocketnoc.config.PocketNOCConfig.dashboardApiUrl
 
     private val dashboardApi: DashboardApiService by lazy {
-        RetrofitClient.getInstance("https://api.winup.network/api/v1/pocketnoc/", "")
+        RetrofitClient.getInstance(baseUrl, "")
             .create(DashboardApiService::class.java)
     }
 
@@ -32,24 +37,31 @@ class SecurityViewModel @Inject constructor() : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    fun loadSecurityData(hours: Int = 24) {
+    private val _errorMsg = MutableStateFlow<String?>(null)
+    val errorMsg: StateFlow<String?> = _errorMsg
+
+    fun loadSecurityData(days: Int = 7) {
         viewModelScope.launch {
             _isLoading.value = true
+            _errorMsg.value = null
             try {
                 val incidentsResp = dashboardApi.getIncidents(
-                    token = dashboardToken,
-                    limit = 100,
-                    hours = hours
+                    token = nocToken,
+                    limit = 200,
+                    days = days
                 )
                 _incidents.value = incidentsResp.incidents
 
                 val statsResp = dashboardApi.getIncidentStats(
-                    token = dashboardToken,
-                    hours = hours
+                    token = nocToken,
+                    days = days
                 )
                 _stats.value = statsResp
+
+                Log.d(TAG, "Carregados ${incidentsResp.total} incidentes e stats")
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Erro ao carregar dados de seguranca: ${e.message}")
+                _errorMsg.value = e.message
             }
             _isLoading.value = false
         }

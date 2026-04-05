@@ -28,6 +28,12 @@ object PocketNOCConfig {
     /**
      * Usar HTTPS (recomendado em produção)
      */
+    /** Token para acessar a API de seguranca do dashboard ERP */
+    val dashboardNocToken: String get() = BuildConfig.DASHBOARD_NOC_TOKEN
+
+    /** URL base da API do dashboard ERP */
+    val dashboardApiUrl: String get() = BuildConfig.DASHBOARD_API_URL
+
     val useHttps: Boolean = BuildConfig.USE_HTTPS
 
     /**
