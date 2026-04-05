@@ -4,7 +4,8 @@ use axum::{
     Router,
 };
 use pocket_noc_agent::{
-    api::{handlers::*, AppState},
+    api::{handlers::*, RateLimiter},
+    audit::AuditLog,
     auth::JwtConfig,
     commands::default_emergency_commands,
     telemetry::{TelemetryCollector, AlertManager, AlertType},
@@ -59,12 +60,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Store compartilhado de eventos do Watchdog (ring buffer 500 eventos)
     let watchdog_store = Arc::new(Mutex::new(WatchdogEventStore::with_defaults()));
-    
+
     // Motor de remediação compartilhado entre API e WatchdogEngine
     let remediation_engine = Arc::new(Mutex::new(RemediationEngine::new(
         config.max_failures,
         config.cooldown_secs,
     )));
+
+    // Audit Log (ring buffer 1000 entradas)
+    let audit_log = Arc::new(Mutex::new(AuditLog::with_defaults()));
+
+    // Rate Limiter (configurável via env)
+    let rate_limiter = RateLimiter::from_env();
+    tracing::info!("⚡ Rate limiter: {} req/min per IP", rate_limiter.max_requests);
 
     // Configuração do ntfy (Tópico dinâmico baseado no segredo para evitar stalkers)
     let ntfy_topic = std::env::var("NTFY_TOPIC")
@@ -79,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         alert_manager:        alert_manager.clone(),
         watchdog_event_store: watchdog_store.clone(),
         remediation_engine:   remediation_engine.clone(),
+        audit_log:            audit_log.clone(),
     };
 
     // ========== MONTAGEM FINAL ==========
@@ -100,6 +109,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/watchdog/events", delete(clear_watchdog_events))
         .route("/watchdog/reset", post(reset_watchdog))
         .route("/watchdog/breakers", get(get_watchdog_breakers))
+        // ─── Audit Log endpoints ────────────────────────────────────────────
+        .route("/audit/logs", get(get_audit_logs))
+        .route("/audit/logs", delete(clear_audit_logs))
+        // ─── Docker monitoring ──────────────────────────────────────────────
+        .route("/docker/containers", get(get_docker_containers))
+        // ─── Backup status ──────────────────────────────────────────────────
+        .route("/backups/status", get(get_backup_status))
+        // ─── Agent configuration ────────────────────────────────────────────
+        .route("/config", get(get_config))
+        .route("/config", post(update_config))
+        // ─── Middleware stack ────────────────────────────────────────────────
+        .layer(middleware::from_fn_with_state(
+            rate_limiter.clone(),
+            pocket_noc_agent::api::rate_limit::rate_limit_middleware,
+        ))
         .layer(middleware::from_fn_with_state(
             jwt_config.clone(),
             pocket_noc_agent::api::middleware::jwt_middleware,
@@ -111,79 +135,156 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Port configuration
     let port = std::env::var("POCKET_NOC_PORT")
         .unwrap_or_else(|_| "9443".to_string());
-    // Segurança: bind em 127.0.0.1 para forçar acesso via túnel SSH
-    let addr = format!("127.0.0.1:{}", port);
 
-    // Bind and serve
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
+    // ─── TLS Support ────────────────────────────────────────────────────────
+    let tls_cert = std::env::var("TLS_CERT_PATH").ok();
+    let tls_key = std::env::var("TLS_KEY_PATH").ok();
 
-    tracing::info!("🔐 HTTP listening on http://{} (use for testing)", addr);
-    tracing::info!("📋 Public routes:");
-    tracing::info!("   GET /health - No auth required");
-    tracing::info!("🔒 Protected routes (JWT Required - Bearer token):");
-    tracing::info!("   GET /telemetry - System metrics");
-    tracing::info!("   GET /alerts - Current system alerts");
-    tracing::info!("   GET /services/<name> - Service status");
-    tracing::info!("   GET /commands - List commands");
-    tracing::info!("   POST /commands/<id> - Execute command");
-    tracing::info!("   GET /metrics - Prometheus format");
+    if let (Some(cert_path), Some(key_path)) = (tls_cert, tls_key) {
+        // HTTPS mode
+        let addr = format!("0.0.0.0:{}", port);
+        tracing::info!("🔐 TLS enabled — loading cert from {} and key from {}", cert_path, key_path);
 
-    tracing::info!("   GET /watchdog/events - Watchdog remediation events (filter: ?server=&status=)");
+        // Carrega certificado e chave
+        let cert = std::fs::read(&cert_path)
+            .map_err(|e| format!("Failed to read TLS cert: {}", e))?;
+        let key = std::fs::read(&key_path)
+            .map_err(|e| format!("Failed to read TLS key: {}", e))?;
 
-    // Spawn background task — Telemetria (existente)
+        let certs = rustls_pemfile::certs(&mut cert.as_slice())
+            .filter_map(|c| c.ok())
+            .map(|c| rustls::Certificate(c.to_vec()))
+            .collect::<Vec<_>>();
+
+        let key = rustls_pemfile::private_key(&mut key.as_slice())
+            .ok()
+            .flatten()
+            .map(|k| rustls::PrivateKey(k.secret_der().to_vec()))
+            .ok_or("Failed to parse TLS private key")?;
+
+        let tls_config = rustls::ServerConfig::builder()
+            .with_safe_defaults()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .map_err(|e| format!("TLS config error: {}", e))?;
+
+        let tls_acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls_config));
+        let listener = tokio::net::TcpListener::bind(&addr).await
+            .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
+
+        tracing::info!("🔒 HTTPS listening on https://{}", addr);
+
+        // Spawn background tasks before entering serve loop
+        spawn_background_tasks(collector, alert_manager, ntfy_client.clone(), watchdog_store, remediation_engine);
+
+        loop {
+            let (stream, _addr) = listener.accept().await?;
+            let acceptor = tls_acceptor.clone();
+            let app = app.clone();
+
+            tokio::spawn(async move {
+                match acceptor.accept(stream).await {
+                    Ok(tls_stream) => {
+                        let io = hyper_util::rt::TokioIo::new(tls_stream);
+                        let service = hyper::service::service_fn(move |req| {
+                            let app = app.clone();
+                            async move {
+                                app.into_service().call(req).await
+                            }
+                        });
+                        let _ = hyper::server::conn::http1::Builder::new()
+                            .serve_connection(io, service)
+                            .await;
+                    }
+                    Err(e) => {
+                        tracing::error!("TLS handshake error: {}", e);
+                    }
+                }
+            });
+        }
+    } else {
+        // Plain HTTP mode (current behavior)
+        let addr = format!("127.0.0.1:{}", port);
+
+        let listener = tokio::net::TcpListener::bind(&addr)
+            .await
+            .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
+
+        tracing::info!("🔐 HTTP listening on http://{} (use SSH tunnel for security)", addr);
+        tracing::info!("📋 Public routes:");
+        tracing::info!("   GET /health - No auth required");
+        tracing::info!("🔒 Protected routes (JWT Required):");
+        tracing::info!("   GET  /telemetry, /alerts, /processes, /logs, /metrics");
+        tracing::info!("   POST /commands/<id>, /security/block-ip, /alerts/config");
+        tracing::info!("   GET  /watchdog/events, /watchdog/breakers");
+        tracing::info!("   GET  /audit/logs, /docker/containers, /backups/status, /config");
+
+        // Spawn background tasks
+        spawn_background_tasks(collector, alert_manager, ntfy_client.clone(), watchdog_store, remediation_engine);
+
+        axum::serve(listener, app)
+            .await
+            .map_err(|e| format!("Server error: {}", e).into())
+    }
+}
+
+/// Spawna as tasks de background (telemetria + watchdog)
+fn spawn_background_tasks(
+    collector: Arc<Mutex<TelemetryCollector>>,
+    alert_manager: Arc<Mutex<AlertManager>>,
+    ntfy_client: Arc<NtfyClient>,
+    watchdog_store: Arc<Mutex<WatchdogEventStore>>,
+    remediation_engine: Arc<Mutex<RemediationEngine>>,
+) {
+    // Spawn background task — Telemetria
     let collector_task = collector.clone();
     let alert_manager_task = alert_manager.clone();
     let ntfy_client_task = ntfy_client.clone();
-    
+
     tokio::spawn(async move {
-        // Padrão OMNI-DEV: Deduplicação inteligente com Cooldown
-        // Chave: (Tipo de Alerta, Componente/IP) -> Valor: Timestamp da última notificação
         let mut last_notified_alerts: std::collections::HashMap<(AlertType, Option<String>), i64> = std::collections::HashMap::new();
-        
+
         loop {
-            // Coleta telemetria
-            let mut coll = collector_task.lock().await;
-            if let Ok(telemetry) = coll.collect() {
-                // Analisa alertas
-                let alert_mgr = alert_manager_task.lock().await;
-                if let Ok(alerts) = alert_mgr.analyze(&telemetry) {
+            let telemetry_result = {
+                let mut coll = collector_task.lock().await;
+                coll.collect()
+            };
+
+            if let Ok(telemetry) = telemetry_result {
+                let alerts_result = {
+                    let alert_mgr = alert_manager_task.lock().await;
+                    alert_mgr.analyze(&telemetry)
+                };
+
+                if let Ok(alerts) = alerts_result {
                     let now = chrono::Utc::now().timestamp();
 
-                    // Limpa do histórico alertas que não estão mais ativos para permitir novos disparos se voltarem
-                    let active_keys: Vec<(AlertType, Option<String>)> = alerts.iter().map(|a| (a.alert_type.clone(), a.component.clone())).collect();
+                    let active_keys: Vec<(AlertType, Option<String>)> = alerts.iter()
+                        .map(|a| (a.alert_type.clone(), a.component.clone()))
+                        .collect();
                     last_notified_alerts.retain(|k, _| active_keys.contains(k));
 
                     for alert in alerts {
                         let key = (alert.alert_type.clone(), alert.component.clone());
 
-                        // DEDUPLICAÇÃO & COOLDOWN: 
-                        // Só notifica se for novo ou se passaram 30 min (1800s) desde o último aviso do MESMO IP/Tipo
                         if let Some(last_ts) = last_notified_alerts.get(&key) {
                             if now - last_ts < 1800 {
                                 continue;
                             }
                         }
 
-                        // Envia notificação ntfy para cada novo alerta ou após cooldown
-                        let priority = alert.alert_type.ntfy_priority();
-                        let tags = alert.alert_type.ntfy_tags();
-
                         let _ = ntfy_client_task.send_alert(
                             alert.alert_type.label(),
                             &alert.message,
-                            priority,
-                            tags
+                            alert.alert_type.ntfy_priority(),
+                            alert.alert_type.ntfy_tags()
                         ).await;
 
-                        // Atualiza o histórico com o timestamp atual
                         last_notified_alerts.insert(key, now);
                     }
                 }
-                drop(alert_mgr);
             }
-            drop(coll);
+
             tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
         }
     });
@@ -200,8 +301,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
         tracing::info!("🐕 WatchdogEngine spawned — auto-remediation ativa");
     }
-
-    axum::serve(listener, app)
-        .await
-        .map_err(|e| format!("Server error: {}", e).into())
 }
