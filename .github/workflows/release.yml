@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-agent:
+    name: Build Agent
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: pocket-noc-agent-x86_64-linux
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: pocket-noc-agent-aarch64-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: agent
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Build release
+        working-directory: agent
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: agent/target/${{ matrix.target }}/release/pocket-noc-agent
+
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      - name: Create local.properties
+        working-directory: controller
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "POCKET_NOC_SECRET=${{ secrets.POCKET_NOC_SECRET }}" >> local.properties
+      - name: Build release APK
+        working-directory: controller
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocketnoc-release-apk
+          path: controller/app/build/outputs/apk/release/*.apk
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-agent, build-apk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts/
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release-artifacts/**/*
