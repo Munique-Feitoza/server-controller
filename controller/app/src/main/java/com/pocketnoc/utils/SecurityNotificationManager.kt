@@ -173,7 +173,7 @@ class SecurityNotificationManager(private val context: Context) {
             AlertType.SECURITY_THREAT -> "AMEAÇA DE SEGURANÇA"
             AlertType.RECENT_REBOOT -> "SERVIDOR REINICIADO"
         }
-        val title = "$emoji $label"
+        val title = "$emoji $label — $serverName"
 
         showNotification(title, alert.message, notificationId, CHANNEL_ID_TELEMETRY)
     }
