@@ -2,29 +2,63 @@ package com.pocketnoc.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pocketnoc.data.local.entities.AlertEntity
 import com.pocketnoc.ui.theme.*
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
-import java.text.SimpleDateFormat
-import java.util.*
+import com.pocketnoc.utils.formatAlertTimestamp
+
+private data class AlertStyle(val color: Color, val icon: ImageVector, val label: String)
+
+private fun alertStyle(type: String): AlertStyle {
+    val t = type.uppercase()
+    return when {
+        t.contains("SECURITY") || t.contains("THREAT") ->
+            AlertStyle(CriticalRedHealth, Icons.Default.Security, "SEGURANÇA")
+        t.contains("CPU") ->
+            AlertStyle(NeonMagenta, Icons.Default.Speed, "CPU")
+        t.contains("MEMORY") || t.contains("MEM") ->
+            AlertStyle(NeonBlue, Icons.Default.Memory, "MEMÓRIA")
+        t.contains("DISK") ->
+            AlertStyle(NeonCyan, Icons.Default.Storage, "DISCO")
+        t.contains("TEMP") ->
+            AlertStyle(WarningOrange, Icons.Default.Thermostat, "TEMPERATURA")
+        t.contains("REBOOT") ->
+            AlertStyle(NeonGreen, Icons.Default.Refresh, "REBOOT")
+        else ->
+            AlertStyle(AlertYellow, Icons.Default.Warning, "ALERTA")
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,27 +67,79 @@ fun AlertHistoryScreen(
     onNavigateBack: () -> Unit
 ) {
     val alertHistory by viewModel.alertHistory.collectAsState()
-    
-    val dateFormatter = remember { SimpleDateFormat("dd/MM HH:mm:ss", Locale.getDefault()) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text("🛡️ ALERT AUDIT", style = MaterialTheme.typography.displaySmall, color = NeonMagenta)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = NeonMagenta)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color(0xFF0A0F1E), DarkSurface.copy(alpha = 0.95f))))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Botão voltar
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(NeonMagenta.copy(alpha = 0.10f))
+                            .border(1.dp, NeonMagenta.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+                            .clickable(onClick = onNavigateBack),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonMagenta, modifier = Modifier.size(17.dp))
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.clearAlertHistory() }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Clear History", tint = Color.Red)
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "ALERT AUDIT",
+                            color = NeonMagenta,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 3.sp
+                        )
+                        Text(
+                            "${alertHistory.size} eventos registrados",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.8f))
-            )
+
+                    if (alertHistory.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(CriticalRedHealth.copy(alpha = 0.10f))
+                                .border(1.dp, CriticalRedHealth.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+                                .clickable { viewModel.clearAlertHistory() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "Limpar histórico", tint = CriticalRedHealth, modifier = Modifier.size(17.dp))
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color.Transparent, NeonMagenta.copy(alpha = 0.6f), NeonCyan.copy(alpha = 0.4f), Color.Transparent)
+                            )
+                        )
+                )
+            }
         },
         containerColor = Color.Transparent
     ) { paddingValues ->
@@ -62,22 +148,28 @@ fun AlertHistoryScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(DarkBackground, Color(0xFF1F0F0F), DarkBackground)
-                    )
+                    Brush.verticalGradient(listOf(DarkBackground, Color(0xFF140F1F), DarkBackground))
                 )
         ) {
             if (alertHistory.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No alerts recorded yet.", color = TextSecondary)
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("✓", style = MaterialTheme.typography.displayLarge, color = NeonGreen)
+                        Text("Nenhum alerta registrado", style = MaterialTheme.typography.titleMedium, color = NeonCyan)
+                        Text("O sistema está operando normalmente.", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(vertical = 14.dp)
                 ) {
                     items(alertHistory) { alert ->
-                        AlertHistoryCard(alert = alert, dateFormatter = dateFormatter)
+                        AlertHistoryCard(alert = alert)
                     }
                 }
             }
@@ -86,98 +178,90 @@ fun AlertHistoryScreen(
 }
 
 @Composable
-fun AlertHistoryCard(alert: AlertEntity, dateFormatter: SimpleDateFormat) {
-    val type = alert.type.uppercase()
-    
-    // Mapeamento de cor baseado no tipo e severidade (HackerSec Core: Segurança é sempre Crítico)
-    val typeColor = when {
-        type.contains("SECURITY") || type.contains("THREAT") -> CriticalRedHealth
-        type.contains("CPU") || type.contains("DISK") || type.contains("TEMPERATURE") -> AlertYellow
-        type.contains("MEMORY") -> WarningGreen
-        else -> NeonCyan
-    }
-
-    // Unidade baseada no tipo de alerta
+fun AlertHistoryCard(alert: AlertEntity) {
+    val style = alertStyle(alert.type)
     val unit = when {
-        type.contains("CPU") || type.contains("MEMORY") || type.contains("DISK") -> "%"
-        type.contains("REBOOT") -> " min"
-        else -> "" // Segurança e outros são contadores absolutos
+        alert.type.uppercase().let { it.contains("CPU") || it.contains("MEM") || it.contains("DISK") } -> "%"
+        alert.type.uppercase().contains("REBOOT") -> "min"
+        else -> ""
     }
 
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, spotColor = typeColor.copy(alpha = 0.5f)),
-        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.9f)),
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, typeColor.copy(alpha = 0.3f))
+            .shadow(4.dp, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(DarkCard)
+            .border(1.dp, style.color.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Ícone por tipo
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(DarkCard)
+                .border(1.dp, style.color.copy(alpha = 0.4f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(typeColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                    .border(1.dp, typeColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
+            Icon(style.icon, contentDescription = null, tint = style.color, modifier = Modifier.size(20.dp))
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = typeColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+                // Tipo + servidor
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = alert.serverName.uppercase(),
+                        style.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = style.color,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text("·", color = TextMuted, fontSize = 10.sp)
+                    Text(
+                        alert.serverName.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
                         color = NeonCyan,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = dateFormatter.format(Date(alert.timestamp)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
+                        letterSpacing = 0.8.sp
                     )
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
-                    text = alert.message,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    formatAlertTimestamp(alert.timestamp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted
                 )
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${String.format("%.1f", alert.value.toDouble())}$unit",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = typeColor,
-                        fontWeight = FontWeight.Black
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    val limitLabel = if (unit == "%") "${alert.threshold.toInt()}%" else "${alert.threshold.toInt()}$unit"
-                    Text(
-                        text = "(Limit: $limitLabel)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
-                    )
-                }
+            Text(
+                text = alert.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "${String.format("%.1f", alert.value.toDouble())}$unit",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = style.color,
+                    fontWeight = FontWeight.Black
+                )
+                Text("→ limite ${alert.threshold.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
             }
         }
     }
