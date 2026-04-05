@@ -22,4 +22,14 @@ sealed class AppRoute(val route: String) {
         fun createRoute(serverId: Int, service: String = "pocket-noc-agent") = "log_viewer/$serverId?service=$service"
     }
     data object AlertHistory : AppRoute("alert_history")
+    data object Watchdog : AppRoute("watchdog/{serverId}") {
+        fun createRoute(serverId: Int) = "watchdog/$serverId"
+    }
+    data object Export : AppRoute("export")
+    data object AuditLog : AppRoute("audit_log/{serverId}") {
+        fun createRoute(serverId: Int) = "audit_log/$serverId"
+    }
+    data object AgentConfig : AppRoute("agent_config/{serverId}") {
+        fun createRoute(serverId: Int) = "agent_config/$serverId"
+    }
 }
