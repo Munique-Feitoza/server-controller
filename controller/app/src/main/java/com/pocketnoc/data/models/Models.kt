@@ -369,8 +369,11 @@ data class BackupStatus(
 data class DashboardIncident(
     val id: Int,
     val severity: String,
+    @SerializedName("incident_type")
     val type: String,
+    @SerializedName("action_taken")
     val action: String?,
+    @SerializedName("ip_address")
     val ip: String,
     val country: String?,
     val city: String?,
@@ -388,32 +391,50 @@ data class DashboardIncident(
 )
 
 data class DashboardIncidentsResponse(
-    val incidents: List<DashboardIncident>,
-    val count: Int,
-    @SerializedName("period_hours")
-    val periodHours: Int
-)
+    val data: List<DashboardIncident>,
+    val total: Int,
+    val limit: Int,
+    val offset: Int
+) {
+    // Alias para manter compatibilidade com a tela
+    val incidents: List<DashboardIncident> get() = data
+    val count: Int get() = data.size
+}
 
 data class TopAttackerIp(
     val ip: String,
     val count: Int,
-    val country: String?
+    val country: String?,
+    val city: String? = null,
+    val isp: String? = null,
+    @SerializedName("last_type")
+    val lastType: String? = null,
+    @SerializedName("is_banned")
+    val isBanned: Boolean = false,
+    @SerializedName("known_user")
+    val knownUser: Map<String, Any?>? = null
 )
 
 data class DashboardStatsResponse(
+    @SerializedName("total_incidents")
     val total: Int,
-    @SerializedName("banned_count")
+    @SerializedName("unique_ips")
+    val uniqueIps: Int = 0,
+    @SerializedName("banned_ips")
     val bannedCount: Int,
     @SerializedName("by_severity")
     val bySeverity: Map<String, Int>,
     @SerializedName("by_type")
     val byType: Map<String, Int>,
+    @SerializedName("by_action")
+    val byAction: Map<String, Int> = emptyMap(),
+    @SerializedName("by_country")
+    val byCountry: Map<String, Int> = emptyMap(),
     @SerializedName("top_ips")
     val topIps: List<TopAttackerIp>,
-    @SerializedName("top_countries")
-    val topCountries: Map<String, Int>,
-    @SerializedName("period_hours")
-    val periodHours: Int
+    @SerializedName("top_paths")
+    val topPaths: List<Map<String, Any>> = emptyList(),
+    val daily: List<Map<String, Any>> = emptyList()
 )
 
 // ==================== PHP-FPM Pools ====================

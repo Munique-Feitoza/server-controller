@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,7 +43,8 @@ fun ServerDetailsScreen(
     onNavigateToLogs: (Int, String) -> Unit,
     onNavigateToWatchdog: (Int) -> Unit = {},
     onNavigateToAuditLog: (Int) -> Unit = {},
-    onNavigateToAgentConfig: (Int) -> Unit = {}
+    onNavigateToAgentConfig: (Int) -> Unit = {},
+    onNavigateToPhpFpm: (Int) -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     val ext = LocalExtendedColors.current
@@ -119,6 +121,9 @@ fun ServerDetailsScreen(
                     }
                     IconButton(onClick = { onNavigateToAgentConfig(serverId) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Config", tint = colors.tertiary)
+                    }
+                    IconButton(onClick = { onNavigateToPhpFpm(serverId) }) {
+                        Icon(Icons.Default.Dns, contentDescription = "PHP-FPM", tint = ext.blue)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface.copy(alpha = 0.9f)),

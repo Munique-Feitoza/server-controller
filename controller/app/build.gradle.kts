@@ -50,6 +50,8 @@ android {
         buildConfigField("boolean", "EMERGENCY_MODE", localProperties.getProperty("EMERGENCY_MODE") ?: "false")
         buildConfigField("boolean", "SSH_STRICT_HOST_CHECKING", localProperties.getProperty("SSH_STRICT_HOST_CHECKING") ?: "true")
         buildConfigField("int", "MAX_AUTH_FAILURES", localProperties.getProperty("MAX_AUTH_FAILURES") ?: "3")
+        buildConfigField("String", "DASHBOARD_NOC_TOKEN", "\"${localProperties.getProperty("DASHBOARD_NOC_TOKEN") ?: ""}\"")
+        buildConfigField("String", "DASHBOARD_API_URL", "\"${localProperties.getProperty("DASHBOARD_API_URL") ?: "https://api.example.com/api/v1/pocketnoc/"}\"" )
         buildConfigField("int", "MAX_CPU_THRESHOLD", localProperties.getProperty("CPU_ALERT_THRESHOLD") ?: "80")
 
         // Servidor 1

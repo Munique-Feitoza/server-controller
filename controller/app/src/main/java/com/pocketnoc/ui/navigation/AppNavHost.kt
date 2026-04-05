@@ -2,6 +2,7 @@ package com.pocketnoc.ui.navigation
 
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -99,6 +100,9 @@ fun AppNavHost(
                 },
                 onNavigateToAgentConfig = { id ->
                     navController.navigate(AppRoute.AgentConfig.createRoute(id))
+                },
+                onNavigateToPhpFpm = { id ->
+                    navController.navigate(AppRoute.PhpFpm.createRoute(id))
                 }
             )
         }
@@ -274,14 +278,14 @@ fun AppNavHost(
             val isLoading by securityViewModel.isLoading.collectAsState()
 
             LaunchedEffect(Unit) {
-                securityViewModel.loadSecurityData(hours = 168)
+                securityViewModel.loadSecurityData(days = 7)
             }
 
             SecurityDashboardScreen(
                 incidents = incidents,
                 stats = stats,
                 isLoading = isLoading,
-                onRefresh = { securityViewModel.loadSecurityData(hours = 168) },
+                onRefresh = { securityViewModel.loadSecurityData(days = 7) },
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -298,14 +302,41 @@ fun AppNavHost(
             val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
             val server = servers.find { it.id == serverId }
 
+            var pools by remember { mutableStateOf<List<com.pocketnoc.data.models.PhpFpmPool>>(emptyList()) }
+            var totalWorkers by remember { mutableIntStateOf(0) }
+            var totalCpu by remember { mutableFloatStateOf(0f) }
+            var totalMemory by remember { mutableFloatStateOf(0f) }
+            var isLoading by remember { mutableStateOf(true) }
+            val scope = rememberCoroutineScope()
+
+            fun loadPools() {
+                server?.let { srv ->
+                    isLoading = true
+                    scope.launch {
+                        try {
+                            val resp = dashboardViewModel.fetchPhpFpmPools(srv)
+                            pools = resp.pools
+                            totalWorkers = resp.totalWorkers
+                            totalCpu = resp.totalCpuPercent
+                            totalMemory = resp.totalMemoryMb
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                        isLoading = false
+                    }
+                }
+            }
+
+            LaunchedEffect(server) { loadPools() }
+
             PhpFpmScreen(
-                pools = emptyList(),
-                totalWorkers = 0,
-                totalCpu = 0f,
-                totalMemory = 0f,
+                pools = pools,
+                totalWorkers = totalWorkers,
+                totalCpu = totalCpu,
+                totalMemory = totalMemory,
                 serverName = server?.name ?: "Servidor",
-                isLoading = false,
-                onRefresh = {},
+                isLoading = isLoading,
+                onRefresh = { loadPools() },
                 onNavigateBack = { navController.popBackStack() }
             )
         }

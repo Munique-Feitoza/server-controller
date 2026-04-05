@@ -490,6 +490,10 @@ class DashboardViewModel @Inject constructor(
         return repository.getDockerContainers(server)
     }
 
+    suspend fun fetchPhpFpmPools(server: ServerEntity): com.pocketnoc.data.models.PhpFpmResponse {
+        return repository.getPhpFpmPools(server)
+    }
+
     suspend fun fetchBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus {
         return repository.getBackupStatus(server)
     }
