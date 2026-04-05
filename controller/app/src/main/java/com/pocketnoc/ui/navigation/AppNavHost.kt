@@ -21,7 +21,7 @@ fun AppNavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // Splash Screen
+        // Tela de Splash
         composable(AppRoute.Splash.route) {
             SplashScreen(
                 navController = navController,
@@ -29,7 +29,7 @@ fun AppNavHost(
             )
         }
 
-        // Login Screen
+        // Tela de Login
         composable(AppRoute.Login.route) {
             LoginScreen(
                 onLoginSuccess = { name, url, secret ->
@@ -41,7 +41,7 @@ fun AppNavHost(
             )
         }
 
-        // Dashboard Screen
+        // Tela do Dashboard
         composable(AppRoute.Dashboard.route) {
             DashboardScreen(
                 navController = navController,
@@ -52,7 +52,7 @@ fun AppNavHost(
             )
         }
 
-        // Server List Screen
+        // Tela de Lista de Servidores
         composable(AppRoute.ServerList.route) {
             ServerListScreen(
                 viewModel = dashboardViewModel,
@@ -65,7 +65,7 @@ fun AppNavHost(
             )
         }
 
-        // Server Details Screen
+        // Tela de Detalhes do Servidor
         composable(
             route = AppRoute.ServerDetails.route,
             arguments = listOf(
@@ -103,7 +103,7 @@ fun AppNavHost(
             )
         }
 
-        // Action Center Screen
+        // Tela do Centro de Acoes
         composable(
             route = AppRoute.ActionCenter.route,
             arguments = listOf(
@@ -123,7 +123,7 @@ fun AppNavHost(
             )
         }
 
-        // Alert Settings Screen
+        // Tela de Configuracao de Alertas
         composable(AppRoute.AlertSettings.route) {
             val currentConfig by dashboardViewModel.alertThresholds.collectAsState()
 
@@ -139,7 +139,7 @@ fun AppNavHost(
             )
         }
 
-        // Process Explorer Screen
+        // Tela do Explorador de Processos
         composable(
             route = AppRoute.ProcessExplorer.route,
             arguments = listOf(
@@ -159,7 +159,7 @@ fun AppNavHost(
             )
         }
 
-        // Log Viewer Screen
+        // Tela do Visualizador de Logs
         composable(
             route = AppRoute.LogViewer.route,
             arguments = listOf(
@@ -185,7 +185,7 @@ fun AppNavHost(
             )
         }
 
-        // Alert History Screen
+        // Tela de Historico de Alertas
         composable(AppRoute.AlertHistory.route) {
             AlertHistoryScreen(
                 viewModel = dashboardViewModel,
@@ -195,7 +195,7 @@ fun AppNavHost(
             )
         }
 
-        // Watchdog Screen (standalone route)
+        // Tela do Watchdog (rota independente)
         composable(
             route = AppRoute.Watchdog.route,
             arguments = listOf(
@@ -216,7 +216,7 @@ fun AppNavHost(
             }
         }
 
-        // Export Screen
+        // Tela de Exportacao
         composable(AppRoute.Export.route) {
             ExportScreen(
                 viewModel = dashboardViewModel,
@@ -226,7 +226,7 @@ fun AppNavHost(
             )
         }
 
-        // Audit Log Screen
+        // Tela de Log de Auditoria
         composable(
             route = AppRoute.AuditLog.route,
             arguments = listOf(
@@ -246,7 +246,7 @@ fun AppNavHost(
             )
         }
 
-        // Agent Config Screen
+        // Tela de Configuracao do Agente
         composable(
             route = AppRoute.AgentConfig.route,
             arguments = listOf(
@@ -263,6 +263,50 @@ fun AppNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+
+        // Seguranca do Dashboard ERP
+        composable(AppRoute.SecurityDashboard.route) {
+            val securityViewModel: com.pocketnoc.ui.viewmodels.SecurityViewModel = hiltViewModel()
+            val incidents by securityViewModel.incidents.collectAsState()
+            val stats by securityViewModel.stats.collectAsState()
+            val isLoading by securityViewModel.isLoading.collectAsState()
+
+            LaunchedEffect(Unit) {
+                securityViewModel.loadSecurityData(hours = 168)
+            }
+
+            SecurityDashboardScreen(
+                incidents = incidents,
+                stats = stats,
+                isLoading = isLoading,
+                onRefresh = { securityViewModel.loadSecurityData(hours = 168) },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // PHP-FPM Pools por servidor
+        composable(
+            route = AppRoute.PhpFpm.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("serverId") {
+                    type = androidx.navigation.NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
+            val server = servers.find { it.id == serverId }
+
+            PhpFpmScreen(
+                pools = emptyList(),
+                totalWorkers = 0,
+                totalCpu = 0f,
+                totalMemory = 0f,
+                serverName = server?.name ?: "Servidor",
+                isLoading = false,
+                onRefresh = {},
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
