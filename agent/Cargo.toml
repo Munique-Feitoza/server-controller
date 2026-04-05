@@ -57,6 +57,12 @@ toml = "0.8"
 # Command execution
 nix = { version = "0.27", features = ["process"] }
 
+# Zip bomb (compressao gzip para contra-medida)
+flate2 = "1.0"
+
+# Hostname do servidor
+hostname = "0.3"
+
 [profile.release]
 opt-level = 3
 lto = true
