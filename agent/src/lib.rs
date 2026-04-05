@@ -3,6 +3,7 @@ pub mod audit;
 pub mod auth;
 pub mod commands;
 pub mod error;
+pub mod security;
 pub mod services;
 pub mod telemetry;
 pub mod notifications;

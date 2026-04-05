@@ -5,9 +5,11 @@ use axum::{
 };
 use pocket_noc_agent::{
     api::{handlers::*, RateLimiter},
+    api::middleware::SecurityState,
     audit::AuditLog,
     auth::JwtConfig,
     commands::default_emergency_commands,
+    security::ThreatTracker,
     telemetry::{TelemetryCollector, AlertManager, AlertType},
     notifications::NtfyClient,
     watchdog::{WatchdogEngine, WatchdogConfig, event::WatchdogEventStore, remediation::RemediationEngine},
@@ -70,16 +72,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Audit Log (ring buffer 1000 entradas)
     let audit_log = Arc::new(Mutex::new(AuditLog::with_defaults()));
 
-    // Rate Limiter (configurável via env)
+    // Rate Limiter (configuravel via env)
     let rate_limiter = RateLimiter::from_env();
     tracing::info!("⚡ Rate limiter: {} req/min per IP", rate_limiter.max_requests);
 
-    // Configuração do ntfy (Tópico dinâmico baseado no segredo para evitar stalkers)
+    // Rastreador de ameacas (zip bomb + auto-ban apos 5 falhas)
+    let threat_tracker = Arc::new(Mutex::new(ThreatTracker::new()));
+    tracing::info!("🛡️ Defesa ativa: zip bomb + auto-ban apos 5 tentativas falhas");
+
+    // Estado de seguranca unificado (JWT + threat tracking)
+    let security_state = SecurityState {
+        jwt_config: jwt_config.clone(),
+        threat_tracker: threat_tracker.clone(),
+    };
+
+    // Configuracao do ntfy
     let ntfy_topic = std::env::var("NTFY_TOPIC")
         .unwrap_or_else(|_| format!("pocket_noc_{}", &jwt_secret[..8]));
     let ntfy_client = Arc::new(NtfyClient::new(&ntfy_topic));
 
     tracing::info!("🔔 Ntfy notifications active on topic: {}", ntfy_topic);
+
+    // Store de incidentes de seguranca (webhook do dashboard + deteccoes locais)
+    let incident_store = Arc::new(Mutex::new(pocket_noc_agent::security::incidents::IncidentStore::new()));
 
     let state = AppState {
         telemetry_collector:  collector.clone(),
@@ -88,6 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         watchdog_event_store: watchdog_store.clone(),
         remediation_engine:   remediation_engine.clone(),
         audit_log:            audit_log.clone(),
+        incident_store:       incident_store.clone(),
     };
 
     // ========== MONTAGEM FINAL ==========
@@ -104,133 +120,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/commands/:command_id", post(execute_command))
         .route("/security/block-ip", post(block_ip))
         .route("/metrics", get(get_metrics))
-        // ─── Watchdog endpoints ─────────────────────────────────────────────
+        // ─── Endpoints do Watchdog ──────────────────────────────────────────
         .route("/watchdog/events", get(get_watchdog_events))
         .route("/watchdog/events", delete(clear_watchdog_events))
         .route("/watchdog/reset", post(reset_watchdog))
         .route("/watchdog/breakers", get(get_watchdog_breakers))
-        // ─── Audit Log endpoints ────────────────────────────────────────────
+        // ─── Endpoints do Log de Auditoria ──────────────────────────────────
         .route("/audit/logs", get(get_audit_logs))
         .route("/audit/logs", delete(clear_audit_logs))
-        // ─── Docker monitoring ──────────────────────────────────────────────
+        // ─── Monitoramento Docker ───────────────────────────────────────────
         .route("/docker/containers", get(get_docker_containers))
-        // ─── Backup status ──────────────────────────────────────────────────
+        // ─── PHP-FPM pools por site ─────────────────────────────────────────
+        .route("/phpfpm/pools", get(get_phpfpm_pools))
+        // ─── Status de Backup ───────────────────────────────────────────────
         .route("/backups/status", get(get_backup_status))
-        // ─── Agent configuration ────────────────────────────────────────────
+        // ─── Configuração do Agente ─────────────────────────────────────────
         .route("/config", get(get_config))
         .route("/config", post(update_config))
-        // ─── Webhook receiver (Dashboard ERP → PocketNOC) ───────────────
+        // ─── Seguranca: webhook do dashboard + consulta de incidentes ────
         .route("/webhook/security", post(receive_security_webhook))
-        // ─── Middleware stack ────────────────────────────────────────────────
+        .route("/security/incidents", get(get_security_incidents))
+        // ─── Pilha de Middleware ──────────────────────────────────────────────
         .layer(middleware::from_fn_with_state(
             rate_limiter.clone(),
             pocket_noc_agent::api::rate_limit::rate_limit_middleware,
         ))
         .layer(middleware::from_fn_with_state(
-            jwt_config.clone(),
-            pocket_noc_agent::api::middleware::jwt_middleware,
+            security_state.clone(),
+            pocket_noc_agent::api::middleware::security_middleware,
         ))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(pocket_noc_agent::api::middleware::logging_middleware));
 
-    // Port configuration
+    // Configuração da porta
     let port = std::env::var("POCKET_NOC_PORT")
         .unwrap_or_else(|_| "9443".to_string());
 
-    // ─── TLS Support ────────────────────────────────────────────────────────
-    let tls_cert = std::env::var("TLS_CERT_PATH").ok();
-    let tls_key = std::env::var("TLS_KEY_PATH").ok();
+    // Seguranca: bind em 127.0.0.1 para forcar acesso via tunel SSH
+    let addr = format!("127.0.0.1:{}", port);
 
-    if let (Some(cert_path), Some(key_path)) = (tls_cert, tls_key) {
-        // HTTPS mode
-        let addr = format!("0.0.0.0:{}", port);
-        tracing::info!("🔐 TLS enabled — loading cert from {} and key from {}", cert_path, key_path);
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
 
-        // Carrega certificado e chave
-        let cert = std::fs::read(&cert_path)
-            .map_err(|e| format!("Failed to read TLS cert: {}", e))?;
-        let key = std::fs::read(&key_path)
-            .map_err(|e| format!("Failed to read TLS key: {}", e))?;
+    tracing::info!("🔐 HTTP listening on http://{}", addr);
+    tracing::info!("🛡️ Defesa ativa: honeypot + zip bomb + auto-ban (5 tentativas)");
+    tracing::info!("📋 Rotas protegidas por JWT + rate limiting + threat tracking");
 
-        let certs = rustls_pemfile::certs(&mut cert.as_slice())
-            .filter_map(|c| c.ok())
-            .map(|c| rustls::Certificate(c.to_vec()))
-            .collect::<Vec<_>>();
+    // Inicializa tarefas em background
+    spawn_background_tasks(collector, alert_manager, ntfy_client.clone(), watchdog_store, remediation_engine);
 
-        let key = rustls_pemfile::private_key(&mut key.as_slice())
-            .ok()
-            .flatten()
-            .map(|k| rustls::PrivateKey(k.secret_der().to_vec()))
-            .ok_or("Failed to parse TLS private key")?;
-
-        let tls_config = rustls::ServerConfig::builder()
-            .with_safe_defaults()
-            .with_no_client_auth()
-            .with_single_cert(certs, key)
-            .map_err(|e| format!("TLS config error: {}", e))?;
-
-        let tls_acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls_config));
-        let listener = tokio::net::TcpListener::bind(&addr).await
-            .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
-
-        tracing::info!("🔒 HTTPS listening on https://{}", addr);
-
-        // Spawn background tasks before entering serve loop
-        spawn_background_tasks(collector, alert_manager, ntfy_client.clone(), watchdog_store, remediation_engine);
-
-        loop {
-            let (stream, _addr) = listener.accept().await?;
-            let acceptor = tls_acceptor.clone();
-            let app = app.clone();
-
-            tokio::spawn(async move {
-                match acceptor.accept(stream).await {
-                    Ok(tls_stream) => {
-                        let io = hyper_util::rt::TokioIo::new(tls_stream);
-                        let service = hyper::service::service_fn(move |req| {
-                            let app = app.clone();
-                            async move {
-                                app.into_service().call(req).await
-                            }
-                        });
-                        let _ = hyper::server::conn::http1::Builder::new()
-                            .serve_connection(io, service)
-                            .await;
-                    }
-                    Err(e) => {
-                        tracing::error!("TLS handshake error: {}", e);
-                    }
-                }
-            });
-        }
-    } else {
-        // Plain HTTP mode (current behavior)
-        let addr = format!("127.0.0.1:{}", port);
-
-        let listener = tokio::net::TcpListener::bind(&addr)
-            .await
-            .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
-
-        tracing::info!("🔐 HTTP listening on http://{} (use SSH tunnel for security)", addr);
-        tracing::info!("📋 Public routes:");
-        tracing::info!("   GET /health - No auth required");
-        tracing::info!("🔒 Protected routes (JWT Required):");
-        tracing::info!("   GET  /telemetry, /alerts, /processes, /logs, /metrics");
-        tracing::info!("   POST /commands/<id>, /security/block-ip, /alerts/config");
-        tracing::info!("   GET  /watchdog/events, /watchdog/breakers");
-        tracing::info!("   GET  /audit/logs, /docker/containers, /backups/status, /config");
-
-        // Spawn background tasks
-        spawn_background_tasks(collector, alert_manager, ntfy_client.clone(), watchdog_store, remediation_engine);
-
-        axum::serve(listener, app)
-            .await
-            .map_err(|e| format!("Server error: {}", e).into())
-    }
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| format!("Server error: {}", e).into())
 }
 
-/// Spawna as tasks de background (telemetria + watchdog)
+/// Inicializa as tarefas de background (telemetria + watchdog)
 fn spawn_background_tasks(
     collector: Arc<Mutex<TelemetryCollector>>,
     alert_manager: Arc<Mutex<AlertManager>>,
@@ -238,7 +184,7 @@ fn spawn_background_tasks(
     watchdog_store: Arc<Mutex<WatchdogEventStore>>,
     remediation_engine: Arc<Mutex<RemediationEngine>>,
 ) {
-    // Spawn background task — Telemetria
+    // Inicializa tarefa em background — Telemetria
     let collector_task = collector.clone();
     let alert_manager_task = alert_manager.clone();
     let ntfy_client_task = ntfy_client.clone();
@@ -291,7 +237,7 @@ fn spawn_background_tasks(
         }
     });
 
-    // ─── Spawn background task — WatchdogEngine ────────────────────────────
+    // ─── Inicializa tarefa em background — WatchdogEngine ───────────────────
     {
         let watchdog_engine = WatchdogEngine::from_env(
             watchdog_store.clone(),
