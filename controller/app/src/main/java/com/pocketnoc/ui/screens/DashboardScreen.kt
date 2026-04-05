@@ -209,24 +209,24 @@ fun DashboardScreen(
                             "POCKET NOC",
                             color         = NeonCyan,
                             fontWeight    = FontWeight.Black,
-                            fontSize      = 18.sp,
+                            fontSize      = 22.sp,
                             fontFamily    = FontFamily.Monospace,
                             letterSpacing = 3.sp
                         )
                         selectedServer?.let {
                             Row(
                                 verticalAlignment     = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(5.dp)
+                                        .size(7.dp)
                                         .background(HealthyGreen, androidx.compose.foundation.shape.CircleShape)
                                 )
                                 Text(
                                     it.name,
                                     color         = TextSecondary,
-                                    fontSize      = 11.sp,
+                                    fontSize      = 13.sp,
                                     fontFamily    = FontFamily.Monospace,
                                     letterSpacing = 1.sp
                                 )
@@ -339,11 +339,11 @@ fun DashboardScreen(
                         Tab(
                             selected = selected,
                             onClick  = { selectedServerIndex = index },
-                            modifier = Modifier.padding(vertical = 2.dp),
+                            modifier = Modifier.padding(vertical = 4.dp),
                             text = {
                                 Text(
                                     server.name.uppercase(),
-                                    fontSize      = 11.sp,
+                                    fontSize      = 13.sp,
                                     fontWeight    = if (selected) FontWeight.Bold else FontWeight.Normal,
                                     fontFamily    = FontFamily.Monospace,
                                     letterSpacing = if (selected) 1.5.sp else 0.5.sp,
@@ -690,14 +690,14 @@ private fun TopBarIconButton(
 ) {
     Box(
         modifier = Modifier
-            .size(34.dp)
-            .clip(RoundedCornerShape(9.dp))
+            .size(40.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(tint.copy(alpha = 0.10f))
-            .border(1.dp, tint.copy(alpha = 0.35f), RoundedCornerShape(9.dp))
+            .border(1.dp, tint.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -712,7 +712,7 @@ private fun FeaturePill(
 ) {
     Box(
         modifier = modifier
-            .height(36.dp)
+            .height(42.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(if (selected) color.copy(alpha = 0.15f) else Color.Transparent)
             .border(1.dp, if (selected) color.copy(alpha = 0.55f) else color.copy(alpha = 0.18f), RoundedCornerShape(10.dp))
@@ -727,11 +727,11 @@ private fun FeaturePill(
                 imageVector        = icon,
                 contentDescription = null,
                 tint               = if (selected) color else color.copy(alpha = 0.45f),
-                modifier           = Modifier.size(14.dp)
+                modifier           = Modifier.size(18.dp)
             )
             Text(
                 text          = label,
-                fontSize      = 11.sp,
+                fontSize      = 13.sp,
                 fontWeight    = if (selected) FontWeight.Bold else FontWeight.Normal,
                 fontFamily    = FontFamily.Monospace,
                 letterSpacing = 1.sp,
