@@ -13,6 +13,7 @@ use crate::{
     audit::AuditLog,
     commands::CommandExecutor,
     error::Result,
+    security::incidents::{IncidentStore, SecurityIncident},
     services::ServiceMonitor,
     telemetry::{TelemetryCollector, AlertManager},
     watchdog::{
@@ -33,9 +34,11 @@ pub struct AppState {
     pub remediation_engine:   Arc<Mutex<RemediationEngine>>,
     /// Log de auditoria — registra todas as ações da API
     pub audit_log:            Arc<Mutex<AuditLog>>,
+    /// Incidentes de seguranca (webhook do dashboard + deteccoes locais)
+    pub incident_store:       Arc<Mutex<IncidentStore>>,
 }
 
-/// GET /health - Healthcheck simples
+/// GET /health - Verificação de saúde do agente
 pub async fn health_check() -> impl IntoResponse {
     (
         StatusCode::OK,
@@ -84,7 +87,7 @@ pub async fn execute_command(
     Ok(Json(serde_json::to_value(result).unwrap()))
 }
 
-/// GET /metrics - Retorna métricas simplificadas (para compatibilidade com Prometheus)
+/// GET /metrics - Retorna métricas simplificadas (compatível com Prometheus)
 pub async fn get_metrics(
     State(state): State<AppState>,
 ) -> Result<String> {
@@ -93,7 +96,7 @@ pub async fn get_metrics(
 
     let mut output = String::new();
 
-    // CPU metrics
+    // Métricas de CPU
     output.push_str(&format!("# HELP cpu_usage_percent CPU usage percentage\n"));
     output.push_str(&format!("# TYPE cpu_usage_percent gauge\n"));
     output.push_str(&format!("cpu_usage_percent {}\n", telemetry.cpu.usage_percent));
@@ -105,7 +108,7 @@ pub async fn get_metrics(
         ));
     }
 
-    // Memory metrics
+    // Métricas de memória
     output.push_str(&format!("# HELP memory_usage_percent Memory usage percentage\n"));
     output.push_str(&format!("# TYPE memory_usage_percent gauge\n"));
     output.push_str(&format!("memory_usage_percent {}\n", telemetry.memory.usage_percent));
@@ -113,7 +116,7 @@ pub async fn get_metrics(
     output.push_str(&format!("memory_used_mb {}\n", telemetry.memory.used_mb));
     output.push_str(&format!("memory_total_mb {}\n", telemetry.memory.total_mb));
 
-    // Disk metrics
+    // Métricas de disco
     for disk in &telemetry.disk.disks {
         output.push_str(&format!(
             "disk_usage_percent{{mount=\"{}\",fs=\"{}\"}} {}\n",
@@ -129,7 +132,7 @@ pub async fn get_metrics(
         ));
     }
 
-    // Uptime
+    // Tempo de atividade
     output.push_str(&format!(
         "system_uptime_seconds {}\n",
         telemetry.uptime.uptime_seconds
@@ -263,7 +266,7 @@ pub async fn block_ip(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WATCHDOG HANDLERS
+// HANDLERS DO WATCHDOG
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// GET /watchdog/events?limit=50&server=<server_id>&status=<status>
@@ -283,7 +286,7 @@ pub async fn get_watchdog_events(
 
     let store = state.watchdog_event_store.lock().await;
 
-    // Aplica filtros em cadeia — padrão Builder aplicado funcionalmente
+    // Aplica filtros em cadeia — padrão Builder implementado de forma funcional
     let events: Vec<_> = if let Some(srv) = server {
         store.by_server(srv)
     } else if let Some(st) = status {
@@ -359,7 +362,7 @@ pub async fn get_watchdog_breakers(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AUDIT LOG HANDLERS
+// HANDLERS DO LOG DE AUDITORIA
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// GET /audit/logs?limit=100&action=<action>
@@ -406,7 +409,7 @@ pub async fn clear_audit_logs(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DOCKER HANDLERS
+// HANDLERS DO DOCKER
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// GET /docker/containers
@@ -435,7 +438,7 @@ pub async fn get_docker_containers() -> impl IntoResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BACKUP HANDLERS
+// HANDLERS DE BACKUP
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// GET /backups/status
@@ -453,8 +456,24 @@ pub async fn get_backup_status() -> impl IntoResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONFIG HANDLERS
+// HANDLERS DE CONFIGURAÇÃO
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /phpfpm/pools — Metricas detalhadas dos pools PHP-FPM por site
+pub async fn get_phpfpm_pools() -> impl IntoResponse {
+    let metrics = crate::telemetry::phpfpm::collect_phpfpm_metrics();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "pools": metrics.pools,
+            "total_workers": metrics.total_workers,
+            "total_cpu_percent": metrics.total_cpu_percent,
+            "total_memory_mb": metrics.total_memory_mb,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+}
 
 /// GET /config — Retorna configuração atual do agente (sem segredos)
 pub async fn get_config() -> impl IntoResponse {
@@ -492,10 +511,10 @@ pub async fn get_config() -> impl IntoResponse {
     )
 }
 
-/// POST /webhook/security — Recebe alertas de segurança do Dashboard ERP (Winup)
+/// POST /webhook/security — Recebe alertas de seguranca do Dashboard ERP
 ///
-/// O ERP envia ataques detectados pelo honeypot/WAF para o PocketNOC processar.
-/// Payload esperado: { source, severity, event, ip, timestamp, details }
+/// Payload: { source, severity, event, ip, timestamp, details }
+/// Detalhes opcionais: { count, country, isp, machine_signature, last_incident }
 pub async fn receive_security_webhook(
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
@@ -504,39 +523,77 @@ pub async fn receive_security_webhook(
     let severity = payload.get("severity").and_then(|v| v.as_str()).unwrap_or("info");
     let event = payload.get("event").and_then(|v| v.as_str()).unwrap_or("unknown");
     let ip = payload.get("ip").and_then(|v| v.as_str()).unwrap_or("0.0.0.0");
+    let details = payload.get("details");
+
+    let country = details.and_then(|d| d.get("country")).and_then(|v| v.as_str()).map(String::from);
+    let isp = details.and_then(|d| d.get("isp")).and_then(|v| v.as_str()).map(String::from);
+    let detail_str = details.map(|d| d.to_string());
 
     tracing::warn!(
-        "🛡️ WEBHOOK [{severity}] from {source}: {event} — IP: {ip}"
+        "🛡️ WEBHOOK [{severity}] {source}: {event} — IP: {ip} — {country} / {isp}",
+        country = country.as_deref().unwrap_or("?"),
+        isp = isp.as_deref().unwrap_or("?")
     );
 
-    // Registra no audit log
+    // Grava no store de incidentes
     {
-        let mut log = state.audit_log.lock().await;
-        log.record(
-            "WEBHOOK",
-            &format!("/webhook/security/{}", event),
-            ip,
-            200,
-            Some(format!("[{}] {} from {}", severity, event, source)),
-        );
+        let mut store = state.incident_store.lock().await;
+        store.push(SecurityIncident {
+            id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            source: source.to_string(),
+            severity: severity.to_string(),
+            event_type: event.to_string(),
+            attacker_ip: ip.to_string(),
+            country,
+            city: details.and_then(|d| d.get("city")).and_then(|v| v.as_str()).map(String::from),
+            isp,
+            details: detail_str,
+            from_webhook: true,
+        });
     }
 
-    (
-        StatusCode::OK,
-        Json(json!({
-            "status": "received",
-            "message": format!("Security event '{}' from '{}' processed", event, source),
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        })),
-    )
+    // Registra tambem no audit log
+    {
+        let mut log = state.audit_log.lock().await;
+        log.record("WEBHOOK", &format!("/webhook/security/{}", event), ip, 200, Some(format!("[{}] {}", severity, event)));
+    }
+
+    (StatusCode::OK, Json(json!({ "status": "received", "event": event })))
+}
+
+/// GET /security/incidents?limit=50&severity=CRITICAL
+/// Retorna incidentes de seguranca recebidos do dashboard + detectados localmente
+pub async fn get_security_incidents(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let limit = params.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(50);
+    let severity = params.get("severity").map(|s| s.as_str());
+
+    let store = state.incident_store.lock().await;
+
+    let incidents: Vec<_> = if let Some(sev) = severity {
+        store.by_severity(sev).into_iter().take(limit).cloned().collect()
+    } else {
+        store.recent(limit).into_iter().cloned().collect()
+    };
+
+    (StatusCode::OK, Json(json!({
+        "incidents": incidents,
+        "count": incidents.len(),
+        "total": store.len(),
+        "critical_count": store.count_critical(),
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    })))
 }
 
 /// POST /config — Atualiza configuração mutável em runtime
 pub async fn update_config(
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    // Nota: Em produção, isso atualizaria variáveis de ambiente ou um arquivo de config.
-    // Aqui logamos as mudanças solicitadas para o administrador aplicar.
+    // Nota: Em produção, implementei para atualizar variáveis de ambiente ou arquivo de config.
+    // Aqui registro as mudanças solicitadas para a administradora aplicar.
     tracing::info!("📝 Config update requested: {}", payload);
 
     (

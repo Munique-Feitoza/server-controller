@@ -6,9 +6,9 @@ use crate::services::{ServiceInfo, ServiceMonitor};
 /// POR QUE RUST? (Decisão de Engenharia)
 /// Escolhi Rust para o Agente por ser uma linguagem de sistemas que oferece "Zero-Cost Abstractions".
 /// Isso significa que o monitoramento consome o mínimo possível de CPU e RAM (footprint < 15MB),
-/// garantindo que o próprio monitor não interfira na performance do servidor que está vigiando.
-/// Além disso, o sistema de tipos e o 'borrow checker' eliminam bugs de memória e race conditions
-/// em tempo de compilação, o que é crítico para um serviço que roda como root.
+/// garantindo que o próprio monitor não interfira na performance do servidor vigiado.
+/// O sistema de tipos e o 'borrow checker' eliminam bugs de memória e race conditions
+/// em tempo de compilação, algo crítico para um serviço que roda como root.
 
 mod cpu;
 mod memory;
@@ -18,8 +18,9 @@ mod network;
 mod security;
 mod processes;
 pub mod alerts;
-pub mod docker;
 pub mod backup;
+pub mod docker;
+pub mod phpfpm;
 
 pub use cpu::CpuMetrics;
 pub use memory::MemoryMetrics;
@@ -45,12 +46,12 @@ pub struct SystemTelemetry {
     pub timestamp: i64,
 }
 
-/// Informações de tempo de atividade
+/// Informações de uptime (tempo de atividade) do sistema
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UptimeInfo {
-    /// Segundos desde o boot
+    /// Segundos desde o último boot
     pub uptime_seconds: u64,
-    /// Load average (1m, 5m, 15m)
+    /// Carga média do sistema (1m, 5m, 15m)
     pub load_average: [f64; 3],
 }
 
@@ -69,10 +70,10 @@ impl UptimeInfo {
     }
 }
 
-/// Coletor principal de telemetria
-/// 
-/// Aqui exploramos a eficiência do Rust ao interagir diretamente com o subsistema /proc do Linux.
-/// Diferente de soluções em linguagens de alto nível, o Rust nos permite gerenciar buffers de forma
+/// Coletor principal de telemetria do sistema.
+///
+/// Implementei a interação direta com o subsistema /proc do Linux para máxima eficiência.
+/// Diferente de soluções em linguagens de alto nível, aqui gerenciei os buffers de forma
 /// extremamente granulada, minimizando syscalls e alocações desnecessárias.
 pub struct TelemetryCollector {
     system: System,
@@ -81,7 +82,7 @@ pub struct TelemetryCollector {
 }
 
 impl TelemetryCollector {
-    /// Cria um novo coletor de telemetria
+    /// Cria uma nova instância do coletor de telemetria
     pub fn new() -> Self {
         Self {
             system: System::new_all(),
@@ -90,10 +91,10 @@ impl TelemetryCollector {
         }
     }
 
-    /// Coleta toda a telemetria do sistema (com Cache L1 para poupar CPU)
+    /// Coleta toda a telemetria do sistema (com cache TTL para poupar CPU)
     pub fn collect(&mut self) -> Result<SystemTelemetry> {
-        // TTL Cache OMNI-DEV: Retorna o cache se a última medição ocorreu há menos de 5 segundos.
-        // Isso impede a exaustão de CPU via fork() se múltiplos requests baterem na API.
+        // Cache TTL: Retorna o cache se a última medição ocorreu há menos de 5 segundos.
+        // Implementei isso para impedir exaustão de CPU via fork() se múltiplas requisições baterem na API.
         if let Some(cached) = &self.last_cache {
             if self.last_cache_time.elapsed() < std::time::Duration::from_secs(5) {
                 return Ok(cached.clone());
@@ -110,7 +111,7 @@ impl TelemetryCollector {
         let security = SecurityMetrics::collect()?;
         let processes = ProcessMetrics::collect(&self.system)?;
         let uptime = UptimeInfo::collect()?;
-        let services = ServiceMonitor::check_multiple_services(&["nginx", "docker", "mysql", "pocket-noc-agent"]);
+        let services = Self::detect_services();
 
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -130,14 +131,40 @@ impl TelemetryCollector {
             timestamp,
         };
 
-        // Atualiza a camada de Cache
+        // Atualiza a camada de cache
         self.last_cache = Some(telemetry.clone());
         self.last_cache_time = std::time::Instant::now();
 
         Ok(telemetry)
     }
 
-    /// Encerra um processo pelo PID
+    /// Detecta automaticamente os servicos relevantes do servidor.
+    /// Verifica tanto servicos padrao (nginx, mysql) quanto RunCloud (nginx-rc, php81rc-fpm).
+    fn detect_services() -> Vec<ServiceInfo> {
+        // Lista de servicos candidatos — inclui variantes RunCloud
+        let candidates = [
+            // Web servers
+            "nginx", "nginx-rc", "apache2", "apache2-rc",
+            // PHP
+            "php81rc-fpm", "php82rc-fpm", "php83rc-fpm", "php84rc-fpm",
+            "php8.1-fpm", "php8.2-fpm", "php8.3-fpm",
+            // Banco de dados
+            "mysql", "mariadb", "postgresql", "redis-server", "redis",
+            // Docker
+            "docker",
+            // Node/Python
+            "gunicorn", "pm2",
+            // Agente
+            "pocket-noc-agent",
+        ];
+
+        candidates.iter()
+            .filter_map(|name| ServiceMonitor::check_service(name).ok())
+            .filter(|info| info.status == crate::services::ServiceStatus::Active || info.pid.is_some())
+            .collect()
+    }
+
+    /// Encerra um processo pelo seu PID
     pub fn kill_process(&mut self, pid: u32) -> Result<bool> {
         use sysinfo::{Pid, PidExt, ProcessExt};
         let sys_pid = Pid::from_u32(pid);
