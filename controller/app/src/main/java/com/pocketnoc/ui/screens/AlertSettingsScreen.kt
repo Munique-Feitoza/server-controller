@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,6 +30,9 @@ fun AlertSettingsScreen(
     onSaveSettings: (AlertThresholdConfig) -> Unit,
     onBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     var cpuThreshold         by remember { mutableStateOf(currentConfig.cpuThresholdPercent) }
     var memoryThreshold      by remember { mutableStateOf(currentConfig.memoryThresholdPercent) }
     var diskThreshold        by remember { mutableStateOf(currentConfig.diskThresholdPercent) }
@@ -45,23 +47,23 @@ fun AlertSettingsScreen(
                         Text(
                             "ALERT CONFIG",
                             style = MaterialTheme.typography.titleLarge,
-                            color = NeonMagenta,
+                            color = ext.magenta,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             "Limiares de disparo de alertas",
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
+                            color = colors.outlineVariant
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonMagenta)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = ext.magenta)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.9f)),
-                modifier = Modifier.shadow(8.dp, spotColor = NeonMagenta.copy(alpha = 0.25f))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface.copy(alpha = 0.9f)),
+                modifier = Modifier.shadow(8.dp, spotColor = ext.magenta.copy(alpha = 0.25f))
             )
         },
         containerColor = Color.Transparent
@@ -70,33 +72,31 @@ fun AlertSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(listOf(DarkBackground, Color(0xFF140F1F), DarkBackground))
-                )
+                .background(colors.background)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(Dimens.ScreenPadding),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
             ) {
                 // Cabeçalho informativo
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(NeonMagenta.copy(alpha = 0.05f))
-                        .border(1.dp, NeonMagenta.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        .clip(AppShapes.large)
+                        .background(ext.magenta.copy(alpha = 0.05f))
+                        .border(Dimens.BorderThin, ext.magenta.copy(alpha = 0.2f), AppShapes.large)
+                        .padding(Dimens.SpaceLg),
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.RadiusLg),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = NeonMagenta.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Info, contentDescription = null, tint = ext.magenta.copy(alpha = 0.7f), modifier = Modifier.size(Dimens.IconSm))
                     Text(
                         "Alertas são disparados quando o valor medido excede o limiar configurado.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = colors.onSurfaceVariant
                     )
                 }
 
@@ -108,18 +108,18 @@ fun AlertSettingsScreen(
                     onValueChange = { cpuThreshold = it },
                     unit        = "%",
                     range       = 30f..100f,
-                    accentColor = NeonMagenta
+                    accentColor = ext.magenta
                 )
 
                 ThresholdSliderCard(
                     icon        = Icons.Default.Memory,
-                    label       = "MEMÓRIA",
+                    label       = "MEM\u00D3RIA",
                     description = "Uso de RAM",
                     value       = memoryThreshold,
                     onValueChange = { memoryThreshold = it },
                     unit        = "%",
                     range       = 30f..100f,
-                    accentColor = NeonBlue
+                    accentColor = ext.blue
                 )
 
                 ThresholdSliderCard(
@@ -130,7 +130,7 @@ fun AlertSettingsScreen(
                     onValueChange = { diskThreshold = it },
                     unit        = "%",
                     range       = 50f..100f,
-                    accentColor = NeonCyan
+                    accentColor = colors.primary
                 )
 
                 ThresholdSliderCard(
@@ -139,9 +139,9 @@ fun AlertSettingsScreen(
                     description = "Temperatura do hardware",
                     value       = temperatureThreshold,
                     onValueChange = { temperatureThreshold = it },
-                    unit        = "°C",
+                    unit        = "\u00B0C",
                     range       = 40f..100f,
-                    accentColor = WarningOrange
+                    accentColor = StatusColors.warning
                 )
 
                 ThresholdSliderCard(
@@ -152,25 +152,25 @@ fun AlertSettingsScreen(
                     onValueChange = { rebootThreshold = it },
                     unit        = "min",
                     range       = 1f..60f,
-                    accentColor = NeonGreen
+                    accentColor = colors.tertiary
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Dimens.SpaceMd))
 
                 // Botões de ação
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
                 ) {
                     OutlinedButton(
                         onClick  = onBack,
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape    = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(Dimens.ButtonHeight),
+                        shape    = AppShapes.large,
                         border   = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = Brush.horizontalGradient(listOf(TextMuted.copy(alpha = 0.4f), TextMuted.copy(alpha = 0.2f)))
+                            brush = Brush.horizontalGradient(listOf(colors.outlineVariant.copy(alpha = 0.4f), colors.outlineVariant.copy(alpha = 0.2f)))
                         )
                     ) {
-                        Text("Cancelar", color = TextSecondary, fontWeight = FontWeight.Medium)
+                        Text("Cancelar", color = colors.onSurfaceVariant, fontWeight = FontWeight.Medium)
                     }
 
                     Button(
@@ -185,20 +185,20 @@ fun AlertSettingsScreen(
                                 )
                             )
                         },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors   = ButtonDefaults.buttonColors(containerColor = NeonMagenta.copy(alpha = 0.15f)),
+                        modifier = Modifier.weight(1f).height(Dimens.ButtonHeight),
+                        colors   = ButtonDefaults.buttonColors(containerColor = ext.magenta.copy(alpha = 0.15f)),
                         border   = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = Brush.horizontalGradient(listOf(NeonMagenta.copy(alpha = 0.8f), NeonMagenta.copy(alpha = 0.4f)))
+                            brush = Brush.horizontalGradient(listOf(ext.magenta.copy(alpha = 0.8f), ext.magenta.copy(alpha = 0.4f)))
                         ),
-                        shape    = RoundedCornerShape(10.dp)
+                        shape    = AppShapes.large
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null, tint = NeonMagenta, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("SALVAR", color = NeonMagenta, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Save, contentDescription = null, tint = ext.magenta, modifier = Modifier.size(Dimens.IconSm))
+                        Spacer(modifier = Modifier.width(Dimens.SpaceSm))
+                        Text("SALVAR", color = ext.magenta, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(Dimens.ScreenPadding))
             }
         }
     }
@@ -215,38 +215,40 @@ private fun ThresholdSliderCard(
     range: ClosedFloatingPointRange<Float>,
     accentColor: Color
 ) {
+    val colors = MaterialTheme.colorScheme
+
     val pct = ((value - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)
     val valueColor = when {
-        pct > 0.85f -> CriticalRedHealth
-        pct > 0.65f -> AlertYellow
+        pct > 0.85f -> StatusColors.critical
+        pct > 0.65f -> StatusColors.warning
         else        -> accentColor
     }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = accentColor.copy(alpha = 0.2f))
-            .clip(RoundedCornerShape(12.dp))
-            .background(Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.07f), DarkCard)))
-            .border(1.dp, accentColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-            .padding(16.dp)
+            .shadow(4.dp, AppShapes.xl, spotColor = accentColor.copy(alpha = 0.2f))
+            .clip(AppShapes.xl)
+            .background(Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.07f), colors.surfaceVariant)))
+            .border(Dimens.BorderThin, accentColor.copy(alpha = 0.3f), AppShapes.xl)
+            .padding(Dimens.ScreenPadding)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Ícone
+            // \u00CDcone
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .background(accentColor.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-                    .border(1.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(10.dp)),
+                    .background(accentColor.copy(alpha = 0.12f), AppShapes.large)
+                    .border(Dimens.BorderThin, accentColor.copy(alpha = 0.4f), AppShapes.large),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -259,16 +261,16 @@ private fun ThresholdSliderCard(
                 Text(
                     text  = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
+                    color = colors.onSurfaceVariant
                 )
             }
 
             // Valor atual
             Box(
                 modifier = Modifier
-                    .background(valueColor.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                    .border(1.dp, valueColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .background(valueColor.copy(alpha = 0.12f), AppShapes.medium)
+                    .border(Dimens.BorderThin, valueColor.copy(alpha = 0.4f), AppShapes.medium)
+                    .padding(horizontal = Dimens.RadiusLg, vertical = Dimens.SpaceXs)
             ) {
                 Text(
                     text  = "${String.format("%.0f", value)}$unit",
@@ -280,7 +282,7 @@ private fun ThresholdSliderCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(Dimens.SpaceLg))
 
         Slider(
             value         = value,
@@ -296,11 +298,11 @@ private fun ThresholdSliderCard(
 
         // Labels de range
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Dimens.SpaceXs),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("${range.start.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = TextMuted)
-            Text("${range.endInclusive.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text("${range.start.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+            Text("${range.endInclusive.toInt()}$unit", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
         }
     }
 }

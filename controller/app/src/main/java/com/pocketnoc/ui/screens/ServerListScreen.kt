@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,7 +21,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.models.HealthStatus
 import com.pocketnoc.data.models.ServerHealth
@@ -38,6 +36,9 @@ fun ServerListScreen(
     onNavigateToDetails: (Int) -> Unit,
     onNavigateToAddServer: (() -> Unit)? = null
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val servers by viewModel.allServers.collectAsState()
     val serverHealthMap by viewModel.serverHealthMap.collectAsState()
     var serverToDelete by remember { mutableStateOf<ServerEntity?>(null) }
@@ -47,24 +48,24 @@ fun ServerListScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("SERVIDORES", style = MaterialTheme.typography.titleLarge, color = NeonCyan, fontWeight = FontWeight.Bold)
-                        Text("${servers.size} node${if (servers.size != 1) "s" else ""} configurado${if (servers.size != 1) "s" else ""}", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                        Text("SERVIDORES", style = MaterialTheme.typography.titleLarge, color = colors.primary, fontWeight = FontWeight.Bold)
+                        Text("${servers.size} node${if (servers.size != 1) "s" else ""} configurado${if (servers.size != 1) "s" else ""}", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonCyan)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = colors.primary)
                     }
                 },
                 actions = {
                     onNavigateToAddServer?.let {
                         IconButton(onClick = it) {
-                            Icon(Icons.Default.Add, contentDescription = "Adicionar servidor", tint = NeonGreen)
+                            Icon(Icons.Default.Add, contentDescription = "Adicionar servidor", tint = colors.tertiary)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.9f)),
-                modifier = Modifier.shadow(8.dp, spotColor = NeonCyan.copy(alpha = 0.25f))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface.copy(alpha = 0.9f)),
+                modifier = Modifier.shadow(Dimens.SpaceMd, spotColor = colors.primary.copy(alpha = 0.25f))
             )
         },
         containerColor = Color.Transparent
@@ -73,26 +74,24 @@ fun ServerListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(listOf(DarkBackground, Color(0xFF0A1428), DarkBackground))
-                )
+                .background(colors.background)
         ) {
             if (servers.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
                     ) {
-                        Text("[ ]", style = MaterialTheme.typography.displayLarge, color = NeonCyan.copy(alpha = 0.3f))
-                        Text("Nenhum servidor configurado", style = MaterialTheme.typography.titleMedium, color = NeonCyan)
-                        Text("Adicione um servidor pelo Dashboard.", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                        Text("[ ]", style = MaterialTheme.typography.displayLarge, color = colors.primary.copy(alpha = 0.3f))
+                        Text("Nenhum servidor configurado", style = MaterialTheme.typography.titleMedium, color = colors.primary)
+                        Text("Adicione um servidor pelo Dashboard.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 14.dp)
+                    modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg),
+                    contentPadding = PaddingValues(vertical = Dimens.SpaceXl - Dimens.SpaceXxs)
                 ) {
                     items(servers) { server ->
                         val health = serverHealthMap[server.id]
@@ -111,11 +110,11 @@ fun ServerListScreen(
     if (serverToDelete != null) {
         AlertDialog(
             onDismissRequest = { serverToDelete = null },
-            title = { Text("Remover Servidor?", color = CriticalRedHealth, fontWeight = FontWeight.Bold) },
+            title = { Text("Remover Servidor?", color = StatusColors.critical, fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Servidor: ${serverToDelete!!.name}", color = Color.White, fontWeight = FontWeight.SemiBold)
-                    Text("As credenciais salvas serão removidas permanentemente.", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)) {
+                    Text("Servidor: ${serverToDelete!!.name}", color = colors.onSurface, fontWeight = FontWeight.SemiBold)
+                    Text("As credenciais salvas serão removidas permanentemente.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
@@ -124,17 +123,17 @@ fun ServerListScreen(
                         viewModel.deleteServer(serverToDelete!!)
                         serverToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = CriticalRedHealth),
-                    shape = RoundedCornerShape(8.dp)
-                ) { Text("Remover", color = Color.White, fontWeight = FontWeight.Bold) }
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusColors.critical),
+                    shape = AppShapes.medium
+                ) { Text("Remover", color = colors.onSurface, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                OutlinedButton(onClick = { serverToDelete = null }, shape = RoundedCornerShape(8.dp)) {
-                    Text("Cancelar", color = NeonCyan)
+                OutlinedButton(onClick = { serverToDelete = null }, shape = AppShapes.medium) {
+                    Text("Cancelar", color = colors.primary)
                 }
             },
-            containerColor = DarkCard,
-            modifier = Modifier.border(1.dp, CriticalRedHealth.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            containerColor = colors.surfaceVariant,
+            modifier = Modifier.border(Dimens.BorderThin, StatusColors.critical.copy(alpha = 0.4f), AppShapes.xl)
         )
     }
 }
@@ -147,6 +146,9 @@ fun ServerListItem(
     onNavigateToDetails: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     // Pulso animado no indicador de status
     val infiniteTransition = rememberInfiniteTransition(label = "dot_pulse")
     val dotAlpha by infiniteTransition.animateFloat(
@@ -156,11 +158,11 @@ fun ServerListItem(
     )
 
     val statusColor = when (health?.status) {
-        HealthStatus.CRITICAL -> CriticalRedHealth
-        HealthStatus.ALERT    -> AlertYellow
-        HealthStatus.WARNING  -> WarningGreen
-        HealthStatus.HEALTHY  -> HealthyBlue
-        null                  -> TextMuted  // ainda carregando
+        HealthStatus.CRITICAL -> StatusColors.critical
+        HealthStatus.ALERT    -> StatusColors.warning
+        HealthStatus.WARNING  -> StatusColors.caution
+        HealthStatus.HEALTHY  -> StatusColors.healthy
+        null                  -> colors.outlineVariant  // ainda carregando
     }
 
     val statusLabel = when (health?.status) {
@@ -174,27 +176,27 @@ fun ServerListItem(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), spotColor = statusColor.copy(alpha = 0.3f))
-            .clip(RoundedCornerShape(14.dp))
+            .shadow(Dimens.SpaceSm, AppShapes.card, spotColor = statusColor.copy(alpha = 0.3f))
+            .clip(AppShapes.card)
             .background(
-                Brush.horizontalGradient(listOf(statusColor.copy(alpha = 0.07f), DarkCard))
+                Brush.horizontalGradient(listOf(statusColor.copy(alpha = 0.07f), colors.surfaceVariant))
             )
-            .border(1.dp, statusColor.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+            .border(Dimens.BorderThin, statusColor.copy(alpha = 0.4f), AppShapes.card)
             .clickable(onClick = onNavigateToDetails)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Dimens.SpaceXl),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Indicador de status pulsante
             Box(
                 modifier = Modifier
-                    .size(10.dp)
-                    .background(statusColor.copy(alpha = dotAlpha), RoundedCornerShape(5.dp))
+                    .size(Dimens.StatusDotLg)
+                    .background(statusColor.copy(alpha = dotAlpha), AppShapes.pill)
             )
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(Dimens.SpaceXl - Dimens.SpaceXxs))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
@@ -202,67 +204,67 @@ fun ServerListItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(server.name, style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(server.name, style = MaterialTheme.typography.titleMedium, color = colors.onSurface, fontWeight = FontWeight.Bold)
                     // Badge de status
                     Box(
                         modifier = Modifier
-                            .background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
-                            .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .background(statusColor.copy(alpha = 0.15f), AppShapes.pill)
+                            .border(Dimens.BorderThin, statusColor.copy(alpha = 0.5f), AppShapes.pill)
+                            .padding(horizontal = Dimens.SpaceMd, vertical = Dimens.SpaceXxs)
                     ) {
                         Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(Dimens.SpaceMd))
 
                 if (health != null) {
                     // Barras compactas de CPU/RAM/Disco
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceLg - Dimens.SpaceXxs)
                     ) {
-                        MiniMetricBar("CPU", health.cpuUsage, NeonMagenta, Modifier.weight(1f))
-                        MiniMetricBar("RAM", health.memoryUsage, NeonBlue, Modifier.weight(1f))
-                        MiniMetricBar("DSK", health.diskUsage, NeonCyan, Modifier.weight(1f))
+                        MiniMetricBar("CPU", health.cpuUsage, ext.magenta, Modifier.weight(1f))
+                        MiniMetricBar("RAM", health.memoryUsage, ext.blue, Modifier.weight(1f))
+                        MiniMetricBar("DSK", health.diskUsage, colors.primary, Modifier.weight(1f))
                     }
 
                     if (health.activeAlerts > 0) {
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(Dimens.SpaceSm))
                         Row(
                             modifier = Modifier
-                                .background(CriticalRedHealth.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                                .background(StatusColors.critical.copy(alpha = 0.1f), AppShapes.small)
+                                .padding(horizontal = Dimens.SpaceSm, vertical = Dimens.ProgressSm),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)
                         ) {
-                            Box(modifier = Modifier.size(6.dp).background(CriticalRedHealth, RoundedCornerShape(3.dp)))
+                            Box(modifier = Modifier.size(Dimens.SpaceSm).background(StatusColors.critical, AppShapes.pill))
                             Text(
                                 "${health.activeAlerts} alerta${if (health.activeAlerts > 1) "s" else ""} ativo${if (health.activeAlerts > 1) "s" else ""}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = CriticalRedHealth
+                                color = StatusColors.critical
                             )
                         }
                     }
                 } else {
                     // Shimmer enquanto a saúde ainda não foi carregada
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ShimmerBox(modifier = Modifier.fillMaxWidth().height(8.dp), shape = RoundedCornerShape(4.dp))
-                        ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(8.dp), shape = RoundedCornerShape(4.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)) {
+                        ShimmerBox(modifier = Modifier.fillMaxWidth().height(Dimens.SpaceMd), shape = AppShapes.small)
+                        ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f).height(Dimens.SpaceMd), shape = AppShapes.small)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(Dimens.SpaceMd))
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXs)
             ) {
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remover", tint = CriticalRedHealth.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                IconButton(onClick = onDelete, modifier = Modifier.size(Dimens.ChipHeight)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remover", tint = StatusColors.critical.copy(alpha = 0.5f), modifier = Modifier.size(Dimens.IconMd - Dimens.SpaceXxs))
                 }
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = NeonCyan.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = colors.primary.copy(alpha = 0.5f), modifier = Modifier.size(Dimens.IconMd - Dimens.SpaceXxs))
             }
         }
     }
@@ -270,22 +272,24 @@ fun ServerListItem(
 
 @Composable
 private fun MiniMetricBar(label: String, value: Float, color: Color, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+
     val barColor = when {
-        value > 90 -> CriticalRedHealth
-        value > 75 -> AlertYellow
+        value > 90 -> StatusColors.critical
+        value > 75 -> StatusColors.warning
         else       -> color
     }
     Column(modifier = modifier) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = TextMuted, fontSize = androidx.compose.ui.unit.TextUnit(9f, androidx.compose.ui.unit.TextUnitType.Sp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant, fontSize = androidx.compose.ui.unit.TextUnit(9f, androidx.compose.ui.unit.TextUnitType.Sp))
             Text("${value.toInt()}%", style = MaterialTheme.typography.labelSmall, color = barColor, fontSize = androidx.compose.ui.unit.TextUnit(9f, androidx.compose.ui.unit.TextUnitType.Sp))
         }
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(Dimens.SpaceXxs))
         LinearProgressIndicator(
             progress = { (value / 100f).coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
+            modifier = Modifier.fillMaxWidth().height(Dimens.ProgressSm).clip(AppShapes.small),
             color = barColor,
-            trackColor = DarkSurface
+            trackColor = colors.surface
         )
     }
 }
@@ -295,8 +299,8 @@ fun StatBadge(label: String, value: String, color: Color) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .background(color.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
-            .padding(6.dp)
+            .background(color.copy(alpha = 0.1f), AppShapes.small)
+            .padding(Dimens.SpaceSm)
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = color.copy(alpha = 0.7f))
         Text(value, style = MaterialTheme.typography.labelSmall, color = color)

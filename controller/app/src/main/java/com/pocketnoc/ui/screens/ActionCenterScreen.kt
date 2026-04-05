@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -34,6 +33,9 @@ fun ActionCenterScreen(
     serverId: Int,
     onNavigateBack: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
     val servers by viewModel.allServers.collectAsState()
     val selectedServer = servers.find { it.id == serverId }
     val commandsState by viewModel.commandsState.collectAsState()
@@ -49,19 +51,19 @@ fun ActionCenterScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("ACTION CENTER", style = MaterialTheme.typography.titleLarge, color = NeonGreen, fontWeight = FontWeight.Bold)
+                        Text("ACTION CENTER", style = MaterialTheme.typography.titleLarge, color = colors.tertiary, fontWeight = FontWeight.Bold)
                         selectedServer?.let {
-                            Text(it.name, style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                            Text(it.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = NeonGreen)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = colors.tertiary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkSurface.copy(alpha = 0.9f)),
-                modifier = Modifier.shadow(8.dp, spotColor = NeonGreen.copy(alpha = 0.25f))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface.copy(alpha = 0.9f)),
+                modifier = Modifier.shadow(Dimens.SpaceMd, spotColor = colors.tertiary.copy(alpha = 0.25f))
             )
         },
         containerColor = Color.Transparent
@@ -70,16 +72,14 @@ fun ActionCenterScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    Brush.verticalGradient(listOf(DarkBackground, Color(0xFF091A0F), DarkBackground))
-                )
+                .background(colors.background)
         ) {
             when (val state = commandsState) {
                 is CommandsUiState.Loading -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        modifier = Modifier.fillMaxSize().padding(Dimens.ScreenPadding),
+                        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg - Dimens.SpaceXxs),
+                        contentPadding = PaddingValues(bottom = Dimens.ScreenPadding)
                     ) {
                         items(6) {
                             ShimmerBox(modifier = Modifier.fillMaxWidth().height(78.dp))
@@ -91,19 +91,19 @@ fun ActionCenterScreen(
                     val commands = state.commands
                     if (commands.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("Nenhum comando disponível", color = TextSecondary)
+                            Text("Nenhum comando disponível", color = colors.onSurfaceVariant)
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(vertical = 14.dp)
+                            modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg - Dimens.SpaceXxs),
+                            contentPadding = PaddingValues(vertical = Dimens.SpaceXl - Dimens.SpaceXxs)
                         ) {
                             item {
                                 Text(
                                     "PROTOCOLOS DISPONÍVEIS — ${commands.size}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = TextMuted,
+                                    color = colors.outlineVariant,
                                     fontFamily = FontFamily.Monospace
                                 )
                             }
@@ -121,15 +121,15 @@ fun ActionCenterScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
                         ) {
-                            Text("⚠", style = MaterialTheme.typography.displayLarge, color = CriticalRedHealth)
-                            Text(state.message, color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                            Text("⚠", style = MaterialTheme.typography.displayLarge, color = StatusColors.critical)
+                            Text(state.message, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             Button(
                                 onClick = { selectedServer?.let { viewModel.fetchCommands(it) } },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.15f)),
-                                shape = RoundedCornerShape(8.dp)
-                            ) { Text("Tentar novamente", color = NeonGreen) }
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.tertiary.copy(alpha = 0.15f)),
+                                shape = AppShapes.medium
+                            ) { Text("Tentar novamente", color = colors.tertiary) }
                         }
                     }
                 }
@@ -142,18 +142,18 @@ fun ActionCenterScreen(
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(20.dp))
-                    Text("EXECUTAR PROTOCOLO?", color = NeonGreen, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = colors.tertiary, modifier = Modifier.size(Dimens.IconMd))
+                    Text("EXECUTAR PROTOCOLO?", color = colors.tertiary, fontWeight = FontWeight.Bold)
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("ID:", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        Text(cmd.id, color = NeonGreen, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
+                        Text("ID:", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text(cmd.id, color = colors.tertiary, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     }
-                    Text(cmd.description, color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                    Text(cmd.description, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
@@ -162,77 +162,79 @@ fun ActionCenterScreen(
                         selectedServer?.let { server -> viewModel.executeCommand(server, cmd.id) }
                         showConfirmDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
-                    shape = RoundedCornerShape(8.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.tertiary),
+                    shape = AppShapes.medium
                 ) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = DarkBackground, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("EXECUTAR", color = DarkBackground, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = colors.background, modifier = Modifier.size(Dimens.IconSm))
+                    Spacer(modifier = Modifier.width(Dimens.SpaceXs))
+                    Text("EXECUTAR", color = colors.background, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showConfirmDialog = false }, shape = RoundedCornerShape(8.dp)) {
-                    Text("Cancelar", color = NeonCyan)
+                OutlinedButton(onClick = { showConfirmDialog = false }, shape = AppShapes.medium) {
+                    Text("Cancelar", color = colors.primary)
                 }
             },
-            containerColor = DarkCard,
-            modifier = Modifier.border(1.dp, NeonGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            containerColor = colors.surfaceVariant,
+            modifier = Modifier.border(Dimens.BorderThin, colors.tertiary.copy(alpha = 0.4f), AppShapes.xl)
         )
     }
 }
 
 @Composable
 fun CommandCard(command: CommandInfo, onExecute: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(AppShapes.xl)
             .background(
-                Brush.horizontalGradient(listOf(NeonGreen.copy(alpha = 0.05f), DarkCard))
+                Brush.horizontalGradient(listOf(colors.tertiary.copy(alpha = 0.05f), colors.surfaceVariant))
             )
-            .border(1.dp, NeonGreen.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .border(Dimens.BorderThin, colors.tertiary.copy(alpha = 0.25f), AppShapes.xl)
+            .padding(horizontal = Dimens.SpaceXl, vertical = Dimens.SpaceXl - Dimens.SpaceXxs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Indicador de status
         Box(
             modifier = Modifier
-                .size(8.dp)
-                .background(NeonGreen, RoundedCornerShape(4.dp))
+                .size(Dimens.StatusDot)
+                .background(colors.tertiary, AppShapes.pill)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = command.id,
                 style = MaterialTheme.typography.labelMedium,
-                color = NeonGreen,
+                color = colors.tertiary,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(Dimens.SpaceXxs))
             Text(
                 text = command.description,
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
+                color = colors.onSurfaceVariant
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(Dimens.SpaceLg))
 
         Button(
             onClick = onExecute,
-            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen.copy(alpha = 0.15f)),
+            colors = ButtonDefaults.buttonColors(containerColor = colors.tertiary.copy(alpha = 0.15f)),
             border = ButtonDefaults.outlinedButtonBorder.copy(
-                brush = Brush.horizontalGradient(listOf(NeonGreen.copy(alpha = 0.8f), NeonGreen.copy(alpha = 0.4f)))
+                brush = Brush.horizontalGradient(listOf(colors.tertiary.copy(alpha = 0.8f), colors.tertiary.copy(alpha = 0.4f)))
             ),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.height(36.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp)
+            shape = AppShapes.medium,
+            modifier = Modifier.height(Dimens.ActionButton),
+            contentPadding = PaddingValues(horizontal = Dimens.SpaceLg)
         ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("EXEC", color = NeonGreen, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = colors.tertiary, modifier = Modifier.size(Dimens.IconXs + Dimens.SpaceXxs))
+            Spacer(modifier = Modifier.width(Dimens.SpaceXs))
+            Text("EXEC", color = colors.tertiary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
