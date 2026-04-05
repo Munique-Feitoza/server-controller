@@ -5,25 +5,25 @@ import retrofit2.http.*
 
 interface AgentApiService {
 
-    // Health & Status
+    // Saude e Status
     @GET("health")
     suspend fun healthCheck(): HealthCheckResponse
 
-    // Telemetry
+    // Telemetria
     @GET("telemetry")
     suspend fun getTelemetry(): SystemTelemetry
 
-    // Alerts
+    // Alertas
     @GET("alerts")
     suspend fun getAlerts(): AlertsResponse
 
-    // Services
+    // Servicos
     @GET("services/{service_name}")
     suspend fun getServiceStatus(
         @Path("service_name") serviceName: String
     ): ServiceInfo
 
-    // Commands
+    // Comandos
     @GET("commands")
     suspend fun listCommands(): CommandListResponse
 
@@ -32,28 +32,28 @@ interface AgentApiService {
         @Path("command_id") commandId: String
     ): CommandResult
 
-    // Specific Reboot Command
+    // Comando de reboot especifico
     @POST("reboot")
     suspend fun reboot(): CommandResult
 
-    // Service Actions
+    // Acoes de servico
     @POST("services/{service_name}/{action}")
     suspend fun performServiceAction(
         @Path("service_name") serviceName: String,
         @Path("action") action: String
     ): CommandResult
 
-    // Metrics (Prometheus compatible)
+    // Metricas (compativel com Prometheus)
     @GET("metrics")
     suspend fun getMetrics(): String
 
-    // Dynamic Alert Configuration
+    // Configuracao dinamica de alertas
     @POST("alerts/config")
     suspend fun updateAlertConfig(
         @Body config: AlertThresholdConfig
     ): GenericResponse
 
-    // Processes
+    // Processos
     @GET("processes")
     suspend fun getTopProcesses(): ProcessListResponse
 
@@ -62,26 +62,26 @@ interface AgentApiService {
         @Path("pid") pid: Long
     ): GenericResponse
 
-    // Logs
+    // Logs do sistema
     @GET("logs")
     suspend fun getLogs(
         @Query("service") service: String,
         @Query("lines") lines: Int = 100
     ): LogResponse
 
-    // Security
+    // Seguranca
     @POST("security/block-ip")
     suspend fun blockIp(
         @Body payload: Map<String, String>
     ): GenericResponse
 
-    // ─── Watchdog / Auto-Remediação ─────────────────────────────────────────
+    // ─── Watchdog / Auto-Remediacao ─────────────────────────────────────────
     /**
-     * Retorna eventos de auto-remediação do Watchdog.
+     * Retorna eventos de auto-remediacao do Watchdog.
      * Filtros opcionais:
      * - server: filtra por server_id (ex: "vps-deploy-01")
      * - status: filtra por final_status (ex: "CircuitOpen", "Failed")
-     * - limit: número máximo de eventos retornados (padrão: 50)
+     * - limit: numero maximo de eventos retornados (padrao: 50)
      */
     @GET("watchdog/events")
     suspend fun getWatchdogEvents(
@@ -106,15 +106,19 @@ interface AgentApiService {
     @DELETE("audit/logs")
     suspend fun clearAuditLogs(): GenericResponse
 
-    // ─── Docker Monitoring ─────────────────────────────────────────────
+    // ─── Monitoramento Docker ─────────────────────────────────────────────
     @GET("docker/containers")
     suspend fun getDockerContainers(): DockerMetrics
 
-    // ─── Backup Status ─────────────────────────────────────────────────
+    // ─── PHP-FPM Pools por site ─────────────────────────────────────────────
+    @GET("phpfpm/pools")
+    suspend fun getPhpFpmPools(): PhpFpmResponse
+
+    // ─── Status de Backup ─────────────────────────────────────────────────
     @GET("backups/status")
     suspend fun getBackupStatus(): BackupStatus
 
-    // ─── Agent Configuration ───────────────────────────────────────────
+    // ─── Configuracao do Agente ───────────────────────────────────────────
     @GET("config")
     suspend fun getAgentConfig(): AgentRuntimeConfig
 

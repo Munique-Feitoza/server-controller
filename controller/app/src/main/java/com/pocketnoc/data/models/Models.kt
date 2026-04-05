@@ -2,7 +2,7 @@ package com.pocketnoc.data.models
 
 import com.google.gson.annotations.SerializedName
 
-// ==================== Telemetria ====================
+// ==================== Telemetria do Sistema ====================
 
 data class SystemTelemetry(
     val cpu: CpuMetrics,
@@ -160,7 +160,7 @@ data class UptimeInfo(
     }
 }
 
-// ==================== Serviços ====================
+// ==================== Servicos ====================
 
 data class ServiceInfo(
     val name: String,
@@ -191,7 +191,7 @@ data class CommandListResponse(
     val commands: Map<String, List<EmergencyCommand>>
 )
 
-// Alias para compatibilidade
+// Alias mantido para compatibilidade
 data class CommandInfo(
     val id: String,
     val description: String,
@@ -210,7 +210,7 @@ data class CommandResult(
     val timestamp: Long
 )
 
-// ==================== Health Check ====================
+// ==================== Verificacao de Saude ====================
 
 data class HealthCheckResponse(
     val status: String,
@@ -218,7 +218,7 @@ data class HealthCheckResponse(
     val timestamp: String
 )
 
-// ==================== Servidor ====================
+// ==================== Configuracao do Servidor ====================
 
 data class ServerConfig(
     val id: String,
@@ -276,10 +276,10 @@ data class AlertThresholdConfig(
 // ==================== Status de Saúde ====================
 
 enum class HealthStatus {
-    HEALTHY,      // Azul - Tudo OK
-    WARNING,      // Verde - Um pouco de uso demais
-    ALERT,        // Amarelo - Alerta
-    CRITICAL      // Vermelho - Crítico
+    HEALTHY,      // Azul — tudo OK
+    WARNING,      // Verde — uso elevado
+    ALERT,        // Amarelo — alerta
+    CRITICAL      // Vermelho — critico
 }
 
 data class ServerHealth(
@@ -294,7 +294,7 @@ data class ServerHealth(
     val lastUpdate: Long
 )
 
-// ==================== Respostas Genéricas ====================
+// ==================== Respostas Genericas ====================
 
 data class GenericResponse(
     val status: String,
@@ -364,6 +364,81 @@ data class BackupStatus(
     val anyStale: Boolean
 )
 
+// ==================== Dashboard ERP — Incidentes de Seguranca ====================
+
+data class DashboardIncident(
+    val id: Int,
+    val severity: String,
+    val type: String,
+    val action: String?,
+    val ip: String,
+    val country: String?,
+    val city: String?,
+    val isp: String?,
+    val path: String,
+    val method: String,
+    @SerializedName("is_banned")
+    val isBanned: Boolean,
+    @SerializedName("user_agent")
+    val userAgent: String?,
+    @SerializedName("machine_signature")
+    val machineSignature: String?,
+    @SerializedName("created_at")
+    val createdAt: String?
+)
+
+data class DashboardIncidentsResponse(
+    val incidents: List<DashboardIncident>,
+    val count: Int,
+    @SerializedName("period_hours")
+    val periodHours: Int
+)
+
+data class TopAttackerIp(
+    val ip: String,
+    val count: Int,
+    val country: String?
+)
+
+data class DashboardStatsResponse(
+    val total: Int,
+    @SerializedName("banned_count")
+    val bannedCount: Int,
+    @SerializedName("by_severity")
+    val bySeverity: Map<String, Int>,
+    @SerializedName("by_type")
+    val byType: Map<String, Int>,
+    @SerializedName("top_ips")
+    val topIps: List<TopAttackerIp>,
+    @SerializedName("top_countries")
+    val topCountries: Map<String, Int>,
+    @SerializedName("period_hours")
+    val periodHours: Int
+)
+
+// ==================== PHP-FPM Pools ====================
+
+data class PhpFpmPool(
+    @SerializedName("pool_name")
+    val poolName: String,
+    @SerializedName("cpu_percent")
+    val cpuPercent: Float,
+    @SerializedName("memory_mb")
+    val memoryMb: Float,
+    @SerializedName("worker_count")
+    val workerCount: Int
+)
+
+data class PhpFpmResponse(
+    val pools: List<PhpFpmPool>,
+    @SerializedName("total_workers")
+    val totalWorkers: Int,
+    @SerializedName("total_cpu_percent")
+    val totalCpuPercent: Float,
+    @SerializedName("total_memory_mb")
+    val totalMemoryMb: Float
+)
+
 // ==================== Agent Runtime Config ====================
 
 data class AgentRuntimeConfig(
@@ -388,12 +463,12 @@ data class AgentRuntimeConfig(
 // ==================== Watchdog / Auto-Remediação ====================
 
 /**
- * Espelho exato do struct `WatchdogEvent` do Rust.
+ * Espelho exato do struct `WatchdogEvent` do agente Rust.
  * Cada campo usa `@SerializedName` para mapear o snake_case do JSON.
  *
  * Campos-chave para multi-servidor:
- * - `serverId`   → identifica qual máquina gerou o evento
- * - `serverRole` → perfil (wordpress/erp/database/generic)
+ * - `serverId`   -> identifica qual maquina gerou o evento
+ * - `serverRole` -> perfil (wordpress/erp/database/generic)
  */
 data class WatchdogEvent(
     val id: String,
@@ -401,7 +476,7 @@ data class WatchdogEvent(
     @SerializedName("timestamp_iso")
     val timestampIso: String,
 
-    // Identidade do servidor — CRÍTICO para multi-servidor
+    // Identidade do servidor — critico para multi-servidor
     @SerializedName("server_id")
     val serverId: String,
     @SerializedName("server_role")
@@ -409,14 +484,14 @@ data class WatchdogEvent(
     @SerializedName("server_hostname")
     val serverHostname: String,
 
-    // Diagnóstico do probe
+    // Diagnostico do probe
     val service: String,
     @SerializedName("probe_result")
     val probeResult: String,   // "Healthy" | "Degraded" | "Down"
     @SerializedName("probe_latency_ms")
     val probeLatencyMs: Long?,
 
-    // Remediação
+    // Remediacao
     @SerializedName("action_taken")
     val actionTaken: String,   // "RestartService(nginx)" | "EscalateToHuman" | ...
     @SerializedName("final_status")
@@ -428,7 +503,7 @@ data class WatchdogEvent(
     val message: String
 )
 
-/** Resposta do endpoint `GET /watchdog/events` */
+/** Resposta do endpoint `GET /watchdog/events`. */
 data class WatchdogEventsResponse(
     val events: List<WatchdogEvent>,
     val count: Int,

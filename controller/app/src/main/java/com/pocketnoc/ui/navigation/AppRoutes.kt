@@ -32,4 +32,8 @@ sealed class AppRoute(val route: String) {
     data object AgentConfig : AppRoute("agent_config/{serverId}") {
         fun createRoute(serverId: Int) = "agent_config/$serverId"
     }
+    data object SecurityDashboard : AppRoute("security_dashboard")
+    data object PhpFpm : AppRoute("phpfpm/{serverId}") {
+        fun createRoute(serverId: Int) = "phpfpm/$serverId"
+    }
 }
