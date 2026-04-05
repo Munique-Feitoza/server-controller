@@ -24,18 +24,18 @@ fi
 echo "✅ Binário compilado: $BINARY"
 echo ""
 
-# Dados dos servidores
+# Dados dos servidores (de local.properties)
 declare -A SERVERS
-SERVERS[1]="1.2.3.4"
-SERVERS[2]="5.6.7.8"
-SERVERS[3]="9.10.11.12"
-SERVERS[4]="13.14.15.16"
+SERVERS[1]="192.0.2.10"
+SERVERS[2]="192.0.2.20"
+SERVERS[3]="192.0.2.30"
+SERVERS[4]="192.0.2.40"
 
 declare -A NAMES
-NAMES[1]="server1"
-NAMES[2]="server2"
-NAMES[3]="server3"
-NAMES[4]="server4"
+NAMES[1]="server-1"
+NAMES[2]="server-2"
+NAMES[3]="server-3"
+NAMES[4]="server-4"
 
 SSH_USER="deploy"
 
