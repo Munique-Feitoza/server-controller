@@ -5,10 +5,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.toRoute
 import com.pocketnoc.ui.screens.*
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
-import kotlin.reflect.typeOf
+import com.pocketnoc.ui.viewmodels.WatchdogViewModel
 
 @Composable
 fun AppNavHost(
@@ -76,7 +75,7 @@ fun AppNavHost(
             )
         ) { backStackEntry ->
             val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-            
+
             ServerDetailsScreen(
                 viewModel = dashboardViewModel,
                 serverId = serverId,
@@ -91,6 +90,15 @@ fun AppNavHost(
                 },
                 onNavigateToLogs = { id, service ->
                     navController.navigate(AppRoute.LogViewer.createRoute(id, service))
+                },
+                onNavigateToWatchdog = { id ->
+                    navController.navigate(AppRoute.Watchdog.createRoute(id))
+                },
+                onNavigateToAuditLog = { id ->
+                    navController.navigate(AppRoute.AuditLog.createRoute(id))
+                },
+                onNavigateToAgentConfig = { id ->
+                    navController.navigate(AppRoute.AgentConfig.createRoute(id))
                 }
             )
         }
@@ -105,7 +113,7 @@ fun AppNavHost(
             )
         ) { backStackEntry ->
             val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-            
+
             ActionCenterScreen(
                 viewModel = dashboardViewModel,
                 serverId = serverId,
@@ -118,7 +126,7 @@ fun AppNavHost(
         // Alert Settings Screen
         composable(AppRoute.AlertSettings.route) {
             val currentConfig by dashboardViewModel.alertThresholds.collectAsState()
-            
+
             AlertSettingsScreen(
                 currentConfig = currentConfig,
                 onSaveSettings = { newConfig ->
@@ -141,7 +149,7 @@ fun AppNavHost(
             )
         ) { backStackEntry ->
             val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-            
+
             ProcessExplorerScreen(
                 viewModel = dashboardViewModel,
                 serverId = serverId,
@@ -166,7 +174,7 @@ fun AppNavHost(
         ) { backStackEntry ->
             val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
             val serviceName: String = backStackEntry.arguments?.getString("service") ?: "pocket-noc-agent"
-            
+
             LogViewerScreen(
                 viewModel = dashboardViewModel,
                 serverId = serverId,
@@ -176,10 +184,82 @@ fun AppNavHost(
                 }
             )
         }
+
         // Alert History Screen
         composable(AppRoute.AlertHistory.route) {
             AlertHistoryScreen(
                 viewModel = dashboardViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Watchdog Screen (standalone route)
+        composable(
+            route = AppRoute.Watchdog.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("serverId") {
+                    type = androidx.navigation.NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
+            val server = servers.find { it.id == serverId }
+            val watchdogViewModel: WatchdogViewModel = hiltViewModel()
+
+            server?.let {
+                WatchdogScreen(
+                    server = it,
+                    viewModel = watchdogViewModel
+                )
+            }
+        }
+
+        // Export Screen
+        composable(AppRoute.Export.route) {
+            ExportScreen(
+                viewModel = dashboardViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Audit Log Screen
+        composable(
+            route = AppRoute.AuditLog.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("serverId") {
+                    type = androidx.navigation.NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
+
+            AuditLogScreen(
+                viewModel = dashboardViewModel,
+                serverId = serverId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Agent Config Screen
+        composable(
+            route = AppRoute.AgentConfig.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("serverId") {
+                    type = androidx.navigation.NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
+
+            AgentConfigScreen(
+                viewModel = dashboardViewModel,
+                serverId = serverId,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
