@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.local.entities.AlertEntity
+import com.pocketnoc.data.local.entities.TelemetryHistoryEntity
 import com.pocketnoc.data.models.*
 import com.pocketnoc.data.repository.ServerRepository
 import com.pocketnoc.utils.JwtUtils
@@ -78,6 +79,10 @@ class DashboardViewModel @Inject constructor(
 
     private val _logsState = MutableStateFlow<LogsUiState>(LogsUiState.Loading)
     val logsState: StateFlow<LogsUiState> = _logsState
+
+    // Histórico de telemetria por servidor (oldest → newest para renderizar o gráfico)
+    private val _telemetryHistory = MutableStateFlow<List<TelemetryHistoryEntity>>(emptyList())
+    val telemetryHistory: StateFlow<List<TelemetryHistoryEntity>> = _telemetryHistory.asStateFlow()
 
     val alertHistory: StateFlow<List<AlertEntity>> = repository.getAllAlertHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -187,7 +192,14 @@ class DashboardViewModel @Inject constructor(
             try {
                 val result = repository.getTelemetry(server)
                 _telemetryState.value = TelemetryUiState.Success(result)
-                
+
+                // Persiste snapshot e atualiza o histórico para os gráficos
+                viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    repository.saveTelemetrySnapshot(server.id, result)
+                    val history = repository.getTelemetryHistory(server.id, limit = 60)
+                    _telemetryHistory.value = history.reversed() // oldest first para o gráfico
+                }
+
                 // Calcula saúde do servidor
                 updateServerHealth(server, result)
                 
@@ -457,10 +469,44 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun loadTelemetryHistory(serverId: Int) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val history = repository.getTelemetryHistory(serverId, limit = 60)
+            _telemetryHistory.value = history.reversed()
+        }
+    }
+
     fun clearAlertHistory() {
         viewModelScope.launch {
             repository.clearAlertHistory()
             _eventFlow.emit("Alert audit history cleared.")
+        }
+    }
+
+    suspend fun fetchAuditLogs(server: ServerEntity): List<com.pocketnoc.data.models.AuditEntry> {
+        return repository.getAuditLogs(server)
+    }
+
+    suspend fun fetchDockerContainers(server: ServerEntity): com.pocketnoc.data.models.DockerMetrics {
+        return repository.getDockerContainers(server)
+    }
+
+    suspend fun fetchBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus {
+        return repository.getBackupStatus(server)
+    }
+
+    suspend fun fetchAgentConfig(server: ServerEntity): com.pocketnoc.data.models.AgentRuntimeConfig {
+        return repository.getAgentConfig(server)
+    }
+
+    fun updateAgentConfig(server: ServerEntity, config: Map<String, Any>) {
+        viewModelScope.launch {
+            try {
+                repository.updateAgentConfig(server, config)
+                _eventFlow.emit("Agent config updated on ${server.name}")
+            } catch (e: Exception) {
+                _eventFlow.emit("Config update failed: ${e.message}")
+            }
         }
     }
 
