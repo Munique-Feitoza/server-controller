@@ -492,6 +492,45 @@ pub async fn get_config() -> impl IntoResponse {
     )
 }
 
+/// POST /webhook/security — Recebe alertas de segurança do Dashboard ERP (Acme)
+///
+/// O ERP envia ataques detectados pelo honeypot/WAF para o PocketNOC processar.
+/// Payload esperado: { source, severity, event, ip, timestamp, details }
+pub async fn receive_security_webhook(
+    State(state): State<AppState>,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let source = payload.get("source").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let severity = payload.get("severity").and_then(|v| v.as_str()).unwrap_or("info");
+    let event = payload.get("event").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let ip = payload.get("ip").and_then(|v| v.as_str()).unwrap_or("0.0.0.0");
+
+    tracing::warn!(
+        "🛡️ WEBHOOK [{severity}] from {source}: {event} — IP: {ip}"
+    );
+
+    // Registra no audit log
+    {
+        let mut log = state.audit_log.lock().await;
+        log.record(
+            "WEBHOOK",
+            &format!("/webhook/security/{}", event),
+            ip,
+            200,
+            Some(format!("[{}] {} from {}", severity, event, source)),
+        );
+    }
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "received",
+            "message": format!("Security event '{}' from '{}' processed", event, source),
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+}
+
 /// POST /config — Atualiza configuração mutável em runtime
 pub async fn update_config(
     Json(payload): Json<serde_json::Value>,

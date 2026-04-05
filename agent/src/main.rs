@@ -119,6 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ─── Agent configuration ────────────────────────────────────────────
         .route("/config", get(get_config))
         .route("/config", post(update_config))
+        // ─── Webhook receiver (Dashboard ERP → PocketNOC) ───────────────
+        .route("/webhook/security", post(receive_security_webhook))
         // ─── Middleware stack ────────────────────────────────────────────────
         .layer(middleware::from_fn_with_state(
             rate_limiter.clone(),
