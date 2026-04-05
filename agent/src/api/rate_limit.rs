@@ -9,7 +9,7 @@ use std::time::Instant;
 use tokio::sync::Mutex;
 
 /// Estado compartilhado do Rate Limiter.
-/// Chave: IP → (contagem de requests, timestamp do início da janela)
+/// Chave: IP → (contagem de requisições, timestamp do início da janela)
 #[derive(Clone)]
 pub struct RateLimiter {
     pub state: Arc<Mutex<HashMap<IpAddr, (u64, Instant)>>>,
@@ -35,14 +35,14 @@ impl RateLimiter {
     }
 }
 
-/// Middleware de rate limiting por IP.
+/// Middleware de limitação de taxa por IP.
 /// Retorna 429 Too Many Requests quando o limite é excedido.
 pub async fn rate_limit_middleware(
     axum::extract::State(limiter): axum::extract::State<RateLimiter>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, (StatusCode, String)> {
-    // Extrai o IP do cliente (conectInfo ou header X-Forwarded-For)
+    // Extrai o IP do cliente (ConnectInfo ou header X-Forwarded-For)
     let ip = request
         .headers()
         .get("X-Forwarded-For")
@@ -56,7 +56,7 @@ pub async fn rate_limit_middleware(
 
     let entry = state.entry(ip).or_insert((0, now));
 
-    // Se a janela expirou, reseta
+    // Se a janela expirou, reinicia a contagem
     if now.duration_since(entry.1).as_secs() >= limiter.window_secs {
         *entry = (0, now);
     }
@@ -78,6 +78,6 @@ pub async fn rate_limit_middleware(
         ));
     }
 
-    drop(state); // Libera o lock antes de processar o request
+    drop(state); // Libera o lock antes de processar a requisição
     Ok(next.run(request).await)
 }

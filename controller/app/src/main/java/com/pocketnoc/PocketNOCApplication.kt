@@ -21,9 +21,9 @@ class PocketNOCApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // Cria canais de notificação (FCM + alertas locais)
+        // Cria canais de notificacao (FCM + alertas locais)
         com.pocketnoc.notifications.PocketNOCNotificationHelper.createNotificationChannels(this)
-        // Inicia o monitoramento periódico de alertas
+        // Inicia o monitoramento periodico de alertas
         AlertMonitoringManager.startMonitoring(this)
     }
 }

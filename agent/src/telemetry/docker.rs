@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// Informações de um container Docker.
+/// Informações de um container Docker coletadas via CLI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockerContainer {
     pub id: String,
@@ -12,7 +12,7 @@ pub struct DockerContainer {
     pub ports: Vec<String>,
 }
 
-/// Métricas agregadas dos containers Docker.
+/// Métricas agregadas dos containers Docker no servidor.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockerMetrics {
     pub containers: Vec<DockerContainer>,
@@ -21,7 +21,7 @@ pub struct DockerMetrics {
 }
 
 /// Coleta informações dos containers Docker via `docker ps`.
-/// Retorna None se o Docker não estiver instalado ou acessível.
+/// Retorna `None` se o Docker não estiver instalado ou acessível.
 pub fn collect_docker_metrics() -> Option<DockerMetrics> {
     let output = std::process::Command::new("docker")
         .args(["ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}|{{.CreatedAt}}|{{.Ports}}"])

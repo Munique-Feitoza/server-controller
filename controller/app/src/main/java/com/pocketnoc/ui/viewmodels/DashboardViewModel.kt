@@ -53,9 +53,9 @@ class DashboardViewModel @Inject constructor(
     private val networkObserver: NetworkConnectivityObserver
 ) : ViewModel() {
 
-    // PADRÃO UNIDIRECIAL DE DADOS (UDF):
-    // Utilizei StateFlow para garantir que a UI reflita sempre a única fonte de verdade.
-    // O ViewModel encapsula a lógica de negócio e expõe apenas estados imutáveis para as Screens.
+    // PADRAO UNIDIRECIONAL DE DADOS (UDF):
+    // Utilizei StateFlow para garantir que a UI reflita sempre a unica fonte de verdade.
+    // O ViewModel encapsula a logica de negocio e expoe apenas estados imutaveis para as Screens.
 
     private val _telemetryState = MutableStateFlow<TelemetryUiState>(TelemetryUiState.Loading)
     val telemetryState: StateFlow<TelemetryUiState> = _telemetryState
@@ -63,7 +63,7 @@ class DashboardViewModel @Inject constructor(
     private val _commandsState = MutableStateFlow<CommandsUiState>(CommandsUiState.Loading)
     val commandsState: StateFlow<CommandsUiState> = _commandsState
 
-    // Estado reativo da conectividade de rede do aparelho
+    // Estado reativo da conectividade de rede do dispositivo
     val networkStatus: StateFlow<ConnectivityStatus> = networkObserver.observe()
         .stateIn(
             scope = viewModelScope,
@@ -80,7 +80,7 @@ class DashboardViewModel @Inject constructor(
     private val _logsState = MutableStateFlow<LogsUiState>(LogsUiState.Loading)
     val logsState: StateFlow<LogsUiState> = _logsState
 
-    // Histórico de telemetria por servidor (oldest → newest para renderizar o gráfico)
+    // Historico de telemetria por servidor (mais antigo -> mais recente para renderizar o grafico)
     private val _telemetryHistory = MutableStateFlow<List<TelemetryHistoryEntity>>(emptyList())
     val telemetryHistory: StateFlow<List<TelemetryHistoryEntity>> = _telemetryHistory.asStateFlow()
 
@@ -127,10 +127,10 @@ class DashboardViewModel @Inject constructor(
                         val sshKeyContent = PocketNOCConfig.sshKeyContent
                         val localPort = PocketNOCConfig.getLocalPort(i)
                         
-                        // A URL final será o localhost se houver túnel configurado
+                        // A URL final sera o localhost se houver tunel configurado
                         val url = if (localPort != 0) "http://localhost:$localPort/" else normalizeUrl("$ip:9443/")
-                        
-                        // Tenta encontrar por nome atual ou nome legado "Winup i"
+
+                        // Tenta encontrar por nome atual ou nome legado
                         val existing = currentServers.find { it.name == name || it.name == "Winup $i" }
                         
                         if (existing == null) {
@@ -151,8 +151,8 @@ class DashboardViewModel @Inject constructor(
                                 locationInfo = "Canada"
                             ))
                         } else {
-                            // Atualiza configurações se mudarem no local.properties
-                            // CRÍTICO: Atualizamos o segredo para garantir que o Dynamic Token Refresh funcione com a nova chave
+                            // Atualiza configuracoes se mudarem no local.properties
+                            // Critico: atualizamos o segredo para garantir que o Dynamic Token Refresh funcione com a nova chave
                             repository.updateServer(existing.copy(
                                 url = url,
                                 secret = secret, // Sincroniza o segredo atualizado
@@ -182,9 +182,9 @@ class DashboardViewModel @Inject constructor(
 
     /**
      * Coleta telemetria em tempo real com tratamento de erro resiliente.
-     * 
-     * Implementei aqui o conceito de 'Observabilidade Reativa'. Se a conexão falhar,
-     * o sistema sinaliza visualmente via State, sem travar a navegação do usuário.
+     *
+     * Implementei aqui o conceito de 'Observabilidade Reativa'. Se a conexao falhar,
+     * o sistema sinaliza visualmente via State, sem travar a navegacao do usuario.
      */
     fun fetchTelemetry(server: ServerEntity) {
         viewModelScope.launch {
@@ -193,17 +193,17 @@ class DashboardViewModel @Inject constructor(
                 val result = repository.getTelemetry(server)
                 _telemetryState.value = TelemetryUiState.Success(result)
 
-                // Persiste snapshot e atualiza o histórico para os gráficos
+                // Persiste snapshot e atualiza o historico para os graficos
                 viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     repository.saveTelemetrySnapshot(server.id, result)
                     val history = repository.getTelemetryHistory(server.id, limit = 60)
-                    _telemetryHistory.value = history.reversed() // oldest first para o gráfico
+                    _telemetryHistory.value = history.reversed() // mais antigo primeiro para o grafico
                 }
 
-                // Calcula saúde do servidor
+                // Calcula saude do servidor
                 updateServerHealth(server, result)
                 
-                // Reseta status ou sinaliza warning de CPU alta
+                // Reseta status ou sinaliza alerta de CPU alta
                 val targetStatus = if (result.cpu.usagePercent > PocketNOCConfig.maxCpuThreshold) 1 else 0
                 if (server.securityStatus != targetStatus) {
                     repository.updateServer(server.copy(securityStatus = targetStatus))
@@ -211,7 +211,7 @@ class DashboardViewModel @Inject constructor(
             } catch (e: Exception) {
                 val errorMsg = e.localizedMessage ?: e.message ?: "Unknown error"
                 
-                // Atualiza status de segurança com base no erro
+                // Atualiza status de seguranca com base no erro
                 val newStatus = when {
                     errorMsg.contains("ALERTA DE SEGURANÇA", ignoreCase = true) -> 2 // Threat
                     PocketNOCConfig.emergencyMode -> 1 // Warning/Bypass
@@ -268,7 +268,7 @@ class DashboardViewModel @Inject constructor(
                 val result = repository.performServiceAction(server, serviceName, action)
                 _commandResult.value = result
                 _eventFlow.emit("Action '$action' on $serviceName sent!")
-                // Ao alterar um serviço, atualizamos a telemetria para refletir o novo status
+                // Ao alterar um servico, atualizamos a telemetria para refletir o novo status
                 fetchTelemetry(server)
             } catch (e: Exception) {
                 _eventFlow.emit("Failed: ${e.localizedMessage}")
@@ -333,7 +333,7 @@ class DashboardViewModel @Inject constructor(
         try {
             val health = HealthStatusCalculator.calculateStatus(telemetry)
             
-            // Operações de I/O (Alertas e DB) movidas para o dispatcher correto
+            // Operacoes de I/O (Alertas e DB) movidas para o dispatcher correto
             viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 try {
                     val alerts = repository.getAlerts(server)
@@ -365,7 +365,7 @@ class DashboardViewModel @Inject constructor(
                         lastUpdate = System.currentTimeMillis()
                     )
 
-                    // Atualização atômica do mapa de saúde
+                    // Atualizacao atomica do mapa de saude
                     _serverHealthMap.update { currentMap ->
                         currentMap.toMutableMap().apply {
                             this[server.id] = serverHealth
@@ -374,7 +374,7 @@ class DashboardViewModel @Inject constructor(
                 } catch (e: Exception) {
                     Log.e("DashboardViewModel", "Failed to fetch alerts during health update: ${e.message}")
                     
-                    // Fallback para exibir saúde sem alertas se falhar
+                    // Fallback para exibir saude sem alertas se falhar
                     val serverHealth = ServerHealth(
                         serverId = server.id,
                         serverName = server.name,
@@ -402,13 +402,12 @@ class DashboardViewModel @Inject constructor(
     fun updateAlertSettings(config: com.pocketnoc.data.local.AlertThresholdConfig) {
         viewModelScope.launch {
             try {
-                // 1. Salva localmente no DataStore
+                // 1. Salva localmente no DataStore do dispositivo
                 alertThresholdRepository.updateAllThresholds(config)
                 
                 // 2. Sincroniza com todos os servidores ativos
-                // Sync cada servidor ativo
-                val servers = allServers.value // Get all servers once
-                val currentHealth = _serverHealthMap.value // Use _serverHealthMap.value
+                val servers = allServers.value
+                val currentHealth = _serverHealthMap.value
                 _eventFlow.emit("Propagating thresholds to ${currentHealth.size} active nodes...")
 
                 if (currentHealth.isNotEmpty()) {
@@ -449,7 +448,7 @@ class DashboardViewModel @Inject constructor(
                 _eventFlow.emit("Signaling termination for PID $pid...")
                 repository.killProcess(server, pid)
                 _eventFlow.emit("Process $pid terminated.")
-                // Refresh list
+                // Atualiza a lista de processos
                 fetchProcesses(server)
             } catch (e: Exception) {
                 _eventFlow.emit("Kill failed: ${e.localizedMessage}")
@@ -516,7 +515,7 @@ class DashboardViewModel @Inject constructor(
                 _eventFlow.emit("Signaling Firewall for BAN: $ip...")
                 repository.blockIp(server, ip)
                 _eventFlow.emit("SENTINEL: IP $ip blocked permamently.")
-                // Atualiza telemetria para ver se o IP some ou status muda
+                // Atualiza telemetria para verificar se o IP sumiu ou o status mudou
                 fetchTelemetry(server)
             } catch (e: Exception) {
                 _eventFlow.emit("Firewall Error: ${e.localizedMessage}")

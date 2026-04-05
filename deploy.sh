@@ -39,41 +39,49 @@ NAMES[4]="WINUP"
 
 SSH_USER="runcloud"
 
+# Portas SSH por servidor (Host WINUP usa 2222)
+declare -A PORTS
+PORTS[1]="22"
+PORTS[2]="22"
+PORTS[3]="2222"
+PORTS[4]="22"
+
 # Deploy em cada servidor
 for i in 1 2 3 4; do
     IP=${SERVERS[$i]}
     NAME=${NAMES[$i]}
-    
-    echo "🚀 Deployando em $i: $NAME ($IP)..."
-    
+    PORT=${PORTS[$i]}
+
+    echo "🚀 Deployando em $i: $NAME ($IP:$PORT)..."
+
     # Mata processo antigo
-    ssh -o ConnectTimeout=5 "$SSH_USER@$IP" "sudo pkill -9 pocket-noc-agent 2>/dev/null || true" || true
+    ssh -p "$PORT" -o ConnectTimeout=5 "$SSH_USER@$IP" "sudo pkill -9 pocket-noc-agent 2>/dev/null || true" || true
     sleep 1
-    
-    # Copia binário
-    scp -o ConnectTimeout=5 "$BINARY" "$SSH_USER@$IP:/tmp/pocket-noc-agent" || {
+
+    # Copia binario
+    scp -P "$PORT" -o ConnectTimeout=5 "$BINARY" "$SSH_USER@$IP:/tmp/pocket-noc-agent" || {
         echo "❌ Falha ao copiar arquivo para $NAME"
         continue
     }
-    
+
     # Instala
-    ssh -o ConnectTimeout=5 "$SSH_USER@$IP" "sudo mv /tmp/pocket-noc-agent /usr/local/bin/pocket-noc-agent && sudo chmod +x /usr/local/bin/pocket-noc-agent" || {
+    ssh -p "$PORT" -o ConnectTimeout=5 "$SSH_USER@$IP" "sudo mv /tmp/pocket-noc-agent /usr/local/bin/pocket-noc-agent && sudo chmod +x /usr/local/bin/pocket-noc-agent" || {
         echo "❌ Falha ao instalar em $NAME"
         continue
     }
-    
-    # Reinicia serviço
-    ssh -o ConnectTimeout=5 "$SSH_USER@$IP" "sudo systemctl daemon-reload && sudo systemctl restart pocket-noc-agent" || {
-        echo "❌ Falha ao reiniciar serviço em $NAME"
+
+    # Reinicia servico
+    ssh -p "$PORT" -o ConnectTimeout=5 "$SSH_USER@$IP" "sudo systemctl daemon-reload && sudo systemctl restart pocket-noc-agent" || {
+        echo "❌ Falha ao reiniciar servico em $NAME"
         continue
     }
-    
+
     # Verifica status
     sleep 2
-    STATUS=$(ssh -o ConnectTimeout=5 "$SSH_USER@$IP" "systemctl is-active pocket-noc-agent" 2>/dev/null || echo "unknown")
-    
+    STATUS=$(ssh -p "$PORT" -o ConnectTimeout=5 "$SSH_USER@$IP" "systemctl is-active pocket-noc-agent" 2>/dev/null || echo "unknown")
+
     if [ "$STATUS" = "active" ]; then
-        echo "✅ $NAME ($IP) - Serviço ativo!"
+        echo "✅ $NAME ($IP) - Servico ativo!"
     else
         echo "⚠️  $NAME ($IP) - Status: $STATUS (verifica logs com: journalctl -u pocket-noc-agent -n 20)"
     fi
