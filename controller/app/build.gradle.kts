@@ -119,6 +119,11 @@ android {
     }
 }
 
+// Desabilita cache do KAPT para evitar factories desatualizadas do Hilt após mudanças de construtor
+kapt {
+    useBuildCache = false
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.04.01")
     val roomVersion = "2.6.1"
@@ -169,6 +174,12 @@ dependencies {
 
     // SSH Tunneling
     implementation("com.github.mwiede:jsch:0.2.20")
+
+    // Biometric Authentication
+    implementation("androidx.biometric:biometric:1.1.0")
+
+    // Adaptive layout for tablets
+    implementation("androidx.compose.material3:material3-adaptive:1.0.0-alpha06")
 
     // WorkManager for background tasks
     implementation("androidx.work:work-runtime-ktx:2.8.1")
