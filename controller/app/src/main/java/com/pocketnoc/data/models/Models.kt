@@ -303,6 +303,88 @@ data class GenericResponse(
     val currentConfig: Map<String, Any>? = null
 )
 
+// ==================== Audit Log ====================
+
+data class AuditEntry(
+    val id: String,
+    val timestamp: String,
+    val action: String,
+    @SerializedName("source_ip")
+    val sourceIp: String,
+    val endpoint: String,
+    val method: String,
+    @SerializedName("status_code")
+    val statusCode: Int,
+    val details: String? = null
+)
+
+data class AuditLogResponse(
+    val entries: List<AuditEntry>,
+    val count: Int,
+    val timestamp: String
+)
+
+// ==================== Docker ====================
+
+data class DockerContainer(
+    val id: String,
+    val name: String,
+    val image: String,
+    val status: String,
+    val state: String,
+    val created: String,
+    val ports: List<String> = emptyList()
+)
+
+data class DockerMetrics(
+    val containers: List<DockerContainer>,
+    @SerializedName("running_count")
+    val runningCount: Int,
+    @SerializedName("total_count")
+    val totalCount: Int
+)
+
+// ==================== Backup Status ====================
+
+data class BackupInfo(
+    val path: String,
+    @SerializedName("last_modified")
+    val lastModified: String,
+    @SerializedName("age_hours")
+    val ageHours: Double,
+    @SerializedName("size_bytes")
+    val sizeBytes: Long,
+    @SerializedName("is_stale")
+    val isStale: Boolean
+)
+
+data class BackupStatus(
+    val backups: List<BackupInfo>,
+    @SerializedName("any_stale")
+    val anyStale: Boolean
+)
+
+// ==================== Agent Runtime Config ====================
+
+data class AgentRuntimeConfig(
+    @SerializedName("server_id")
+    val serverId: String,
+    @SerializedName("server_role")
+    val serverRole: String,
+    @SerializedName("watchdog_enabled")
+    val watchdogEnabled: Boolean,
+    @SerializedName("watchdog_interval_secs")
+    val watchdogIntervalSecs: Long,
+    @SerializedName("watchdog_max_failures")
+    val watchdogMaxFailures: Int,
+    @SerializedName("watchdog_cooldown_secs")
+    val watchdogCooldownSecs: Long,
+    @SerializedName("rate_limit_per_minute")
+    val rateLimitPerMinute: Int,
+    @SerializedName("tls_enabled")
+    val tlsEnabled: Boolean
+)
+
 // ==================== Watchdog / Auto-Remediação ====================
 
 /**

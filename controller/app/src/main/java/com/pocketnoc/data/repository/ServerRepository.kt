@@ -3,8 +3,10 @@ package com.pocketnoc.data.repository
 import com.pocketnoc.data.api.AgentApiService
 import com.pocketnoc.data.api.RetrofitClient
 import com.pocketnoc.data.local.dao.ServerDao
+import com.pocketnoc.data.local.dao.TelemetryHistoryDao
 import com.pocketnoc.data.local.SecureTokenManager
 import com.pocketnoc.data.local.entities.ServerEntity
+import com.pocketnoc.data.local.entities.TelemetryHistoryEntity
 import com.pocketnoc.data.models.CommandResult
 import com.pocketnoc.data.models.EmergencyCommand
 import com.pocketnoc.data.models.SystemTelemetry
@@ -24,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ServerRepository @Inject constructor(
     private val serverDao: ServerDao,
     private val alertDao: AlertDao,
+    private val telemetryHistoryDao: TelemetryHistoryDao,
     private val securityNotifications: SecurityNotificationManager,
     private val secureTokenManager: SecureTokenManager
 ) {
@@ -83,7 +86,7 @@ class ServerRepository @Inject constructor(
             if (tunnelResult.isFailure) {
                 val errorMsg = tunnelResult.exceptionOrNull()?.message ?: "Unknown SSH Error"
                 
-                // Trata alertas de segurança do SshTunnelManager (HackerSec Core)
+                // Trata alertas de segurança do SshTunnelManager (Munux Security)
                 if (errorMsg.contains("ALERTA DE SEGURANÇA")) {
                     val failures = SshTunnelManager.getAuthFailures(server.id)
                     securityNotifications.sendIntrusionAlert(server.name, failures)
@@ -109,7 +112,7 @@ class ServerRepository @Inject constructor(
             val apiService = getApiService(server)
             val telemetry = apiService.getTelemetry()
             
-            // Verifica o uso de CPU para alertas (HackerSec Core)
+            // Verifica o uso de CPU para alertas (Munux Security)
             if (telemetry.cpu.usagePercent > PocketNOCConfig.maxCpuThreshold) {
                 securityNotifications.sendHighCpuAlert(server.name, telemetry.cpu.usagePercent.toDouble())
             }
@@ -246,6 +249,26 @@ class ServerRepository @Inject constructor(
         }
     }
 
+    // Telemetry History
+    suspend fun saveTelemetrySnapshot(serverId: Int, telemetry: SystemTelemetry) {
+        val entry = TelemetryHistoryEntity(
+            serverId = serverId,
+            timestamp = System.currentTimeMillis(),
+            cpuPercent = telemetry.cpu.usagePercent,
+            ramPercent = telemetry.memory.usagePercent,
+            diskPercent = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
+            pingLatencyMs = null,
+            loadAvg1m = telemetry.uptime.loadAverage.getOrNull(0)?.toFloat() ?: 0f
+        )
+        telemetryHistoryDao.insert(entry)
+        // Mantém apenas as últimas 24 horas de dados por servidor
+        telemetryHistoryDao.pruneOldEntries(serverId, System.currentTimeMillis() - 86_400_000L)
+    }
+
+    suspend fun getTelemetryHistory(serverId: Int, limit: Int = 60): List<TelemetryHistoryEntity> {
+        return telemetryHistoryDao.getRecentHistory(serverId, limit)
+    }
+
     // Alert History
     suspend fun saveAlert(alert: AlertEntity) {
         alertDao.insertAlert(alert)
@@ -261,5 +284,54 @@ class ServerRepository @Inject constructor(
 
     suspend fun clearAlertHistory() {
         alertDao.deleteAll()
+    }
+
+    // Audit Log
+    suspend fun getAuditLogs(server: ServerEntity, limit: Int = 100): List<com.pocketnoc.data.models.AuditEntry> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.getAuditLogs(limit = limit).entries
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch audit logs: ${e.message}")
+        }
+    }
+
+    // Docker
+    suspend fun getDockerContainers(server: ServerEntity): com.pocketnoc.data.models.DockerMetrics = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.getDockerContainers()
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch Docker containers: ${e.message}")
+        }
+    }
+
+    // Backup Status
+    suspend fun getBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.getBackupStatus()
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch backup status: ${e.message}")
+        }
+    }
+
+    // Agent Config
+    suspend fun getAgentConfig(server: ServerEntity): com.pocketnoc.data.models.AgentRuntimeConfig = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.getAgentConfig()
+        } catch (e: Exception) {
+            throw Exception("Failed to fetch agent config: ${e.message}")
+        }
+    }
+
+    suspend fun updateAgentConfig(server: ServerEntity, config: Map<String, Any>) = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.updateAgentConfig(config)
+        } catch (e: Exception) {
+            throw Exception("Failed to update agent config: ${e.message}")
+        }
     }
 }

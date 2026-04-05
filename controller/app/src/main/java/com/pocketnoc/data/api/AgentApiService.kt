@@ -95,4 +95,29 @@ interface AgentApiService {
 
     @POST("watchdog/reset")
     suspend fun resetWatchdog(): GenericResponse
+
+    // ─── Audit Log ─────────────────────────────────────────────────────
+    @GET("audit/logs")
+    suspend fun getAuditLogs(
+        @Query("limit") limit: Int = 100,
+        @Query("action") action: String? = null
+    ): AuditLogResponse
+
+    @DELETE("audit/logs")
+    suspend fun clearAuditLogs(): GenericResponse
+
+    // ─── Docker Monitoring ─────────────────────────────────────────────
+    @GET("docker/containers")
+    suspend fun getDockerContainers(): DockerMetrics
+
+    // ─── Backup Status ─────────────────────────────────────────────────
+    @GET("backups/status")
+    suspend fun getBackupStatus(): BackupStatus
+
+    // ─── Agent Configuration ───────────────────────────────────────────
+    @GET("config")
+    suspend fun getAgentConfig(): AgentRuntimeConfig
+
+    @POST("config")
+    suspend fun updateAgentConfig(@Body config: Map<String, @JvmSuppressWildcards Any>): GenericResponse
 }
