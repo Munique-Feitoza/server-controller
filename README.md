@@ -1,126 +1,136 @@
-# Pocket NOC Ultra — Comandos de Infraestrutura no seu Bolso
+# Pocket NOC — Centro de Operacoes de Rede no Bolso
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9%2B-blue?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![Android](https://img.shields.io/badge/Android-8.0%2B-green?style=for-the-badge&logo=android)](https://developer.android.com/)
 [![License](https://img.shields.io/badge/License-GPL_v2-blue?style=for-the-badge&logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
-O **Pocket NOC Ultra** é uma solução de monitoramento e gestão de servidores de alto nível, projetada para quem não abre mão de controle total e segurança, mesmo em movimento. Desenvolvido com uma arquitetura híbrida **Rust + Kotlin**, o sistema entrega performance de nível de kernel com uma experiência mobile premium.
+Solucao completa de monitoramento, seguranca e gestao de infraestrutura. Agente em **Rust** rodando nos servidores (< 10MB RAM) + app **Android** nativo em Kotlin/Compose para controle remoto em tempo real.
 
 ---
 
-## Diferenciais Técnicos
+## O que faz
 
-- **Agente Non-Intrusive (Rust)**: Monitoramento ultra eficiente com footprint de memória < 15 MB. Zero-cost abstractions garantem que o monitor não afete a carga do host. Limites de CPU (5%) e RAM (128 MB) aplicados pelo kernel via systemd.
-- **Interface Cyber-Modern (Compose)**: Design com Glassmorphism, otimizado para observabilidade rápida no mobile.
-- **Munux Security**: Segurança Zero-Trust. Comunicação via túnel SSH criptografado + autenticação JWT (HMAC-SHA256) com mínimo de 32 bytes enforçado.
-- **WatchdogEngine (Auto-Remediation)**: Motor inteligente que monitora serviços via probes HTTP, systemctl e TCP, reinicia serviços com falha automaticamente e usa Circuit Breaker para evitar loops infinitos de remediação.
-- **Alertas com ntfy.sh**: Notificações push para o celular sem FCM ou servidor próprio, com deduplicação inteligente e cooldown de 30 minutos por alerta.
-- **Hunter Mode (Process Management)**: Identifique e encerre processos pesados remotamente com precisão cirúrgica.
-- **Prometheus Metrics**: Endpoint `/metrics` compatível com Prometheus/Grafana para integração com stacks de observabilidade existentes.
+- **Monitoramento em tempo real**: CPU, RAM, disco, rede, temperatura, processos, servicos
+- **WatchdogEngine**: detecta servicos caidos e reinicia automaticamente com circuit breaker
+- **Defesa ativa**: honeypot paths + zip bomb + auto-ban via iptables apos 5 tentativas
+- **Inteligencia de ameacas**: coleta geolocalizacao, ISP e classificacao bot/humano de atacantes
+- **Integracao com Dashboard ERP**: recebe incidentes de seguranca do dashboard Winup via webhook
+- **PHP-FPM por site**: mostra qual site WordPress esta consumindo CPU/RAM em cada servidor
+- **Acoes remotas**: reiniciar servicos, matar processos, bloquear IPs, executar comandos
+- **Alertas push**: notificacoes via ntfy.sh com deduplicacao inteligente
+- **Dark/Light mode**: design system com tokens de cor, dimensao e shape
 
 ---
 
-## Arquitetura de Engenharia
+## Arquitetura
 
-O ecossistema segue o **Protocolo OMNI-DEV**, priorizando desacoplamento e resiliência:
-
-```mermaid
-graph LR
-    subgraph "Mobile Controller (Kotlin/MVVM)"
-        A[UI Analytics] --> B[Server Repository]
-        B --> C[Secure Token Storage]
-    end
-    
-    subgraph "Security Tunnel"
-        D[SSH Tunneling]
-    end
-    
-    subgraph "Host Agent (Rust/Axum)"
-        E[REST API] --> F[Telemetry Engine]
-        F --> G[(Linux Kernel /proc /sys)]
-        E --> H[Action Center]
-        E --> I[WatchdogEngine]
-        I --> J[Circuit Breaker]
-        I --> K[RemediationEngine]
-        F --> L[AlertManager]
-        L --> M[ntfy.sh]
-    end
-
-    B -.-> D -.-> E
+```
+App Android (Kotlin/Compose)
+    |
+    |-- SSH Tunnel (JSch)
+    |
+    v
+Agente Rust (Axum + Tokio)  ←──  Dashboard ERP (FastAPI)
+    |                                   |
+    |-- Telemetria (/proc, sysinfo)     |-- security_incidents (PostgreSQL)
+    |-- WatchdogEngine (probes)         |-- notify_pocket_noc() webhook
+    |-- Defesa (honeypot, zip bomb)     |
+    |-- PHP-FPM monitoring             |
+    v                                   v
+iptables, systemctl, ntfy.sh      Cloudflare API (ban)
 ```
 
-### Runtime do Agente
+---
 
-O agente Tokio executa três contextos simultâneos:
+## API do Agente
 
-| Contexto | Responsabilidade |
-|----------|-----------------|
-| **Axum HTTP Server** | Serve requisições REST (JWT validado por middleware) |
-| **Background: Alert Loop (60s)** | Coleta telemetria, analisa thresholds, dispara ntfy com deduplicação |
-| **Background: WatchdogEngine (30s)** | Executa probes, gerencia Circuit Breakers, remedia falhas |
+| Metodo | Rota | Descricao |
+|--------|------|-----------|
+| `GET` | `/health` | Health check (sem auth) |
+| `GET` | `/telemetry` | Snapshot completo do sistema |
+| `GET` | `/alerts` | Alertas ativos |
+| `POST` | `/alerts/config` | Atualiza thresholds |
+| `GET` | `/processes` | Top 10 processos |
+| `DELETE` | `/processes/:pid` | Encerra processo |
+| `GET` | `/logs` | Logs do journalctl |
+| `GET` | `/services/:name` | Status de servico |
+| `GET` | `/commands` | Lista comandos whitelist |
+| `POST` | `/commands/:id` | Executa comando |
+| `POST` | `/security/block-ip` | Bloqueia IP via iptables |
+| `GET` | `/security/incidents` | Incidentes de seguranca |
+| `GET` | `/metrics` | Formato Prometheus |
+| `GET` | `/phpfpm/pools` | PHP-FPM pools por site |
+| `GET` | `/docker/containers` | Containers Docker |
+| `GET` | `/backups/status` | Status de backups |
+| `GET` | `/audit/logs` | Log de auditoria |
+| `GET` | `/config` | Configuracao do agente |
+| `GET` | `/watchdog/events` | Eventos do Watchdog |
+| `GET` | `/watchdog/breakers` | Circuit Breakers |
+| `POST` | `/watchdog/reset` | Reset dos breakers |
+| `POST` | `/webhook/security` | Recebe alertas do dashboard |
+
+> Todas as rotas (exceto `/health`) requerem JWT Bearer token.
 
 ---
 
-## API Endpoints
+## Seguranca
 
-| Método | Rota | Auth | Descrição |
-|--------|------|------|-----------|
-| `GET` | `/health` | Não | Health check |
-| `GET` | `/telemetry` | JWT | Snapshot completo do sistema |
-| `GET` | `/alerts` | JWT | Alertas ativos |
-| `POST` | `/alerts/config` | JWT | Atualiza thresholds em runtime |
-| `GET` | `/processes` | JWT | Top 10 processos por CPU |
-| `DELETE` | `/processes/:pid` | JWT | Encerra processo por PID |
-| `GET` | `/logs` | JWT | Logs do journalctl |
-| `GET` | `/services/:name` | JWT | Status de serviço systemd |
-| `GET` | `/commands` | JWT | Lista comandos da whitelist |
-| `POST` | `/commands/:id` | JWT | Executa comando da whitelist |
-| `POST` | `/security/block-ip` | JWT | Bloqueia IP via iptables |
-| `GET` | `/metrics` | JWT | Métricas formato Prometheus |
-| `GET` | `/watchdog/events` | JWT | Eventos do Watchdog |
-| `DELETE` | `/watchdog/events` | JWT | Limpa histórico do Watchdog |
-| `POST` | `/watchdog/reset` | JWT | Reseta Circuit Breakers |
-| `GET` | `/watchdog/breakers` | JWT | Estado dos Circuit Breakers |
+### Defesa ativa do agente
 
-> Documentação completa em [docs/API.md](./docs/API.md)
+1. **Honeypot paths** (30+): `/wp-admin`, `/.env`, `/.git`, `/phpmyadmin`, etc
+2. **Rastreamento por IP**: conta acessos a honeypots por atacante
+3. **Na 5a tentativa**: serve zip bomb (50MB expandido) + ban automatico via iptables
+4. **IPs seguros**: localhost, 192.168.*, 10.*, 172.16-17.* nunca sao banidos
+5. **Erros de JWT**: retornam 401 normal, nunca contam para ban (protege devs)
+6. **Inteligencia**: coleta pais, cidade, ISP, proxy/VPN, classifica bot vs humano
+
+### Integracao com Dashboard ERP
+
+O dashboard ERP (FastAPI/Next.js) detecta ataques via middleware e envia para o PocketNOC:
+- `POST /webhook/security` recebe incidentes em tempo real
+- `GET /security/incidents` permite consulta pelo app Android
+- Dados: IP, pais, ISP, tipo de ataque, severidade, machine_signature
 
 ---
 
-## Ecossistema de Documentação
-
-- **[Guia de Instalação (SETUP)](./docs/SETUP.md)**: Deployment do agente, variáveis de ambiente e configuração do app.
-- **[Arquitetura e Design (ARCHITECTURE)](./docs/ARCHITECTURE.md)**: Fluxo de dados, WatchdogEngine, decisões de engenharia.
-- **[Protocolos de Segurança (SECURITY)](./docs/SECURITY.md)**: Zero Trust, JWT enforcement, whitelist de comandos.
-- **[Referência da API (API)](./docs/API.md)**: Documentação completa de todos os endpoints.
-
----
-
-## Deployment Rápido
-
-### Servidor
+## Deploy
 
 ```bash
-# Na máquina local — compila e faz deploy em todos os servidores configurados
+# Compila e faz deploy em todos os servidores
 ./deploy.sh
 ```
 
-Ou manualmente:
-
-```bash
-cd agent
-rustup target add x86_64-unknown-linux-musl
-cargo build --release --target x86_64-unknown-linux-musl
-
-# Binário estático em:
-# target/x86_64-unknown-linux-musl/release/pocket-noc-agent
-```
-
-### Android
-
-Compile via Android Studio ou Gradle e configure o arquivo `local.properties` com suas chaves. Veja o guia completo em [docs/SETUP.md](./docs/SETUP.md).
+Servidores configurados:
+| Servidor | IP | Porta SSH |
+|----------|-----|-----------|
+| Host Genix | 158.69.126.90 | 22 |
+| HOST Viral | 66.70.178.190 | 22 |
+| Host WINUP | 142.44.137.130 | 2222 |
+| WINUP | 144.217.255.109 | 22 |
 
 ---
 
-**Desenvolvido com obsessão técnica por [Munique Alves Pacheco Feitoza](https://github.com/Munique-Feitoza)**  
+## Performance do agente
+
+| Metrica | Valor |
+|---------|-------|
+| RAM | 8-11 MB |
+| CPU | 0.3-0.5% |
+| Binario | ~4 MB (musl estático) |
+| Ciclo watchdog | 30 segundos |
+| Ciclo alertas | 60 segundos |
+
+---
+
+## Documentacao
+
+- [Guia de Instalacao](./docs/SETUP.md)
+- [Arquitetura](./docs/ARCHITECTURE.md)
+- [Seguranca](./docs/SECURITY.md)
+- [API Completa](./docs/API.md)
+
+---
+
+**Desenvolvido por [Munique Alves Pacheco Feitoza](https://github.com/Munique-Feitoza)**
 *Engenharia de Software | ADS | Manjaro User*
