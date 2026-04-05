@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 // RAW COLORS — uso interno apenas. Screens devem usar AppColors.*
 // ═══════════════════════════════════════════════════════════════════
 
-// Neon (dark theme)
+// Neon (tema escuro)
 internal val NeonCyan    = Color(0xFF00F0FF)
 internal val NeonMagenta = Color(0xFFFF00FF)
 internal val NeonPurple  = Color(0xFF8B00FF)
@@ -28,17 +28,17 @@ internal val NeonBlue    = Color(0xFF0080FF)
 internal val NeonGreen   = Color(0xFF00FF88)
 internal val NeonPink    = Color(0xFFFF1493)
 
-// Dark surfaces
+// Superficies escuras
 internal val DarkBackground = Color(0xFF0A0E27)
 internal val DarkSurface    = Color(0xFF111B3D)
 internal val DarkCard       = Color(0xFF1A2551)
 
-// Light surfaces
+// Superficies claras
 internal val LightBackground = Color(0xFFF5F7FA)
 internal val LightSurface    = Color(0xFFFFFFFF)
 internal val LightCard       = Color(0xFFE8EDF5)
 
-// Status (fixos - não mudam com tema)
+// Status (fixos — não mudam com o tema)
 internal val CriticalRed      = Color(0xFFFF0040)
 internal val CriticalRedHealth = Color(0xFFEF5350)
 internal val WarningOrange     = Color(0xFFFF6B00)

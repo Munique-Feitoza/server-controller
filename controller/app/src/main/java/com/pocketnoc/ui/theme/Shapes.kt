@@ -3,8 +3,8 @@ package com.pocketnoc.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 /**
- * Shapes reutilizáveis do PocketNOC.
- * Evita RoundedCornerShape(N.dp) espalhados por todo o código.
+ * Shapes reutilizaveis do PocketNOC.
+ * Evita RoundedCornerShape(N.dp) espalhados por todo o codigo.
  */
 object AppShapes {
     val small  = RoundedCornerShape(Dimens.RadiusSm)
