@@ -400,12 +400,35 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
             }),
         ],
 
-        // "generic" — padrão de fallback para servidores sem role definido
-        _ => vec![
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "nginx".to_string()              }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "docker".to_string()             }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "pocket-noc-agent".to_string()   }),
-        ],
+        // "generic" — detecta automaticamente se eh Hosting ou padrao
+        _ => {
+            // Verifica se nginx existe (Hosting)
+            let nginx_name = if std::process::Command::new("systemctl")
+                .args(["is-active", "nginx"])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+            { "nginx" } else { "nginx" };
+
+            let mut probes = vec![
+                AnyProbeConfig::Service(ServiceProbeConfig { service_name: nginx_name.to_string() }),
+                AnyProbeConfig::Service(ServiceProbeConfig { service_name: "pocket-noc-agent".to_string() }),
+            ];
+
+            // Adiciona docker se existir
+            if std::process::Command::new("which").arg("docker").output()
+                .map(|o| o.status.success()).unwrap_or(false) {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "docker".to_string() }));
+            }
+
+            // Adiciona redis se ativo
+            if std::process::Command::new("systemctl").args(["is-active", "redis-server"])
+                .output().map(|o| o.status.success()).unwrap_or(false) {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "redis-server".to_string() }));
+            }
+
+            probes
+        },
     }
 }
 
