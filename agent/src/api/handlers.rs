@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 use std::collections::HashMap;
 
 use crate::{
+    audit::AuditLog,
     commands::CommandExecutor,
     error::Result,
     services::ServiceMonitor,
@@ -30,6 +31,8 @@ pub struct AppState {
     pub watchdog_event_store: Arc<Mutex<WatchdogEventStore>>,
     /// Motor de remediação — compartilhado para reset manual de Circuit Breakers
     pub remediation_engine:   Arc<Mutex<RemediationEngine>>,
+    /// Log de auditoria — registra todas as ações da API
+    pub audit_log:            Arc<Mutex<AuditLog>>,
 }
 
 /// GET /health - Healthcheck simples
@@ -351,6 +354,158 @@ pub async fn get_watchdog_breakers(
             "breakers": states,
             "count": states.len(),
             "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /audit/logs?limit=100&action=<action>
+pub async fn get_audit_logs(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    let limit = params.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(100);
+    let action = params.get("action").map(|s| s.as_str());
+
+    let log = state.audit_log.lock().await;
+
+    let entries: Vec<_> = if let Some(act) = action {
+        log.by_action(act).into_iter().take(limit).cloned().collect()
+    } else {
+        log.recent(limit).into_iter().cloned().collect()
+    };
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "entries": entries,
+            "count": entries.len(),
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+}
+
+/// DELETE /audit/logs
+pub async fn clear_audit_logs(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let mut log = state.audit_log.lock().await;
+    log.clear();
+    tracing::info!("🧹 Audit log cleared by remote user");
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "success",
+            "message": "Audit log cleared"
+        })),
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCKER HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /docker/containers
+pub async fn get_docker_containers() -> impl IntoResponse {
+    match crate::telemetry::docker::collect_docker_metrics() {
+        Some(metrics) => (
+            StatusCode::OK,
+            Json(json!({
+                "containers": metrics.containers,
+                "running_count": metrics.running_count,
+                "total_count": metrics.total_count,
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })),
+        ),
+        None => (
+            StatusCode::OK,
+            Json(json!({
+                "containers": [],
+                "running_count": 0,
+                "total_count": 0,
+                "docker_available": false,
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            })),
+        ),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BACKUP HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /backups/status
+pub async fn get_backup_status() -> impl IntoResponse {
+    let status = crate::telemetry::backup::collect_backup_status();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "backups": status.backups,
+            "any_stale": status.any_stale,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /config — Retorna configuração atual do agente (sem segredos)
+pub async fn get_config() -> impl IntoResponse {
+    let server_id = std::env::var("SERVER_ID").unwrap_or_else(|_| {
+        hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "unknown".to_string())
+    });
+    let server_role = std::env::var("SERVER_ROLE").unwrap_or_else(|_| "generic".to_string());
+    let watchdog_enabled = std::env::var("WATCHDOG_ENABLED")
+        .map(|v| v != "false" && v != "0")
+        .unwrap_or(true);
+    let watchdog_interval = std::env::var("WATCHDOG_INTERVAL_SECS")
+        .ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(30);
+    let max_failures = std::env::var("WATCHDOG_MAX_FAILURES")
+        .ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(3);
+    let cooldown = std::env::var("WATCHDOG_COOLDOWN_SECS")
+        .ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(300);
+    let rate_limit = std::env::var("RATE_LIMIT_PER_MINUTE")
+        .ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(60);
+    let tls_enabled = std::env::var("TLS_CERT_PATH").is_ok() && std::env::var("TLS_KEY_PATH").is_ok();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "server_id": server_id,
+            "server_role": server_role,
+            "watchdog_enabled": watchdog_enabled,
+            "watchdog_interval_secs": watchdog_interval,
+            "watchdog_max_failures": max_failures,
+            "watchdog_cooldown_secs": cooldown,
+            "rate_limit_per_minute": rate_limit,
+            "tls_enabled": tls_enabled
+        })),
+    )
+}
+
+/// POST /config — Atualiza configuração mutável em runtime
+pub async fn update_config(
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    // Nota: Em produção, isso atualizaria variáveis de ambiente ou um arquivo de config.
+    // Aqui logamos as mudanças solicitadas para o administrador aplicar.
+    tracing::info!("📝 Config update requested: {}", payload);
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "success",
+            "message": "Configuration update logged. Restart agent to apply changes.",
+            "requested_changes": payload
         })),
     )
 }

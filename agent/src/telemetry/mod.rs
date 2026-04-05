@@ -18,6 +18,8 @@ mod network;
 mod security;
 mod processes;
 pub mod alerts;
+pub mod docker;
+pub mod backup;
 
 pub use cpu::CpuMetrics;
 pub use memory::MemoryMetrics;
