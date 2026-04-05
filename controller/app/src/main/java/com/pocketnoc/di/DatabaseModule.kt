@@ -3,8 +3,9 @@ package com.pocketnoc.di
 import android.content.Context
 import androidx.room.Room
 import com.pocketnoc.data.local.AppDatabase
-import com.pocketnoc.data.local.dao.ServerDao
 import com.pocketnoc.data.local.dao.AlertDao
+import com.pocketnoc.data.local.dao.ServerDao
+import com.pocketnoc.data.local.dao.TelemetryHistoryDao
 import com.pocketnoc.data.local.AlertThresholdRepository
 import dagger.Module
 import dagger.Provides
@@ -36,6 +37,11 @@ object DatabaseModule {
     @Provides
     fun provideAlertDao(database: AppDatabase): AlertDao {
         return database.alertDao()
+    }
+
+    @Provides
+    fun provideTelemetryHistoryDao(database: AppDatabase): TelemetryHistoryDao {
+        return database.telemetryHistoryDao()
     }
 
     @Provides
