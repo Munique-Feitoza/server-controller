@@ -266,22 +266,8 @@ impl RemediationEngine {
             .to_string();
 
         match base_name.as_str() {
-            // Pilha Hosting (Smarter Mapping para Munique)
-            s if s.contains("nginx") => {
-                // No Hosting, mesmo sensores http/tcp para nginx devem resetar o nginx
-                if service.contains("-rc") || service.contains("http") || service.contains("80") {
-                    RemediationAction::RestartService("nginx".to_string())
-                } else {
-                    RemediationAction::RestartService("nginx".to_string())
-                }
-            }
-            s if s.contains("apache") => {
-                if service.contains("-rc") {
-                    RemediationAction::RestartService("apache2".to_string())
-                } else {
-                    RemediationAction::RestartService("apache2".to_string())
-                }
-            }
+            s if s.contains("nginx") => RemediationAction::RestartService("nginx".to_string()),
+            s if s.contains("apache") => RemediationAction::RestartService("apache2".to_string()),
             "mariadb" | "mysql" => RemediationAction::RestartService("mariadb".to_string()),
             "postgresql" | "postgres" => {
                 if service.contains("@") {
@@ -291,17 +277,17 @@ impl RemediationEngine {
                 }
             }
 
-            // PHP dinâmico (Hosting usa phpXX-fpm)
+            // PHP dinâmico (phpX.Y-fpm)
             s if s.starts_with("php") => {
                 let version = s.chars().filter(|c| c.is_ascii_digit()).collect::<String>();
                 if !version.is_empty() {
-                    RemediationAction::RestartService(format!("php{}rc-fpm", version))
+                    RemediationAction::RestartService(format!("php{}-fpm", version))
                 } else {
                     RemediationAction::RestartService("php81-fpm".to_string())
                 }
             }
 
-            // ERP / Python Stacks (Acme)
+            // ERP / Python Stacks
             "gunicorn" | "uvicorn" | "python" | "python-api" => {
                 RemediationAction::RestartService("gunicorn".to_string())
             }

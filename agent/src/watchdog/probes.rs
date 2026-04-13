@@ -157,7 +157,7 @@ pub async fn run_http_probe(config: &HttpProbeConfig) -> ProbeResult {
 // ─────────────────────────────────────────────────────────────────────────────
 // SERVICE PROBE (systemctl)
 // Verifica se um daemon Linux está ativo via `systemctl is-active`
-// Compatível com: nginx, nginx, mysql, postgresql, php-fpm, gunicorn, docker
+// Compatível com: nginx, mysql, postgresql, php-fpm, gunicorn, docker
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Configuração de uma probe de serviço systemd
@@ -437,20 +437,15 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
             }),
         ],
 
-        // "generic" — detecta automaticamente stack Hosting ou padrao
+        // "generic" — detecta automaticamente serviços ativos
         _ => {
-            let nginx_active = is_service_active("nginx") || is_service_active("nginx");
-            let nginx_name = if is_service_active("nginx") {
-                "nginx"
-            } else {
-                "nginx"
-            };
+            let nginx_active = is_service_active("nginx");
 
             let mut probes: Vec<AnyProbeConfig> = Vec::new();
 
             if nginx_active {
                 probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
-                    service_name: nginx_name.to_string(),
+                    service_name: "nginx".to_string(),
                 }));
                 probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
                     service: "nginx-tcp-80".to_string(),
