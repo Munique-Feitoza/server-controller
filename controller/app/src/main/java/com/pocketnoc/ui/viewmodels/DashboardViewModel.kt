@@ -196,7 +196,7 @@ class DashboardViewModel @Inject constructor(
                 // Persiste snapshot e atualiza o historico para os graficos
                 viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     repository.saveTelemetrySnapshot(server.id, result)
-                    val history = repository.getTelemetryHistory(server.id, limit = 60)
+                    val history = repository.getTelemetryHistory(server.id, limit = 2880) // 24h a cada 30s
                     _telemetryHistory.value = history.reversed() // mais antigo primeiro para o grafico
                 }
 
@@ -256,8 +256,8 @@ class DashboardViewModel @Inject constructor(
     private val _commandResult = MutableStateFlow<CommandResult?>(null)
     val commandResult: StateFlow<CommandResult?> = _commandResult
 
-    private val _availableCommands = MutableStateFlow<Map<String, List<EmergencyCommand>>>(emptyMap())
-    val availableCommands: StateFlow<Map<String, List<EmergencyCommand>>> = _availableCommands
+    private val _availableCommands = MutableStateFlow<List<EmergencyCommand>>(emptyList())
+    val availableCommands: StateFlow<List<EmergencyCommand>> = _availableCommands
 
     private val _eventFlow = MutableSharedFlow<String>()
     val eventFlow: SharedFlow<String> = _eventFlow.asSharedFlow()
@@ -295,7 +295,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _commandsState.value = CommandsUiState.Loading
             try {
-                val commands = repository.listCommands(server).values.flatten().map { cmd ->
+                val commands = repository.listCommands(server).map { cmd ->
                     CommandInfo(
                         id = cmd.id,
                         description = cmd.description,
@@ -470,7 +470,7 @@ class DashboardViewModel @Inject constructor(
 
     fun loadTelemetryHistory(serverId: Int) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val history = repository.getTelemetryHistory(serverId, limit = 60)
+            val history = repository.getTelemetryHistory(serverId, limit = 2880) // 24h
             _telemetryHistory.value = history.reversed()
         }
     }
@@ -492,6 +492,24 @@ class DashboardViewModel @Inject constructor(
 
     suspend fun fetchPhpFpmPools(server: ServerEntity): com.pocketnoc.data.models.PhpFpmResponse {
         return repository.getPhpFpmPools(server)
+    }
+
+    private val _phpFpmState = MutableStateFlow<com.pocketnoc.data.models.PhpFpmResponse?>(null)
+    val phpFpmState: StateFlow<com.pocketnoc.data.models.PhpFpmResponse?> = _phpFpmState.asStateFlow()
+
+    fun loadPhpFpmPools(server: ServerEntity) {
+        viewModelScope.launch {
+            try {
+                _phpFpmState.value = repository.getPhpFpmPools(server)
+            } catch (e: Exception) {
+                android.util.Log.w("DashboardVM", "Falha ao carregar php-fpm pools: ${e.message}")
+                _phpFpmState.value = null
+            }
+        }
+    }
+
+    suspend fun fetchSslCheck(server: ServerEntity): com.pocketnoc.data.models.SslCheckResponse {
+        return repository.checkSsl(server)
     }
 
     suspend fun fetchBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus {
