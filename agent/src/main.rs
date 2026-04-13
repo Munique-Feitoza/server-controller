@@ -37,8 +37,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let jwt_secret = std::env::var("POCKET_NOC_SECRET")
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| {
-            tracing::warn!("⚠️  POCKET_NOC_SECRET não definido - usando padrão inseguro (TESTE APENAS)");
-            "super-secret-key-change-me-123".to_string()
+            tracing::error!("❌ POCKET_NOC_SECRET nao definido! Defina em /etc/pocket-noc-agent.env");
+            tracing::error!("   Gere com: openssl rand -base64 32");
+            std::process::exit(1);
         });
 
     let jwt_config = Arc::new(JwtConfig::new(jwt_secret.clone(), 3600)
@@ -130,6 +131,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/audit/logs", delete(clear_audit_logs))
         // ─── Monitoramento Docker ───────────────────────────────────────────
         .route("/docker/containers", get(get_docker_containers))
+        // ─── Verificacao SSL de todos os dominios ─────────────────────────────
+        .route("/ssl/check", get(check_ssl))
         // ─── PHP-FPM pools por site ─────────────────────────────────────────
         .route("/phpfpm/pools", get(get_phpfpm_pools))
         // ─── Status de Backup ───────────────────────────────────────────────
@@ -150,7 +153,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             pocket_noc_agent::api::middleware::security_middleware,
         ))
         .with_state(state)
-        .layer(CorsLayer::permissive())
+        .layer(CorsLayer::new()
+            .allow_origin(["http://localhost".parse().unwrap(), "http://127.0.0.1".parse().unwrap()])
+            .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::DELETE])
+            .allow_headers(tower_http::cors::Any)
+        )
         .layer(middleware::from_fn(pocket_noc_agent::api::middleware::logging_middleware));
 
     // Configuração da porta
@@ -248,5 +255,77 @@ fn spawn_background_tasks(
             watchdog_engine.run(rem_clone).await;
         });
         tracing::info!("🐕 WatchdogEngine spawned — auto-remediation ativa");
+    }
+
+    // ─── Verificacao SSL periodica (a cada 6 horas) ──────────────────────
+    {
+        let ntfy_ssl = ntfy_client.clone();
+        tokio::spawn(async move {
+            // Aguarda 2 minutos antes da primeira verificacao
+            tokio::time::sleep(tokio::time::Duration::from_secs(120)).await;
+
+            loop {
+                let result = pocket_noc_agent::telemetry::ssl::check_all_ssl();
+
+                for cert in &result.certs {
+                    match cert.status.as_str() {
+                        "expired" => {
+                            tracing::error!("🔴 SSL EXPIRADO: {} (expirou ha {} dias)", cert.domain, cert.days_remaining.abs());
+                            let _ = ntfy_ssl.send_alert(
+                                "SSL Expirado",
+                                &format!("O certificado de {} expirou ha {} dias!", cert.domain, cert.days_remaining.abs()),
+                                5, // prioridade maxima
+                                "rotating_light,lock"
+                            ).await;
+                        }
+                        "expiring" => {
+                            tracing::warn!("🟡 SSL EXPIRANDO: {} ({} dias restantes)", cert.domain, cert.days_remaining);
+                            let _ = ntfy_ssl.send_alert(
+                                "SSL Expirando",
+                                &format!("O certificado de {} expira em {} dias. Renove agora!", cert.domain, cert.days_remaining),
+                                4, // prioridade alta
+                                "warning,lock"
+                            ).await;
+                        }
+                        "wrong_cert" => {
+                            tracing::error!("🔴 SSL ERRADO: {} (servindo cert de {})", cert.domain, cert.subject);
+                            let _ = ntfy_ssl.send_alert(
+                                "SSL Certificado Errado",
+                                &format!("{} esta servindo o certificado de outro dominio: {}", cert.domain, cert.subject),
+                                4,
+                                "warning,lock"
+                            ).await;
+                        }
+                        "no_cert" | "error" => {
+                            tracing::warn!("🟠 SSL ERRO: {} (sem certificado ou inacessivel)", cert.domain);
+                            let motivo = if cert.status == "no_cert" {
+                                "nao tem certificado instalado"
+                            } else {
+                                "esta inacessivel na porta 443"
+                            };
+                            let _ = ntfy_ssl.send_alert(
+                                "SSL Falhou",
+                                &format!("{} {} — a emissao/renovacao provavelmente falhou", cert.domain, motivo),
+                                4,
+                                "warning,lock"
+                            ).await;
+                        }
+                        _ => {}
+                    }
+                }
+
+                if result.expired_count > 0 || result.expiring_count > 0 {
+                    tracing::warn!(
+                        "🔒 SSL Check: {}/{} OK | {} expirando | {} expirados | {} erros",
+                        result.ok_count, result.total_domains,
+                        result.expiring_count, result.expired_count, result.error_count
+                    );
+                }
+
+                // Verifica a cada 6 horas
+                tokio::time::sleep(tokio::time::Duration::from_secs(6 * 3600)).await;
+            }
+        });
+        tracing::info!("🔒 SSL monitor spawned — verificacao a cada 6 horas");
     }
 }
