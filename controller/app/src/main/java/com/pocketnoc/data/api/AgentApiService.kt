@@ -114,6 +114,10 @@ interface AgentApiService {
     @GET("phpfpm/pools")
     suspend fun getPhpFpmPools(): PhpFpmResponse
 
+    // ─── Verificacao SSL ───────────────────────────────────────────────────
+    @GET("ssl/check")
+    suspend fun checkSsl(): SslCheckResponse
+
     // ─── Status de Backup ─────────────────────────────────────────────────
     @GET("backups/status")
     suspend fun getBackupStatus(): BackupStatus
