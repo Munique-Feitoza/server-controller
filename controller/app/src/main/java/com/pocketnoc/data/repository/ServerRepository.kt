@@ -138,7 +138,7 @@ class ServerRepository @Inject constructor(
         return apiService.executeCommand(commandId)
     }
 
-    suspend fun listCommands(server: ServerEntity): Map<String, List<EmergencyCommand>> {
+    suspend fun listCommands(server: ServerEntity): List<EmergencyCommand> {
         val apiService = getApiService(server)
         return apiService.listCommands().commands
     }
@@ -313,6 +313,16 @@ class ServerRepository @Inject constructor(
             apiService.getPhpFpmPools()
         } catch (e: Exception) {
             throw Exception("Failed to fetch PHP-FPM pools: ${e.message}")
+        }
+    }
+
+    // SSL Check
+    suspend fun checkSsl(server: ServerEntity): com.pocketnoc.data.models.SslCheckResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val apiService = getApiService(server)
+            apiService.checkSsl()
+        } catch (e: Exception) {
+            throw Exception("Failed to check SSL: ${e.message}")
         }
     }
 
