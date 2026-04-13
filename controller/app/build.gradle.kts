@@ -44,8 +44,7 @@ android {
         val escapedSshKey = sshKeyRaw.replace("\n", "\\n").replace("\r", "\\r")
         buildConfigField("String", "SSH_KEY_CONTENT_GLOBAL", "\"$escapedSshKey\"")
 
-        // Configurações Globais e Emergência
-        buildConfigField("String", "POCKET_NOC_SECRET", "\"${localProperties.getProperty("POCKET_NOC_SECRET") ?: ""}\"")
+        // Configuracoes Globais
         buildConfigField("boolean", "USE_HTTPS", localProperties.getProperty("USE_HTTPS") ?: "false")
         buildConfigField("boolean", "EMERGENCY_MODE", localProperties.getProperty("EMERGENCY_MODE") ?: "false")
         buildConfigField("boolean", "SSH_STRICT_HOST_CHECKING", localProperties.getProperty("SSH_STRICT_HOST_CHECKING") ?: "true")
