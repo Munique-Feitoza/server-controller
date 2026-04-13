@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,12 +55,14 @@ fun ServerDetailsScreen(
     val serverHealth by viewModel.serverHealthMap.collectAsState()
     val telemetryState by viewModel.telemetryState.collectAsState()
     val history by viewModel.telemetryHistory.collectAsState()
+    val phpFpm by viewModel.phpFpmState.collectAsState()
 
     // Carrega dados na abertura da tela
     LaunchedEffect(selectedServer) {
         selectedServer?.let {
             viewModel.fetchTelemetry(it)
             viewModel.loadTelemetryHistory(it.id)
+            viewModel.loadPhpFpmPools(it)
         }
     }
 
@@ -67,7 +70,10 @@ fun ServerDetailsScreen(
     LaunchedEffect(selectedServer) {
         while (true) {
             kotlinx.coroutines.delay(30_000)
-            selectedServer?.let { viewModel.fetchTelemetry(it) }
+            selectedServer?.let {
+                viewModel.fetchTelemetry(it)
+                viewModel.loadPhpFpmPools(it)
+            }
         }
     }
 
@@ -104,26 +110,52 @@ fun ServerDetailsScreen(
                     }
                 },
                 actions = {
+                    var menuExpanded by remember { mutableStateOf(false) }
+
                     IconButton(onClick = { selectedServer?.let { viewModel.fetchTelemetry(it) } }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.tertiary)
                     }
-                    IconButton(onClick = { onNavigateToActionCenter(serverId) }) {
-                        Icon(Icons.Default.Build, contentDescription = "Action Center", tint = ext.magenta)
-                    }
-                    IconButton(onClick = { onNavigateToLogs(serverId, "pocket-noc-agent") }) {
-                        Icon(Icons.Default.Terminal, contentDescription = "Logs", tint = colors.primary)
-                    }
-                    IconButton(onClick = { onNavigateToWatchdog(serverId) }) {
-                        Icon(Icons.Default.MonitorHeart, contentDescription = "Watchdog", tint = ext.magenta)
-                    }
-                    IconButton(onClick = { onNavigateToAuditLog(serverId) }) {
-                        Icon(Icons.Default.ReceiptLong, contentDescription = "Audit", tint = ext.purple)
-                    }
-                    IconButton(onClick = { onNavigateToAgentConfig(serverId) }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Config", tint = colors.tertiary)
-                    }
-                    IconButton(onClick = { onNavigateToPhpFpm(serverId) }) {
-                        Icon(Icons.Default.Dns, contentDescription = "PHP-FPM", tint = ext.blue)
+
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = colors.onSurfaceVariant)
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(colors.surfaceVariant)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Action Center") },
+                                onClick = { onNavigateToActionCenter(serverId); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Build, null, tint = ext.magenta) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Logs") },
+                                onClick = { onNavigateToLogs(serverId, "pocket-noc-agent"); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Terminal, null, tint = colors.primary) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Watchdog") },
+                                onClick = { onNavigateToWatchdog(serverId); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.MonitorHeart, null, tint = ext.magenta) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("PHP-FPM Pools") },
+                                onClick = { onNavigateToPhpFpm(serverId); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Dns, null, tint = ext.blue) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Audit Log") },
+                                onClick = { onNavigateToAuditLog(serverId); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.ReceiptLong, null, tint = ext.purple) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Configuracao") },
+                                onClick = { onNavigateToAgentConfig(serverId); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Settings, null, tint = colors.tertiary) }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surface.copy(alpha = 0.9f)),
@@ -178,9 +210,9 @@ fun ServerDetailsScreen(
                 is TelemetryUiState.Success -> {
                     val t = state.telemetry
 
-                    // Pontos para o gráfico histórico (oldest → newest)
-                    val cpuPoints = history.map { it.cpuPercent }
-                    val ramPoints = history.map { it.ramPercent }
+                    // Pontos para o gráfico histórico (oldest → newest) com timestamps
+                    val cpuSamples = history.map { it.timestamp to it.cpuPercent }
+                    val ramSamples = history.map { it.timestamp to it.ramPercent }
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(horizontal = Dimens.ScreenPadding),
@@ -228,10 +260,24 @@ fun ServerDetailsScreen(
                         // ─── 3. GRÁFICO HISTÓRICO ─────────────────────────────────
                         item {
                             TelemetryLineChart(
-                                cpuPoints = cpuPoints,
-                                ramPoints = ramPoints,
+                                cpuSamples = cpuSamples,
+                                ramSamples = ramSamples,
                                 modifier = Modifier.fillMaxWidth()
                             )
+                        }
+
+                        // ─── 3b. PICOS DE CPU ─────────────────────────────────────
+                        item {
+                            CpuPeaksCard(samples = cpuSamples)
+                        }
+
+                        // ─── 3c. TOP SITES POR CPU ────────────────────────────────
+                        phpFpm?.let { resp ->
+                            if (resp.pools.isNotEmpty()) {
+                                item {
+                                    TopSitesCpuCard(pools = resp.pools)
+                                }
+                            }
                         }
 
                         // ─── 4. CARGA DO SISTEMA ──────────────────────────────────
@@ -448,7 +494,10 @@ fun DiskUsageCard(disk: com.pocketnoc.data.models.DiskMetrics, modifier: Modifie
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(diskInfo.mountPoint, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceSm)) {
+                            Text(diskInfo.mountPoint, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+                            Text(diskInfo.filesystem, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+                        }
                         Spacer(modifier = Modifier.height(Dimens.SpaceXs))
                         LinearProgressIndicator(
                             progress = { (diskInfo.usagePercent / 100f).coerceIn(0f, 1f) },
@@ -466,8 +515,8 @@ fun DiskUsageCard(disk: com.pocketnoc.data.models.DiskMetrics, modifier: Modifie
                         modifier = Modifier.padding(start = Dimens.SpaceLg - Dimens.SpaceXxs),
                         horizontalAlignment = Alignment.End
                     ) {
-                        Text("${diskInfo.usagePercent.toInt()}%", style = MaterialTheme.typography.labelSmall, color = colors.primary, fontWeight = FontWeight.Bold)
-                        Text("${diskInfo.usedGb.toInt()}/${diskInfo.totalGb.toInt()}GB", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+                        Text("%.1f%%".format(diskInfo.usagePercent), style = MaterialTheme.typography.labelSmall, color = colors.primary, fontWeight = FontWeight.Bold)
+                        Text("${formatSize(diskInfo.usedGb)} / ${formatSize(diskInfo.totalGb)}", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 }
             }
@@ -509,6 +558,12 @@ fun TemperatureCard(temperature: com.pocketnoc.data.models.TemperatureMetrics, m
             }
         }
     }
+}
+
+private fun formatSize(gb: Double): String = when {
+    gb >= 1.0 -> "%.1f GB".format(gb)
+    gb >= 0.001 -> "%.0f MB".format(gb * 1024)
+    else -> "0 MB"
 }
 
 @Composable
