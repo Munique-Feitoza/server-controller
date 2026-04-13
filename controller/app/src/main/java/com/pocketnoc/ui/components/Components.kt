@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -23,11 +24,14 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pocketnoc.data.models.PhpFpmPool
 import com.pocketnoc.data.models.ProcessMetrics
 import com.pocketnoc.data.models.SecurityMetrics
 import com.pocketnoc.data.models.ServiceInfo
@@ -355,55 +359,369 @@ fun ArcGauge(label: String, value: Float, color: Color, modifier: Modifier = Mod
 // ═══════════════════════════════════════════════════════════════════
 
 @Composable
-fun TelemetryLineChart(cpuPoints: List<Float>, ramPoints: List<Float>, modifier: Modifier = Modifier) {
+fun TelemetryLineChart(
+    cpuSamples: List<Pair<Long, Float>>,
+    ramSamples: List<Pair<Long, Float>>,
+    modifier: Modifier = Modifier
+) {
     val colors = MaterialTheme.colorScheme
     val ext = LocalExtendedColors.current
 
-    if (cpuPoints.isEmpty()) {
-        Box(modifier.fillMaxWidth().height(160.dp).clip(AppShapes.xl).background(colors.surfaceVariant).border(Dimens.BorderThin, colors.primary.copy(alpha = 0.2f), AppShapes.xl), contentAlignment = Alignment.Center) {
+    if (cpuSamples.isEmpty()) {
+        Box(modifier.fillMaxWidth().height(200.dp).clip(AppShapes.xl).background(colors.surfaceVariant).border(Dimens.BorderThin, colors.primary.copy(alpha = 0.2f), AppShapes.xl), contentAlignment = Alignment.Center) {
             Text("Acumulando histórico...", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
         }
         return
     }
 
+    // Downsample para no maximo 200 buckets — mantem o ponto de MAX de cada bucket (timestamp + valor)
+    val maxPoints = 200
+    val cpuDisplay = remember(cpuSamples) { downsampleMaxPairs(cpuSamples, maxPoints) }
+    val ramDisplay = remember(ramSamples) { downsampleMaxPairs(ramSamples, maxPoints) }
+
+    val firstTs = cpuDisplay.first().first
+    val lastTs = cpuDisplay.last().first
+    val spanMs = (lastTs - firstTs).coerceAtLeast(1L)
+
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    val density = LocalDensity.current
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+
     Column(modifier.fillMaxWidth().clip(AppShapes.xl).background(colors.surfaceVariant).border(Dimens.BorderThin, colors.primary.copy(alpha = 0.25f), AppShapes.xl).padding(Dimens.SpaceXl)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("HISTÓRICO", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceXl)) {
+            Column {
+                Text("HISTÓRICO", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                val selected = selectedIndex?.let { cpuDisplay.getOrNull(it) }
+                if (selected != null) {
+                    Text(
+                        "${formatClockFull(selected.first)}  ·  CPU %.1f%%".format(selected.second),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ext.magenta,
+                        fontFamily = FontFamily.Monospace
+                    )
+                } else {
+                    Text("toque no gráfico para ver horário", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)) {
                 ChartLegend("CPU", ext.magenta)
                 ChartLegend("RAM", ext.blue)
             }
         }
         Spacer(Modifier.height(Dimens.SpaceLg))
-        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(120.dp)) {
-            val w = size.width; val h = size.height
-            val count = maxOf(cpuPoints.size, ramPoints.size).coerceAtLeast(2)
-            val gridColor = Color.White.copy(alpha = 0.06f)
-            listOf(0f, 0.5f, 1f).forEach { frac -> drawLine(gridColor, Offset(0f, h * (1f - frac)), Offset(w, h * (1f - frac)), 1.dp.toPx()) }
-
-            fun List<Float>.toPath(): Path { val p = Path(); forEachIndexed { i, v -> val x = if (count <= 1) w / 2f else i.toFloat() / (count - 1) * w; val y = h * (1f - (v / 100f).coerceIn(0f, 1f)); if (i == 0) p.moveTo(x, y) else p.lineTo(x, y) }; return p }
-            fun List<Float>.toFillPath(): Path { val p = toPath(); val lastX = if (count <= 1) w / 2f else (size - 1).toFloat() / (count - 1) * w; p.lineTo(lastX, h); p.lineTo(0f, h); p.close(); return p }
-
-            if (ramPoints.isNotEmpty()) {
-                drawPath(ramPoints.toFillPath(), Brush.verticalGradient(listOf(ext.blue.copy(alpha = 0.25f), Color.Transparent)))
-                drawPath(ramPoints.toPath(), ext.blue, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        androidx.compose.foundation.Canvas(
+            Modifier.fillMaxWidth().height(160.dp).pointerInput(cpuDisplay.size) {
+                detectTapGestures { offset ->
+                    val count = cpuDisplay.size.coerceAtLeast(2)
+                    val frac = (offset.x / size.width).coerceIn(0f, 1f)
+                    val idx = (frac * (count - 1)).toInt().coerceIn(0, cpuDisplay.size - 1)
+                    selectedIndex = idx
+                }
             }
-            if (cpuPoints.isNotEmpty()) {
-                drawPath(cpuPoints.toFillPath(), Brush.verticalGradient(listOf(ext.magenta.copy(alpha = 0.25f), Color.Transparent)))
-                drawPath(cpuPoints.toPath(), ext.magenta, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
-                val lastX = if (cpuPoints.size <= 1) w / 2f else (cpuPoints.size - 1).toFloat() / (count - 1) * w
-                val lastY = h * (1f - (cpuPoints.last() / 100f).coerceIn(0f, 1f))
+        ) {
+            val w = size.width; val h = size.height
+            val count = maxOf(cpuDisplay.size, ramDisplay.size).coerceAtLeast(2)
+            val gridColor = Color.White.copy(alpha = 0.06f)
+            listOf(0f, 0.25f, 0.5f, 0.75f, 1f).forEach { frac ->
+                drawLine(gridColor, Offset(0f, h * (1f - frac)), Offset(w, h * (1f - frac)), 1.dp.toPx())
+            }
+
+            fun List<Pair<Long, Float>>.toPath(): Path {
+                val p = Path()
+                forEachIndexed { i, (_, v) ->
+                    val x = if (count <= 1) w / 2f else i.toFloat() / (count - 1) * w
+                    val y = h * (1f - (v / 100f).coerceIn(0f, 1f))
+                    if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+                }
+                return p
+            }
+            fun List<Pair<Long, Float>>.toFillPath(): Path {
+                val p = toPath()
+                val lastX = if (count <= 1) w / 2f else (size - 1).toFloat() / (count - 1) * w
+                p.lineTo(lastX, h)
+                p.lineTo(0f, h)
+                p.close()
+                return p
+            }
+
+            if (ramDisplay.isNotEmpty()) {
+                drawPath(ramDisplay.toFillPath(), Brush.verticalGradient(listOf(ext.blue.copy(alpha = 0.25f), Color.Transparent)))
+                drawPath(ramDisplay.toPath(), ext.blue, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+            if (cpuDisplay.isNotEmpty()) {
+                drawPath(cpuDisplay.toFillPath(), Brush.verticalGradient(listOf(ext.magenta.copy(alpha = 0.25f), Color.Transparent)))
+                drawPath(cpuDisplay.toPath(), ext.magenta, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                val lastIdx = cpuDisplay.size - 1
+                val lastX = if (cpuDisplay.size <= 1) w / 2f else lastIdx.toFloat() / (count - 1) * w
+                val lastY = h * (1f - (cpuDisplay.last().second / 100f).coerceIn(0f, 1f))
                 drawCircle(ext.magenta, 4.dp.toPx(), Offset(lastX, lastY))
                 drawCircle(Color.White, 2.dp.toPx(), Offset(lastX, lastY))
             }
+
+            // Linha vertical + marker no ponto selecionado pelo usuário
+            selectedIndex?.let { idx ->
+                val sample = cpuDisplay.getOrNull(idx) ?: return@let
+                val x = if (count <= 1) w / 2f else idx.toFloat() / (count - 1) * w
+                val y = h * (1f - (sample.second / 100f).coerceIn(0f, 1f))
+                drawLine(
+                    Color.White.copy(alpha = 0.4f),
+                    Offset(x, 0f), Offset(x, h),
+                    1.5.dp.toPx()
+                )
+                drawCircle(Color.White, 6.dp.toPx(), Offset(x, y))
+                drawCircle(ext.magenta, 4.dp.toPx(), Offset(x, y))
+            }
         }
         Spacer(Modifier.height(Dimens.SpaceXs))
+        // Eixo X: 4 ticks uniformemente distribuídos (firstTs → lastTs)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("${(cpuPoints.size * 30 / 60).coerceAtLeast(1)}min atrás", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
-            Text("agora", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+            val ticks = 4
+            for (i in 0 until ticks) {
+                val ts = firstTs + (spanMs * i / (ticks - 1))
+                Text(
+                    formatClockShort(ts),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.outlineVariant,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
 }
+
+private fun formatClockShort(ts: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = ts }
+    return "%02d:%02d".format(cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE))
+}
+
+private fun formatClockFull(ts: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = ts }
+    return "%02d/%02d %02d:%02d".format(
+        cal.get(java.util.Calendar.DAY_OF_MONTH),
+        cal.get(java.util.Calendar.MONTH) + 1,
+        cal.get(java.util.Calendar.HOUR_OF_DAY),
+        cal.get(java.util.Calendar.MINUTE)
+    )
+}
+
+/// Downsample preservando o bucket de MAX — retorna (timestamp, valor) do pico em cada bucket.
+private fun downsampleMaxPairs(samples: List<Pair<Long, Float>>, maxPoints: Int): List<Pair<Long, Float>> {
+    if (samples.size <= maxPoints) return samples
+    val bucketSize = samples.size.toDouble() / maxPoints
+    val result = ArrayList<Pair<Long, Float>>(maxPoints)
+    var idx = 0
+    while (idx < maxPoints) {
+        val start = (idx * bucketSize).toInt()
+        val end = ((idx + 1) * bucketSize).toInt().coerceAtMost(samples.size)
+        if (start >= end) break
+        var best = samples[start]
+        for (i in (start + 1) until end) if (samples[i].second > best.second) best = samples[i]
+        result.add(best)
+        idx++
+    }
+    return result
+}
+
+/// Card que mostra os N maiores picos de CPU (timestamp + valor) do histórico.
+@Composable
+fun CpuPeaksCard(
+    samples: List<Pair<Long, Float>>,
+    topN: Int = 3,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
+    val peaks = remember(samples) {
+        if (samples.isEmpty()) emptyList() else findPeaks(samples, topN)
+    }
+
+    Column(
+        modifier.fillMaxWidth()
+            .clip(AppShapes.xl)
+            .background(colors.surfaceVariant)
+            .border(Dimens.BorderThin, ext.magenta.copy(alpha = 0.25f), AppShapes.xl)
+            .padding(Dimens.SpaceXl)
+    ) {
+        Text("PICOS DE CPU (24h)", style = MaterialTheme.typography.labelSmall, color = ext.magenta)
+        Spacer(Modifier.height(Dimens.SpaceMd))
+        if (peaks.isEmpty()) {
+            Text("sem dados suficientes ainda", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+        } else {
+            peaks.forEachIndexed { idx, (ts, value) ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = Dimens.SpaceXs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceMd)
+                ) {
+                    Box(
+                        Modifier.size(24.dp).clip(CircleShape).background(ext.magenta.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("${idx + 1}", style = MaterialTheme.typography.labelSmall, color = ext.magenta, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        "%.1f%%".format(value),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = when {
+                            value >= 90 -> StatusColors.critical
+                            value >= 75 -> StatusColors.warning
+                            else -> colors.onSurface
+                        },
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        formatRelativeTime(ts),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.outlineVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        formatClockTime(ts),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
+}
+
+/// Card que mostra o top-N sites (PHP-FPM pools) por consumo de CPU.
+@Composable
+fun TopSitesCpuCard(
+    pools: List<PhpFpmPool>,
+    topN: Int = 5,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val ext = LocalExtendedColors.current
+
+    val top = remember(pools) {
+        pools.sortedByDescending { it.cpuPercent }.take(topN)
+    }
+    val maxCpu = top.maxOfOrNull { it.cpuPercent }?.coerceAtLeast(1f) ?: 1f
+
+    Column(
+        modifier.fillMaxWidth()
+            .clip(AppShapes.xl)
+            .background(colors.surfaceVariant)
+            .border(Dimens.BorderThin, ext.green.copy(alpha = 0.25f), AppShapes.xl)
+            .padding(Dimens.SpaceXl)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("TOP SITES (CPU)", style = MaterialTheme.typography.labelSmall, color = ext.green)
+            Text(
+                "${pools.size} pools · ${pools.sumOf { it.workerCount }} workers",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.outlineVariant
+            )
+        }
+        Spacer(Modifier.height(Dimens.SpaceMd))
+
+        if (top.isEmpty()) {
+            Text("nenhum pool ativo", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+        } else {
+            top.forEach { pool ->
+                Column(Modifier.fillMaxWidth().padding(vertical = Dimens.SpaceXs)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            pool.poolName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurface,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(Dimens.SpaceSm))
+                        Text(
+                            "%.1f%%".format(pool.cpuPercent),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = when {
+                                pool.cpuPercent >= 50 -> StatusColors.critical
+                                pool.cpuPercent >= 20 -> StatusColors.warning
+                                else -> ext.green
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Spacer(Modifier.height(Dimens.SpaceXs))
+                    LinearProgressIndicator(
+                        progress = { (pool.cpuPercent / maxCpu).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(AppShapes.small),
+                        color = when {
+                            pool.cpuPercent >= 50 -> StatusColors.critical
+                            pool.cpuPercent >= 20 -> StatusColors.warning
+                            else -> ext.green
+                        },
+                        trackColor = colors.surface
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "${pool.workerCount} workers",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.outlineVariant
+                        )
+                        Text(
+                            "%.0f MB".format(pool.memoryMb),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.outlineVariant,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Extrai os N maiores picos com supressão de picos adjacentes (mínimo 10% da janela entre eles)
+private fun findPeaks(samples: List<Pair<Long, Float>>, n: Int): List<Pair<Long, Float>> {
+    if (samples.isEmpty()) return emptyList()
+    val sorted = samples.sortedByDescending { it.second }
+    val minSpacingMs = ((samples.last().first - samples.first().first) / 10).coerceAtLeast(60_000L)
+    val result = mutableListOf<Pair<Long, Float>>()
+    for (sample in sorted) {
+        if (result.none { kotlin.math.abs(it.first - sample.first) < minSpacingMs }) {
+            result.add(sample)
+            if (result.size >= n) break
+        }
+    }
+    return result.sortedByDescending { it.second }
+}
+
+private fun formatRelativeTime(ts: Long): String {
+    val diffMs = System.currentTimeMillis() - ts
+    val mins = diffMs / 60_000
+    val hours = diffMs / 3_600_000
+    return when {
+        mins < 1 -> "agora"
+        mins < 60 -> "${mins}min atrás"
+        hours < 24 -> "${hours}h atrás"
+        else -> "${hours / 24}d atrás"
+    }
+}
+
+private fun formatClockTime(ts: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = ts }
+    return "%02d:%02d".format(cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE))
+}
+
 
 // ═══════════════════════════════════════════════════════════════════
 // HELPERS PRIVADOS
