@@ -39,37 +39,13 @@ fun SecurityDashboardScreen(
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth().background(colors.surface)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().statusBarsPadding()
-                        .padding(horizontal = Dimens.SpaceXl, vertical = Dimens.SpaceMd),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        Modifier.size(Dimens.TopBarButton).clip(AppShapes.large)
-                            .background(StatusColors.critical.copy(alpha = 0.10f))
-                            .border(Dimens.BorderThin, StatusColors.critical.copy(alpha = 0.35f), AppShapes.large)
-                            .clickable(onClick = onNavigateBack),
-                        contentAlignment = Alignment.Center
-                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = StatusColors.critical, modifier = Modifier.size(Dimens.IconMd)) }
-
-                    Spacer(Modifier.width(Dimens.SpaceLg))
-
-                    Column(Modifier.weight(1f)) {
-                        Text("SEGURANCA", color = StatusColors.critical, fontWeight = FontWeight.Black, fontSize = 20.sp, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
-                        Text("Dashboard ERP", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                    }
-
-                    Box(
-                        Modifier.size(Dimens.TopBarButton).clip(AppShapes.large)
-                            .background(colors.primary.copy(alpha = 0.10f))
-                            .border(Dimens.BorderThin, colors.primary.copy(alpha = 0.35f), AppShapes.large)
-                            .clickable(onClick = onRefresh),
-                        contentAlignment = Alignment.Center
-                    ) { Icon(Icons.Default.Refresh, null, tint = colors.primary, modifier = Modifier.size(Dimens.IconMd)) }
-                }
-                Box(Modifier.fillMaxWidth().height(Dimens.BorderThin).background(StatusColors.critical.copy(alpha = 0.3f)))
-            }
+            com.pocketnoc.ui.components.PocketNocTopBar(
+                title = "SEGURANCA",
+                subtitle = "Dashboard ERP",
+                accentColor = StatusColors.critical,
+                onBack = onNavigateBack,
+                onRefresh = onRefresh
+            )
         },
         containerColor = Color.Transparent
     ) { paddingValues ->
