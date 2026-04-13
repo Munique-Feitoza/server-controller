@@ -286,7 +286,7 @@ pub enum AnyProbeConfig {
 /// Retorna os probes padrão para cada role de servidor.
 /// Probes extras são configuráveis via env: `EXTRA_HTTP_PROBES`, `EXTRA_SERVICE_PROBES`.
 pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
-    match role {
+    let mut probes: Vec<AnyProbeConfig> = match role {
         "wordpress" => vec![
             AnyProbeConfig::Service(ServiceProbeConfig { service_name: "nginx".to_string() }),
             AnyProbeConfig::Service(ServiceProbeConfig { service_name: "apache2".to_string() }),
@@ -400,36 +400,181 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
             }),
         ],
 
-        // "generic" — detecta automaticamente se eh Hosting ou padrao
+        // "generic" — detecta automaticamente stack Hosting ou padrao
         _ => {
-            // Verifica se nginx existe (Hosting)
-            let nginx_name = if std::process::Command::new("systemctl")
-                .args(["is-active", "nginx"])
-                .output()
-                .map(|o| o.status.success())
-                .unwrap_or(false)
-            { "nginx" } else { "nginx" };
+            let nginx_active = is_service_active("nginx")
+                || is_service_active("nginx");
+            let nginx_name = if is_service_active("nginx") { "nginx" } else { "nginx" };
 
-            let mut probes = vec![
-                AnyProbeConfig::Service(ServiceProbeConfig { service_name: nginx_name.to_string() }),
-                AnyProbeConfig::Service(ServiceProbeConfig { service_name: "pocket-noc-agent".to_string() }),
-            ];
+            let mut probes: Vec<AnyProbeConfig> = Vec::new();
 
-            // Adiciona docker se existir
-            if std::process::Command::new("which").arg("docker").output()
-                .map(|o| o.status.success()).unwrap_or(false) {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "docker".to_string() }));
+            if nginx_active {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: nginx_name.to_string() }));
+                probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
+                    service: "nginx-tcp-80".to_string(),
+                    host: "127.0.0.1".to_string(),
+                    port: 80,
+                    timeout_secs: 3,
+                }));
+                probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
+                    service: "nginx-tcp-443".to_string(),
+                    host: "127.0.0.1".to_string(),
+                    port: 443,
+                    timeout_secs: 3,
+                }));
             }
 
-            // Adiciona redis se ativo
-            if std::process::Command::new("systemctl").args(["is-active", "redis-server"])
-                .output().map(|o| o.status.success()).unwrap_or(false) {
+            // php-fpm: detecta todas as versoes ativas (php81-fpm, php82rc-fpm, etc)
+            for fpm in detect_active_php_fpm() {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: fpm }));
+            }
+
+            // Bancos: mariadb vence sobre mysql (mysql.service geralmente eh alias no Hosting)
+            let mariadb_active = is_service_active("mariadb");
+            let mysql_active = is_service_active("mysql");
+            if mariadb_active {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mariadb".to_string() }));
+            } else if mysql_active {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mysql".to_string() }));
+            }
+            if mariadb_active || mysql_active {
+                probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
+                    service: "mysql-tcp".to_string(),
+                    host: "127.0.0.1".to_string(),
+                    port: 3306,
+                    timeout_secs: 3,
+                }));
+            }
+
+            // PostgreSQL: detecta tanto "postgresql" quanto variantes tipo "postgresql@14-main"
+            let pg_units = detect_active_postgresql();
+            for unit in &pg_units {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: unit.clone() }));
+            }
+            if !pg_units.is_empty() {
+                probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
+                    service: "postgresql-tcp".to_string(),
+                    host: "127.0.0.1".to_string(),
+                    port: 5432,
+                    timeout_secs: 3,
+                }));
+            }
+
+            if is_service_active("docker") {
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "docker".to_string() }));
+            }
+            if is_service_active("redis-server") {
                 probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "redis-server".to_string() }));
             }
 
             probes
         },
+    };
+
+    // Adiciona probes extras configurados via env vars (aplicavel a todos os roles)
+    probes.extend(load_extra_probes());
+    probes
+}
+
+/// Verifica se um servico systemd esta ativo
+fn is_service_active(name: &str) -> bool {
+    std::process::Command::new("systemctl")
+        .args(["is-active", "--quiet", name])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Detecta todas as versoes de php-fpm ativas (Hosting: phpXX-fpm, padrao: phpX.Y-fpm)
+fn detect_active_php_fpm() -> Vec<String> {
+    let output = std::process::Command::new("systemctl")
+        .args(["list-units", "--type=service", "--state=running", "--no-legend", "--plain"])
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|line| line.split_whitespace().next())
+                .filter(|name| {
+                    let n = name.to_lowercase();
+                    n.starts_with("php") && n.contains("fpm")
+                })
+                .map(|name| name.trim_end_matches(".service").to_string())
+                .collect()
+        }
+        _ => Vec::new(),
     }
+}
+
+/// Detecta unidades postgresql ativas (postgresql, postgresql@14-main, postgresql-16, etc)
+fn detect_active_postgresql() -> Vec<String> {
+    let output = std::process::Command::new("systemctl")
+        .args(["list-units", "--type=service", "--state=running", "--no-legend", "--plain"])
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|line| line.split_whitespace().next())
+                .filter(|name| name.to_lowercase().starts_with("postgresql"))
+                .map(|name| name.trim_end_matches(".service").to_string())
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Le probes extras das env vars EXTRA_SERVICE_PROBES, EXTRA_TCP_PROBES, EXTRA_HTTP_PROBES.
+///
+/// Formatos:
+/// - `EXTRA_SERVICE_PROBES=service1;service2;service3`
+/// - `EXTRA_TCP_PROBES=name|host|port;name2|host2|port2`
+/// - `EXTRA_HTTP_PROBES=name|url|expected_status|degraded_ms;name2|url2|200|2000`
+fn load_extra_probes() -> Vec<AnyProbeConfig> {
+    let mut out: Vec<AnyProbeConfig> = Vec::new();
+
+    if let Ok(val) = std::env::var("EXTRA_SERVICE_PROBES") {
+        for name in val.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            out.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: name.to_string() }));
+        }
+    }
+
+    if let Ok(val) = std::env::var("EXTRA_TCP_PROBES") {
+        for entry in val.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            let parts: Vec<&str> = entry.split('|').collect();
+            if parts.len() == 3 {
+                if let Ok(port) = parts[2].parse::<u16>() {
+                    out.push(AnyProbeConfig::Tcp(TcpProbeConfig {
+                        service: parts[0].to_string(),
+                        host: parts[1].to_string(),
+                        port,
+                        timeout_secs: 3,
+                    }));
+                }
+            }
+        }
+    }
+
+    if let Ok(val) = std::env::var("EXTRA_HTTP_PROBES") {
+        for entry in val.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+            let parts: Vec<&str> = entry.split('|').collect();
+            if parts.len() == 4 {
+                let expected_status = parts[2].parse::<u16>().unwrap_or(200);
+                let degraded_latency_ms = parts[3].parse::<u64>().unwrap_or(2000);
+                out.push(AnyProbeConfig::Http(HttpProbeConfig {
+                    service: parts[0].to_string(),
+                    url: parts[1].to_string(),
+                    timeout_secs: 5,
+                    expected_status,
+                    degraded_latency_ms,
+                }));
+            }
+        }
+    }
+
+    out
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
