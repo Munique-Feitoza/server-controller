@@ -1,124 +1,139 @@
-# Changelog — Pocket NOC Ultra
+# Changelog — Pocket NOC
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo. O projeto segue o padrão **Semantic Versioning**.
+Todas as mudanças notáveis neste projeto são documentadas neste arquivo.  
+O projeto segue o padrão **[Semantic Versioning](https://semver.org/)**.
 
 ---
 
-## [0.3.0] - 02 de Abril de 2026
+## [0.4.0] — 10 de Abril de 2026
+
+### Agente (Rust) — Defesa Ativa e Monitoramento Expandido
+
+- **Sistema de defesa ativa**: honeypot paths (30+), ThreatTracker com rastreamento por IP, ZIP bomb (50MB gzip) para bots recorrentes, auto-ban via iptables após 5 tentativas.
+- **Inteligência de ameaças**: módulo `security/intel.rs` com GeoIP, ISP, classificação bot/humano.
+- **Registro de incidentes**: `security/incidents.rs` para armazenar incidentes recebidos do Dashboard ERP.
+- **Monitoramento PHP-FPM**: `telemetry/phpfpm.rs` com detecção automática de pools Hosting e consumo por site.
+- **Monitoramento Docker**: `telemetry/docker.rs` com containers, status e portas.
+- **Verificação de backups**: `telemetry/backup.rs` com status e idade.
+- **Verificação SSL**: `telemetry/ssl.rs` com checagem periódica (6h) e alertas em 30/7/0 dias.
+- **Endpoint webhook**: `POST /webhook/security` para integração com Dashboard ERP.
+- **Rate limiting**: middleware de limitação por IP (60 req/min padrão).
+- **WebSocket**: infraestrutura para telemetria em tempo real.
+- **Audit log**: ring buffer de 1000 entradas para auditoria de requisições HTTP.
+
+### Controller (Android) — Redesign Completo
+
+- **Design system**: tokens de cor (`AppColors`), dimensão (`Dimens`), shape (`Shapes`) e tema (`Theme`) com Material 3.
+- **Migração completa**: todas as 14 telas existentes migradas para o novo design system.
+- **Novas telas**: SecurityDashboardScreen, PhpFpmScreen, SslCheckScreen, AuditLogScreen, AgentConfigScreen, ExportScreen, BiometricGateScreen.
+- **Dark/Light mode**: toggle manual com persistência.
+- **Layout adaptivo**: suporte a phone, tablet e foldable via `AdaptiveLayout`.
+- **Widget de home screen**: `ServerStatusWidget` com status em tempo real.
+- **Push notifications**: Firebase Cloud Messaging (FCM) via `PocketNOCFirebaseService`.
+- **Autenticação biométrica**: fingerprint/face via `BiometricAuthManager`.
+- **Persistência de telemetria**: Room DB com `TelemetryHistoryDao`.
+- **Exportação de dados**: CSV/JSON via `ExportScreen`.
+- **Dashboard reescrito**: menu hamburger, fundo sólido, botões de tema e exportação.
+- **Ícone redesenhado**: novo ícone adaptivo para o launcher.
+
+### Correções
+
+- Fix: crash do `EncryptedSharedPreferences` corrompido — recriação automática.
+- Fix: widget conectado com dados reais (antes era mock).
+- Fix: tipografia responsiva e dark/light mode.
+
+### API ERP (FastAPI)
+
+- Novo: painel de inteligência de segurança para admin (`pocketnoc.py`).
+- Novo: endpoint `/clusters` para agrupar IPs por identidade.
+- Novo: autenticação dual (API key + JWT) nos endpoints de segurança.
+- Fix: filtro de falsos positivos em todas as queries do painel.
+
+### DevOps
+
+- **CI/CD**: GitHub Actions para Rust (fmt, clippy, test, build multi-target), Android (build, lint, test) e Release (tag-triggered).
+- **Documentação completa**: 9 documentos com diagramas UML Mermaid — Arquitetura, API, Segurança, Setup, Modelos de Dados, App Android, Testes, CI/CD, Glossário.
+- **Testes**: unitários para JWT, commands, watchdog (Rust) e models, health calculator (Android).
+- Deploy script corrigido.
+- Comentários traduzidos para pt-BR.
+
+---
+
+## [0.3.0] — 02 de Abril de 2026
 
 ### Performance
 
-- **`services/mod.rs`**: Consolidadas as 3 chamadas separadas ao `systemctl show` (ActiveState, Description, MainPID) em uma única invocação por serviço. Reduz de 12 subprocessos para 4 a cada ciclo de telemetria dos 4 serviços monitorados.
-- **`security.rs`**: Adicionado `timeout 3s` ao comando `lastb` para blindar o agente contra travamento em servidores com `/var/log/btmp` volumoso.
+- **`services/mod.rs`**: Consolidadas as 3 chamadas separadas ao `systemctl show` em uma única invocação por serviço. Reduz de 12 subprocessos para 4 a cada ciclo de telemetria.
+- **`security.rs`**: Adicionado `timeout 3s` ao comando `lastb` para blindar contra travamento em servidores com `/var/log/btmp` volumoso.
 
 ### Segurança
 
-- **`security.rs`**: Validação de IP no endpoint `block-ip` migrada para o parser nativo do Rust (`std::net::IpAddr`). CIDRs e ranges (ex: `0.0.0.0/0`) agora são corretamente rejeitados com erro `422`, prevenindo bloqueio acidental de todo o tráfego de entrada.
+- **`security.rs`**: Validação de IP migrada para `std::net::IpAddr`. CIDRs rejeitados com `422`.
 
 ### Documentação
 
-- **`docs/API.md`**: Reescrito com documentação completa de todos os 16 endpoints (telemetria, alertas, processos, serviços, logs, comandos, segurança, métricas, watchdog).
-- **`docs/ARCHITECTURE.md`**: Corrigida informação incorreta ("polling a cada segundo" → cache de 5s + loop de 60s). Adicionadas seções de WatchdogEngine, Circuit Breaker e modelo de concorrência.
-- **`docs/SECURITY.md`**: Documentados o enforcement do segredo JWT (mínimo 32 bytes), o timeout defensivo do `lastb`, e a nova validação de IP para `block-ip`.
-- **`docs/SETUP.md`**: Adicionada tabela completa de variáveis de ambiente, instruções de instalação do serviço systemd hardened (usuário dedicado, limites de CPU/RAM), e seção de troubleshooting expandida.
-- **`README.md`**: Adicionados WatchdogEngine, alertas ntfy e métricas Prometheus nos diferenciais técnicos. Adicionada tabela completa de endpoints da API.
+- Reescrita completa de API.md, ARCHITECTURE.md, SECURITY.md e SETUP.md.
 
 ---
 
-## [0.2.0] - 20 de Março de 2026
+## [0.2.0] — 20 de Março de 2026
 
-### Agente (Rust) — WatchdogEngine & Alertas
+### Agente (Rust) — WatchdogEngine e Alertas
 
-- **WatchdogEngine**: Motor de auto-remediação com probes HTTP, systemctl e TCP. Loop independente com intervalo configurável.
-- **Circuit Breaker**: Máquina de estados (Closed/Open/HalfOpen) por serviço monitorado. Evita loops infinitos de remediação.
-- **RemediationEngine**: Executa ações corretivas (restart de serviço) após falhas confirmadas.
-- **Ring Buffer de Eventos**: Armazena os últimos 500 eventos do Watchdog em memória via `VecDeque`.
-- **Roles de Servidor**: Seleção automática de probes via `SERVER_ROLE` (wordpress, erp, database, generic, etc).
-- **AlertManager com Deduplicação**: Sistema de alertas com cooldown de 30 minutos por `(AlertType, componente)`. Evita spam de notificações.
-- **ntfy.sh Integration**: Notificações push para alertas de CPU, memória, disco, temperatura, segurança e reboot recente. Retry automático com backoff linear em caso de rate limit.
-- **Prometheus Metrics**: Endpoint `GET /metrics` com formato texto compatível com Prometheus.
-- **Novos endpoints**: `/watchdog/events`, `/watchdog/reset`, `/watchdog/breakers`, `/alerts`, `/alerts/config`, `/security/block-ip`, `/metrics`, `/services/:name`.
+- **WatchdogEngine**: auto-remediação com probes HTTP, systemctl e TCP. Loop independente (30s).
+- **Circuit Breaker**: máquina de estados (Closed/Open/HalfOpen) por serviço.
+- **RemediationEngine**: ações corretivas após falhas confirmadas.
+- **Ring Buffer**: 500 eventos do Watchdog em memória (VecDeque).
+- **Roles de Servidor**: seleção automática de probes via `SERVER_ROLE`.
+- **AlertManager**: deduplicação com cooldown de 30 minutos.
+- **ntfy.sh**: notificações push com retry e backoff linear.
+- **Prometheus**: endpoint `GET /metrics`.
+- **Novos endpoints**: watchdog, alerts, block-ip, metrics, services.
 
 ### Segurança
 
-- Segredo JWT com enforcement de mínimo 32 bytes no startup (rejeita configuração insegura).
-- Mascaramento do secret nos logs (apenas 4 primeiros chars + `****`).
+- Enforcement de secret JWT ≥ 32 bytes no startup.
+- Mascaramento do secret nos logs.
 
 ---
 
-## [0.1.0] - 11 de Março de 2026
+## [0.1.0] — 11 de Março de 2026
 
 ### Agente (Rust) — Core Engine
 
-- **Coleta de Telemetria**: Leitura direta do `/proc` e `/sys` para métricas de CPU (por core), RAM/swap, disco (uso + I/O bruto via `procfs::diskstats`), temperatura via `/sys/class/hwmon`, e rede (por interface).
-- **Cache L1 (5s)**: `TelemetryCollector` com cache em memória para evitar `system.refresh_all()` em cada requisição.
-- **Gestão de Serviços**: Integração com `systemd` para monitoramento de serviços críticos.
-- **Action Center**: Execução de comandos via whitelist com proteção contra shell injection.
-- **Segurança Munux Security**: Autenticação JWT (HMAC-SHA256) e bind exclusivo em `127.0.0.1`.
-- **Observabilidade**: Logs estruturados via `tracing`.
-- **Build musl**: Binário estático com `opt-level=3`, LTO e strip — ~4 MB, zero dependências de runtime.
+- **Telemetria**: CPU, RAM/swap, disco, temperatura, rede, processos, serviços.
+- **Cache L1 (5s)**: evita leitura repetida de `/proc` a cada requisição.
+- **Action Center**: whitelist de comandos sem shell injection.
+- **JWT Auth**: HMAC-SHA256 com bind exclusivo em `127.0.0.1`.
+- **Build musl**: binário estático ~4 MB com LTO e strip.
 
-### Controller (Android) — Mobile Command
+### Controller (Android) — MVP
 
-- **Arquitetura MVVM**: Implementação com Hilt (DI), Retrofit (Networking) e Compose (UI).
-- **ServerHealthWidget**: Visão consolidada da saúde da infraestrutura.
-- **Segurança Zero-Leak**: Armazenamento de segredos e chaves SSH via `EncryptedSharedPreferences`.
-- **Terminal Log Viewer**: Visualizador de logs em tempo real integrado ao dashboard.
-- **Auditoria Local**: Histórico de alertas persistido em banco de dados Room.
+- **MVVM**: Hilt + Retrofit + Compose.
+- **ServerHealthWidget**: visão consolidada de saúde.
+- **EncryptedSharedPreferences**: segredos criptografados.
+- **Log Viewer**: visualizador de logs em tempo real.
+- **Room**: histórico de alertas persistido localmente.
 
-### Documentação & Setup
+### Infraestrutura
 
-- Ecossistema `/docs`: Guias de API, Arquitetura, Segurança e Instalação.
-- Script de deployment e configuração de serviço systemd.
+- Script de deployment (`deploy.sh`).
+- Serviço systemd com hardening.
+- Documentação inicial (`/docs`).
 
 ---
 
 ## Roadmap
 
-### Fase 3 — Recursos Avançados
+### Fase 5 — Recursos Avançados
 
-- [ ] **WebSockets**: Telemetria push em tempo real (infraestrutura `tokio-tungstenite` já incluída).
-- [ ] **Persistência SQLite**: Histórico de eventos e alertas persistidos entre reinicializações.
-- [ ] **AppWidget Android**: Status visual direto na tela inicial.
-- [ ] **Gráficos históricos**: Dashboards de CPU/RAM com série temporal.
-- [ ] **TLS nativo**: Ativar TLS no Axum (infraestrutura rustls já incluída), para acesso sem necessidade de SSH quando em rede privada confiável.
-
----
-
-## Notas de Desenvolvimento
-
-### Rodando Testes
-
-**Agente (Rust)**:
-```bash
-cd agent
-cargo test
-cargo clippy -- -D warnings
-cargo fmt --check
-```
-
-**Controller (Android)**:
-```bash
-cd controller
-./gradlew test
-./gradlew lint
-```
-
-### Build para Produção
-
-**Agente (binário musl estático)**:
-```bash
-cd agent
-cargo build --release --target x86_64-unknown-linux-musl
-```
-
-**Android**:
-```bash
-cd controller
-./gradlew assembleRelease
-```
+- [ ] **WebSocket real-time**: telemetria push via WebSocket (infraestrutura `tokio-tungstenite` pronta)
+- [ ] **Gráficos históricos**: dashboards de CPU/RAM com série temporal
+- [ ] **TLS nativo**: ativar TLS no Axum para acesso em rede privada sem SSH
+- [ ] **Multi-tenancy**: suporte a equipes com RBAC
+- [ ] **Testes de integração**: cobertura end-to-end com containers Docker
 
 ---
 
 **Mantido por**: Munique Alves Pacheco Feitoza  
-**Última atualização**: 02 de Abril de 2026
+**Última atualização**: 10 de Abril de 2026
