@@ -188,7 +188,7 @@ data class EmergencyCommand(
 )
 
 data class CommandListResponse(
-    val commands: Map<String, List<EmergencyCommand>>
+    val commands: List<EmergencyCommand>
 )
 
 // Alias mantido para compatibilidade
@@ -458,6 +458,30 @@ data class PhpFpmResponse(
     val totalCpuPercent: Float,
     @SerializedName("total_memory_mb")
     val totalMemoryMb: Float
+)
+
+// ==================== SSL Check ====================
+
+data class SslCertStatus(
+    val domain: String,
+    val valid: Boolean,
+    @SerializedName("days_remaining")
+    val daysRemaining: Int,
+    val issuer: String,
+    val subject: String,
+    @SerializedName("expiry_date")
+    val expiryDate: String,
+    val status: String  // "ok", "expiring", "expired", "wrong_cert", "error", "no_cert"
+)
+
+data class SslCheckResponse(
+    @SerializedName("total_domains")
+    val totalDomains: Int,
+    val ok: Int,
+    val expiring: Int,
+    val expired: Int,
+    val errors: Int,
+    val certs: List<SslCertStatus>
 )
 
 // ==================== Agent Runtime Config ====================
