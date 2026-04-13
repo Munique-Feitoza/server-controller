@@ -28,24 +28,38 @@
 O Controller é um app Android nativo construído com Kotlin e Jetpack Compose, seguindo a arquitetura **MVVM (Model-View-ViewModel)**. Ele se conecta aos agentes Rust em cada servidor via túnel SSH, agrega telemetria, permite ações remotas e oferece uma experiência de monitoramento profissional em dispositivos móveis e tablets.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Apresentação"
-        COMPOSE["Jetpack Compose<br/>(17 telas)"]
-        THEME["Design System<br/>(Material 3)"]
-        NAV["Navigation Compose"]
+    subgraph pres["🎨 Apresentação"]
+        COMPOSE["🎨 Jetpack Compose<br/><i>17 telas</i>"]
+        THEME["🎨 Design System<br/><i>Material 3</i>"]
+        NAV["🧭 Navigation Compose"]
     end
 
-    subgraph "Lógica"
-        VM["ViewModels<br/>(MVVM)"]
-        HILT["Hilt DI"]
+    subgraph logic["🧩 Lógica"]
+        VM["🧩 ViewModels<br/><i>MVVM</i>"]
+        HILT["🧩 Hilt DI"]
     end
 
-    subgraph "Dados"
-        REPO["ServerRepository"]
-        RETROFIT["Retrofit 2<br/>(REST Client)"]
-        ROOM["Room DB<br/>(SQLite)"]
-        PREFS["EncryptedSharedPrefs"]
-        SSH["JSch<br/>(SSH Tunnel)"]
+    subgraph data["🗄️ Dados"]
+        REPO["🗄️ ServerRepository"]
+        RETROFIT["🌐 Retrofit 2<br/><i>REST Client</i>"]
+        ROOM[("💾 Room DB<br/><i>SQLite</i>")]
+        PREFS[("🔑 EncryptedSharedPrefs")]
+        SSH["🔐 JSch<br/><i>SSH Tunnel</i>"]
     end
 
     COMPOSE --> VM
@@ -53,7 +67,12 @@ graph TB
     REPO --> RETROFIT
     REPO --> ROOM
     REPO --> PREFS
-    RETROFIT --> SSH
+    RETROFIT ==> SSH
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class COMPOSE,THEME,NAV,VM,HILT,REPO,RETROFIT,SSH androidNode
+    class ROOM,PREFS storeNode
 ```
 
 ---
@@ -80,24 +99,38 @@ graph TB
 ## Arquitetura MVVM
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "View"
+    subgraph view["🎨 View"]
         S1["DashboardScreen"]
         S2["ServerDetailsScreen"]
         S3["...17 telas"]
     end
 
-    subgraph "ViewModel"
+    subgraph vm["🧩 ViewModel"]
         VM1["DashboardViewModel"]
         VM2["SecurityViewModel"]
         VM3["WatchdogViewModel"]
     end
 
-    subgraph "Model"
-        R["ServerRepository"]
-        A["AgentApiService"]
-        D["DashboardApiService"]
-        DB["AppDatabase"]
+    subgraph model["🗄️ Model"]
+        R["🗄️ ServerRepository"]
+        A["🌐 AgentApiService"]
+        D["📊 DashboardApiService"]
+        DB[("💾 AppDatabase")]
     end
 
     S1 -->|"observa StateFlow"| VM1
@@ -112,11 +145,17 @@ graph LR
     R --> A
     R --> D
     R --> DB
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class S1,S2,S3,VM1,VM2,VM3,R,A,D androidNode
+    class DB storeNode
 ```
 
 ### DashboardViewModel — Estado Principal
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class DashboardViewModel {
         -ServerRepository repository
@@ -153,20 +192,34 @@ classDiagram
 ## Injeção de Dependência (Hilt)
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Módulos Hilt"
-        NM["NetworkModule<br/>@Provides Retrofit, OkHttp"]
-        DM["DatabaseModule<br/>@Provides Room, DAOs"]
-        SM["SecurityModule<br/>@Provides JwtUtils, BiometricAuth"]
+    subgraph mods["🧩 Módulos Hilt"]
+        NM["🌐 NetworkModule<br/><i>@Provides Retrofit, OkHttp</i>"]
+        DM["💾 DatabaseModule<br/><i>@Provides Room, DAOs</i>"]
+        SM["🔐 SecurityModule<br/><i>@Provides JwtUtils, BiometricAuth</i>"]
     end
 
-    subgraph "Componentes Injetados"
-        API["AgentApiService"]
-        DASH["DashboardApiService"]
-        DB["AppDatabase"]
-        JWT["JwtUtils"]
-        BIO["BiometricAuthManager"]
-        REPO["ServerRepository"]
+    subgraph injs["📦 Componentes Injetados"]
+        API["🌐 AgentApiService"]
+        DASH["📊 DashboardApiService"]
+        DB[("💾 AppDatabase")]
+        JWT["🔑 JwtUtils"]
+        BIO["👆 BiometricAuthManager"]
+        REPO["🗄️ ServerRepository"]
     end
 
     NM --> API
@@ -178,6 +231,11 @@ graph TB
     API --> REPO
     DASH --> REPO
     DB --> REPO
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class NM,DM,SM,API,DASH,JWT,BIO,REPO androidNode
+    class DB storeNode
 ```
 
 ---
@@ -189,6 +247,7 @@ graph TB
 O `ServerRepository` é o ponto central de acesso a dados. Ele abstrai as fontes (API remota, banco local, preferências criptografadas) e expõe operações assíncronas via coroutines.
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class ServerRepository {
         -AgentApiService agentApi
@@ -235,29 +294,48 @@ classDiagram
 ### Persistência Local
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "Room Database"
-        DB["AppDatabase"]
+    subgraph roomSg["💾 Room Database"]
+        DB[("💾 AppDatabase")]
         SD["ServerDao"]
         AD["AlertDao"]
         TD["TelemetryHistoryDao"]
     end
 
-    subgraph "Encrypted Storage"
-        STM["SecureTokenManager"]
-        ESP["EncryptedSharedPreferences"]
-        AKS["Android KeyStore"]
+    subgraph encSg["🔐 Encrypted Storage"]
+        STM["🔑 SecureTokenManager"]
+        ESP[("🔑 EncryptedSharedPreferences")]
+        AKS["🛡️ Android KeyStore"]
     end
 
-    subgraph "DataStore"
-        ADS["AlertThresholdDataStore"]
-        SMS["SessionManager"]
+    subgraph dsSg["🗄️ DataStore"]
+        ADS[("🗄️ AlertThresholdDataStore")]
+        SMS[("🗄️ SessionManager")]
     end
 
     DB --> SD
     DB --> AD
     DB --> TD
     STM --> ESP --> AKS
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class SD,AD,TD,STM,AKS androidNode
+    class DB,ESP,ADS,SMS storeNode
 ```
 
 ---
@@ -329,6 +407,20 @@ Tela de "deep dive" por servidor, acessível via menu hamburger da Dashboard (**
 A partir da v1.x, o `DashboardScreen` expõe as telas principais via menu hamburger — não há mais um "buraco" onde `ServerDetailsScreen` e suas filhas ficavam inalcançáveis. `WatchdogScreen` continua como aba embedded na própria Dashboard (não é rota separada do menu).
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TD
     SPLASH["splash"] --> LOGIN["login"]
     LOGIN --> DASH["dashboard"]
@@ -352,6 +444,9 @@ graph TD
     DETAILS --> LOGS
     DETAILS --> AUDIT
     DETAILS --> CONFIG
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    class SPLASH,LOGIN,DASH,ALERT_HIST,EXPORT,SECURITY,PHPFPM,SSL,DETAILS,PROCESSES,ACTIONS,LOGS,AUDIT,CONFIG,ALERT_SET,WATCHDOG_TAB androidNode
 ```
 
 **Notas:**
@@ -387,8 +482,22 @@ sealed class AppRoutes(val route: String) {
 ### Tokens
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "AppColors.kt"
+    subgraph colorsSg["🎨 AppColors.kt"]
         PRIMARY["Primary<br/>#1A1A2E"]
         SECONDARY["Secondary<br/>#16213E"]
         ACCENT["Accent<br/>#0F3460"]
@@ -397,7 +506,7 @@ graph LR
         ERROR["Error<br/>#E63946"]
     end
 
-    subgraph "Dimens.kt"
+    subgraph dims["📏 Dimens.kt"]
         XS["xs: 4dp"]
         SM["sm: 8dp"]
         MD["md: 16dp"]
@@ -405,17 +514,22 @@ graph LR
         XL["xl: 32dp"]
     end
 
-    subgraph "Shapes.kt"
+    subgraph shapes["🔷 Shapes.kt"]
         CARD["Card: 12dp"]
         BUTTON["Button: 8dp"]
         DIALOG["Dialog: 16dp"]
     end
 
-    subgraph "Theme.kt"
+    subgraph themeSg["🎨 Theme.kt"]
         LIGHT["Light Theme"]
         DARK["Dark Theme"]
         ADAPTIVE["Adaptive Typography"]
     end
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    class PRIMARY,SECONDARY,ACCENT,SUCCESS,WARNING,XS,SM,MD,LG,XL,CARD,BUTTON,DIALOG,LIGHT,DARK,ADAPTIVE androidNode
+    class ERROR alertNode
 ```
 
 ### Dark / Light Mode
@@ -423,21 +537,55 @@ graph LR
 O app suporta toggle manual de tema via `DashboardScreen`. O estado do tema persiste entre sessões via DataStore.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    TOGGLE["Toggle button"] --> STATE["isDarkTheme: MutableState"]
-    STATE --> THEME["PocketNOCTheme(darkTheme)"]
-    THEME --> COLORS["AppColors.dark / AppColors.light"]
-    COLORS --> COMPOSE["MaterialTheme(colorScheme)"]
+    TOGGLE["🎨 Toggle button"] --> STATE["🧩 isDarkTheme: MutableState"]
+    STATE --> THEME["🎨 PocketNOCTheme(darkTheme)"]
+    THEME --> COLORS["🎨 AppColors.dark / AppColors.light"]
+    COLORS --> COMPOSE["🎨 MaterialTheme(colorScheme)"]
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    class TOGGLE,STATE,THEME,COLORS,COMPOSE androidNode
 ```
 
 ### Layout Adaptivo
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    SCREEN{"Largura da tela"}
-    SCREEN -->|"< 600dp"| PHONE["Single-pane<br/>(NavigationBar)"]
-    SCREEN -->|"600-840dp"| TABLET["Multi-pane<br/>(NavigationRail)"]
-    SCREEN -->|"> 840dp"| DESKTOP["Expanded<br/>(NavigationDrawer)"]
+    SCREEN{"📏 Largura da tela"}
+    SCREEN -->|"< 600dp"| PHONE["📱 Single-pane<br/><i>NavigationBar</i>"]
+    SCREEN -->|"600-840dp"| TABLET["📱 Multi-pane<br/><i>NavigationRail</i>"]
+    SCREEN -->|"> 840dp"| DESKTOP["🖥️ Expanded<br/><i>NavigationDrawer</i>"]
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    class SCREEN,PHONE,TABLET,DESKTOP androidNode
 ```
 
 ---
@@ -447,12 +595,13 @@ graph TB
 ### Fluxo de Conexão
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant App as Controller
-    participant STM as SecureTokenManager
-    participant SSH as SshTunnelManager (JSch)
-    participant Server as Servidor Remoto
-    participant Agent as Agente Rust
+    participant App as 📱 Controller
+    participant STM as 🔑 SecureTokenManager
+    participant SSH as 🔐 SshTunnelManager (JSch)
+    participant Server as 🖥️ Servidor Remoto
+    participant Agent as 🦀 Agente Rust
 
     App->>STM: Recupera chave SSH privada
     STM-->>App: Ed25519/RSA key (decrypted)
@@ -475,6 +624,7 @@ sequenceDiagram
 ### Gerenciamento de Sessões
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class SshTunnelManager {
         -Map~String, Session~ sessions
@@ -499,22 +649,41 @@ classDiagram
 ## Segurança do App
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Proteções"
-        BIO["Biometria<br/>(Fingerprint/Face)"]
-        ENC["EncryptedSharedPrefs<br/>(Android KeyStore)"]
-        JWT["JWT local<br/>(geração no device)"]
-        CERT["Certificate Pinning<br/>(OkHttp)"]
-        LOG["Zero log leak<br/>(sem secrets no Logcat)"]
+    subgraph prot["🛡️ Proteções"]
+        BIO["👆 Biometria<br/><i>Fingerprint/Face</i>"]
+        ENC["🔐 EncryptedSharedPrefs<br/><i>Android KeyStore</i>"]
+        JWT["🔑 JWT local<br/><i>geração no device</i>"]
+        CERT["🔒 Certificate Pinning<br/><i>OkHttp</i>"]
+        LOG["🚫 Zero log leak<br/><i>sem secrets no Logcat</i>"]
     end
 
-    subgraph "Fluxo de Acesso"
-        START["App abre"] --> BIO_CHECK{"Biometria OK?"}
-        BIO_CHECK -->|Sim| TOKEN["Carrega tokens<br/>(EncryptedPrefs)"]
-        BIO_CHECK -->|Não| BLOCK["Acesso negado"]
-        TOKEN --> SSH_CONN["Estabelece SSH"]
-        SSH_CONN --> API_CALL["API calls + JWT"]
+    subgraph flow["🔐 Fluxo de Acesso"]
+        START["📱 App abre"] --> BIO_CHECK{"Biometria OK?"}
+        BIO_CHECK -->|Sim| TOKEN["🔑 Carrega tokens<br/><i>EncryptedPrefs</i>"]
+        BIO_CHECK -->|Não| BLOCK["❌ Acesso negado"]
+        TOKEN ==> SSH_CONN["🔐 Estabelece SSH"]
+        SSH_CONN --> API_CALL["🌐 API calls + JWT"]
     end
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    class BIO,ENC,JWT,CERT,LOG,START,TOKEN,SSH_CONN,API_CALL androidNode
+    class BLOCK alertNode
 ```
 
 ---
@@ -526,13 +695,14 @@ graph TB
 Worker periódico via WorkManager que faz polling de alertas em background, dispara notificação por alerta e **grava os top 3 alertas recentes em `SharedPreferences("widget_data")`** para o widget de home screen consumir.
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant WM as WorkManager
-    participant Worker as AlertMonitoringWorker
-    participant Repo as ServerRepository
-    participant Notif as SecurityNotificationManager
-    participant Prefs as SharedPreferences
-    participant Widget as ServerStatusWidget
+    participant WM as ⏱ WorkManager
+    participant Worker as 🧩 AlertMonitoringWorker
+    participant Repo as 🗄️ ServerRepository
+    participant Notif as 🔔 SecurityNotificationManager
+    participant Prefs as 💾 SharedPreferences
+    participant Widget as 📱 ServerStatusWidget
 
     WM->>Worker: doWork() [periodic]
     loop Para cada servidor
@@ -560,13 +730,32 @@ Widget de home screen mostrando saúde dos servidores **e os 3 alertas mais rece
 - `minHeight`: `130dp` (antes era `80dp` — bumpado para caber a nova seção)
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    WORKER["AlertMonitoringWorker"] -->|"writes"| PREFS[("SharedPreferences\nwidget_data")]
-    PREFS -->|"reads"| WIDGET["ServerStatusWidget.updateWidget()"]
-    WIDGET --> REMOTE["RemoteViews"]
-    REMOTE --> LAYOUT["widget_server_status.xml"]
+    WORKER["🧩 AlertMonitoringWorker"] -->|"writes"| PREFS[("💾 SharedPreferences<br/>widget_data")]
+    PREFS -->|"reads"| WIDGET["📱 ServerStatusWidget.updateWidget()"]
+    WIDGET --> REMOTE["🎨 RemoteViews"]
+    REMOTE --> LAYOUT["🎨 widget_server_status.xml"]
     LAYOUT --> TV_COUNT["SERVERS/ONLINE/ALERTAS"]
     LAYOUT --> TV_ALERTS["widget_recent_alerts (TextView)"]
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class WORKER,WIDGET,REMOTE,LAYOUT,TV_COUNT,TV_ALERTS androidNode
+    class PREFS storeNode
 ```
 
 **Nota:** ao atualizar o APK após mudar o `minHeight`, o widget **precisa ser removido e re-adicionado** na home screen para o Android renderizar o novo tamanho.

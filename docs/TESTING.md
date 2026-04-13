@@ -27,19 +27,33 @@ O Pocket NOC adota uma estratégia de testes focada em **confiabilidade de compo
 ## Pirâmide de Testes
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Pirâmide de Testes"
-        E2E["🔝 E2E<br/>(Manual / Futuro)"]
-        INT["🔷 Integração<br/>(API + SSH Tunnel)"]
-        UNIT["🟢 Unitários<br/>(JWT, Models, Watchdog, Health)"]
+    subgraph pyr["🧪 Pirâmide de Testes"]
+        E2E["🔝 E2E<br/><i>Manual / Futuro</i>"]
+        INT["🔷 Integração<br/><i>API + SSH Tunnel</i>"]
+        UNIT["🟢 Unitários<br/><i>JWT, Models, Watchdog, Health</i>"]
     end
 
-    subgraph "Ferramentas"
-        RUST_TEST["cargo test"]
-        CLIPPY["cargo clippy"]
-        FMT["cargo fmt"]
-        GRADLE["./gradlew test"]
-        LINT["./gradlew lint"]
+    subgraph tools["🔧 Ferramentas"]
+        RUST_TEST["🦀 cargo test"]
+        CLIPPY["🦀 cargo clippy"]
+        FMT["🦀 cargo fmt"]
+        GRADLE["📱 ./gradlew test"]
+        LINT["📱 ./gradlew lint"]
     end
 
     UNIT --> RUST_TEST
@@ -47,9 +61,12 @@ graph TB
     INT --> RUST_TEST
     E2E -.->|"futuro"| INT
 
-    style UNIT fill:#2a9d8f,color:#fff
-    style INT fill:#457b9d,color:#fff
-    style E2E fill:#e9c46a,color:#000
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class RUST_TEST,CLIPPY,FMT rustNode
+    class GRADLE,LINT androidNode
+    class E2E,INT,UNIT externalNode
 ```
 
 ---
@@ -66,18 +83,35 @@ graph TB
 ### Testes de JWT (`api_tests.rs`)
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart TD
-    T1["test_jwt_generation<br/>Gera token com claims válidos"]
-    T2["test_jwt_validation<br/>Valida assinatura e expiração"]
-    T3["test_jwt_expired<br/>Rejeita token expirado"]
-    T4["test_jwt_invalid_secret<br/>Rejeita secret < 32 bytes"]
-    T5["test_jwt_claims<br/>Verifica sub, iss, exp, iat"]
+    T1["🧪 test_jwt_generation<br/><i>Gera token com claims válidos</i>"]
+    T2["🧪 test_jwt_validation<br/><i>Valida assinatura e expiração</i>"]
+    T3["🧪 test_jwt_expired<br/><i>Rejeita token expirado</i>"]
+    T4["🧪 test_jwt_invalid_secret<br/><i>Rejeita secret < 32 bytes</i>"]
+    T5["🧪 test_jwt_claims<br/><i>Verifica sub, iss, exp, iat</i>"]
 
-    T1 --> PASS["✓ Todos devem passar"]
+    T1 --> PASS["✅ Todos devem passar"]
     T2 --> PASS
     T3 --> PASS
     T4 --> PASS
     T5 --> PASS
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    class T1,T2,T3,T4,T5,PASS rustNode
 ```
 
 **Cenários cobertos:**
@@ -138,23 +172,37 @@ cargo test --test watchdog_tests
 ### Testes do Health Calculator (`HealthStatusCalculatorTest.kt`)
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    subgraph "Inputs"
+    subgraph inputs["📥 Inputs"]
         CPU["CPU %"]
         RAM["RAM %"]
         DISK["Disk %"]
         TEMP["Temp °C"]
     end
 
-    subgraph "HealthStatusCalculator"
-        CALC["calculate()"]
+    subgraph calcSg["🧩 HealthStatusCalculator"]
+        CALC["⚙️ calculate()"]
     end
 
-    subgraph "Outputs"
-        H["HEALTHY<br/>(todos < warning)"]
-        W["WARNING<br/>(algum acima de 70%)"]
-        A["ALERT<br/>(algum acima de 85%)"]
-        C["CRITICAL<br/>(algum acima de 95%)"]
+    subgraph outputs["📤 Outputs"]
+        H["✅ HEALTHY<br/><i>todos < warning</i>"]
+        W["⚠️ WARNING<br/><i>algum acima de 70%</i>"]
+        A["🚨 ALERT<br/><i>algum acima de 85%</i>"]
+        C["❌ CRITICAL<br/><i>algum acima de 95%</i>"]
     end
 
     CPU --> CALC
@@ -166,6 +214,13 @@ flowchart LR
     CALC --> W
     CALC --> A
     CALC --> C
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class CALC,H androidNode
+    class A,C,W alertNode
+    class CPU,RAM,DISK,TEMP externalNode
 ```
 
 **Cenários cobertos:**
@@ -216,20 +271,41 @@ cd controller
 Os testes são executados automaticamente pelo GitHub Actions em cada push e pull request.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart TD
-    subgraph "agent-ci.yml"
-        A1["cargo fmt --check"] --> A2["cargo clippy -- -D warnings"]
-        A2 --> A3["cargo test"]
-        A3 --> A4["cargo build --release"]
+    subgraph agentCi["🦀 agent-ci.yml"]
+        A1["🧪 cargo fmt --check"] --> A2["🧪 cargo clippy -- -D warnings"]
+        A2 --> A3["🧪 cargo test"]
+        A3 --> A4["📦 cargo build --release"]
     end
 
-    subgraph "android-ci.yml"
-        B1["./gradlew assembleDebug"] --> B2["./gradlew lint"]
-        B2 --> B3["./gradlew test"]
+    subgraph androidCi["📱 android-ci.yml"]
+        B1["📦 ./gradlew assembleDebug"] --> B2["🧪 ./gradlew lint"]
+        B2 --> B3["🧪 ./gradlew test"]
     end
 
-    PUSH["Push / PR"] --> A1
+    PUSH["🐙 Push / PR"] --> A1
     PUSH --> B1
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class A1,A2,A3,A4 rustNode
+    class B1,B2,B3 androidNode
+    class PUSH externalNode
 ```
 
 ### Critérios de Aprovação

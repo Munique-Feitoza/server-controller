@@ -24,21 +24,35 @@
 O Pocket NOC utiliza **GitHub Actions** para automação de CI/CD. Existem 3 pipelines independentes que garantem qualidade em cada camada do sistema.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "Triggers"
+    subgraph triggers["🔧 Triggers"]
         PUSH["Push / PR"]
         TAG["Tag v*"]
     end
 
-    subgraph "Pipelines"
-        AGENT["agent-ci.yml<br/>(Rust)"]
-        ANDROID["android-ci.yml<br/>(Kotlin)"]
-        RELEASE["release.yml<br/>(Multi-artifact)"]
+    subgraph pipelines["🚀 Pipelines"]
+        AGENT["🦀 agent-ci.yml<br/><i>Rust</i>"]
+        ANDROID["📱 android-ci.yml<br/><i>Kotlin</i>"]
+        RELEASE["📦 release.yml<br/><i>Multi-artifact</i>"]
     end
 
-    subgraph "Artifacts"
-        BIN_x86["pocket-noc-agent<br/>(x86_64)"]
-        BIN_arm["pocket-noc-agent<br/>(aarch64)"]
+    subgraph artifacts["📦 Artifacts"]
+        BIN_x86["pocket-noc-agent<br/><i>x86_64</i>"]
+        BIN_arm["pocket-noc-agent<br/><i>aarch64</i>"]
         APK["PocketNOC.apk"]
         GH_RELEASE["GitHub Release"]
     end
@@ -51,6 +65,13 @@ graph LR
     AGENT --> BIN_arm
     ANDROID --> APK
     RELEASE --> GH_RELEASE
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class AGENT,BIN_x86,BIN_arm rustNode
+    class ANDROID,APK androidNode
+    class PUSH,TAG,RELEASE,GH_RELEASE externalNode
 ```
 
 ---
@@ -58,34 +79,52 @@ graph LR
 ## Arquitetura de CI/CD
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart TD
-    DEV["Desenvolvimento Local"] -->|"git push"| GH["GitHub"]
+    DEV["👤 Desenvolvimento Local"] -->|"git push"| GH["🐙 GitHub"]
 
-    GH --> CI_AGENT["agent-ci.yml"]
-    GH --> CI_ANDROID["android-ci.yml"]
+    GH --> CI_AGENT["🦀 agent-ci.yml"]
+    GH --> CI_ANDROID["📱 android-ci.yml"]
 
-    CI_AGENT --> FMT["cargo fmt --check"]
-    FMT --> CLIPPY["cargo clippy -D warnings"]
-    CLIPPY --> TEST_RUST["cargo test"]
-    TEST_RUST --> BUILD_x86["Build x86_64"]
-    TEST_RUST --> BUILD_arm["Build aarch64"]
+    CI_AGENT --> FMT["🧪 cargo fmt --check"]
+    FMT --> CLIPPY["🧪 cargo clippy -D warnings"]
+    CLIPPY --> TEST_RUST["🧪 cargo test"]
+    TEST_RUST --> BUILD_x86["📦 Build x86_64"]
+    TEST_RUST --> BUILD_arm["📦 Build aarch64"]
 
-    CI_ANDROID --> BUILD_APK["./gradlew assembleDebug"]
-    BUILD_APK --> LINT["./gradlew lint"]
-    LINT --> TEST_ANDROID["./gradlew test"]
+    CI_ANDROID --> BUILD_APK["📦 ./gradlew assembleDebug"]
+    BUILD_APK --> LINT["🧪 ./gradlew lint"]
+    LINT --> TEST_ANDROID["🧪 ./gradlew test"]
 
-    BUILD_x86 --> UPLOAD_AGENT["Upload Artifacts"]
+    BUILD_x86 --> UPLOAD_AGENT["📤 Upload Artifacts"]
     BUILD_arm --> UPLOAD_AGENT
-    TEST_ANDROID --> UPLOAD_APK["Upload APK (main only)"]
+    TEST_ANDROID --> UPLOAD_APK["📤 Upload APK (main only)"]
 
-    GH -->|"tag v*"| RELEASE["release.yml"]
-    RELEASE --> MULTI_BUILD["Build All Targets"]
-    MULTI_BUILD --> GH_RELEASE["Create GitHub Release"]
+    GH -->|"tag v*"| RELEASE["🚀 release.yml"]
+    RELEASE --> MULTI_BUILD["📦 Build All Targets"]
+    MULTI_BUILD --> GH_RELEASE["✅ Create GitHub Release"]
 
-    style FMT fill:#2a9d8f,color:#fff
-    style CLIPPY fill:#2a9d8f,color:#fff
-    style TEST_RUST fill:#2a9d8f,color:#fff
-    style TEST_ANDROID fill:#457b9d,color:#fff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef userNode fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#eff6ff
+    class DEV userNode
+    class GH,RELEASE,MULTI_BUILD,GH_RELEASE,UPLOAD_AGENT externalNode
+    class CI_AGENT,FMT,CLIPPY,TEST_RUST,BUILD_x86,BUILD_arm rustNode
+    class CI_ANDROID,BUILD_APK,LINT,TEST_ANDROID,UPLOAD_APK androidNode
 ```
 
 ---
@@ -98,15 +137,32 @@ flowchart TD
 ### Etapas
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    A["checkout"] --> B["Install Rust toolchain"]
-    B --> C["cargo fmt --check"]
-    C --> D["cargo clippy -- -D warnings"]
-    D --> E["cargo test"]
-    E --> F["Build x86_64-linux-gnu"]
-    E --> G["Build aarch64-linux-gnu"]
-    F --> H["Upload x86_64 artifact"]
-    G --> I["Upload aarch64 artifact"]
+    A["📥 checkout"] --> B["🦀 Install Rust toolchain"]
+    B --> C["🧪 cargo fmt --check"]
+    C --> D["🧪 cargo clippy -- -D warnings"]
+    D --> E["🧪 cargo test"]
+    E --> F["📦 Build x86_64-linux-gnu"]
+    E --> G["📦 Build aarch64-linux-gnu"]
+    F --> H["📤 Upload x86_64 artifact"]
+    G --> I["📤 Upload aarch64 artifact"]
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    class A,B,C,D,E,F,G,H,I rustNode
 ```
 
 | Etapa | Comando | Critério |
@@ -127,14 +183,31 @@ flowchart LR
 ### Etapas
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    A["checkout"] --> B["Setup JDK 17"]
-    B --> C["./gradlew assembleDebug"]
-    C --> D["./gradlew lint"]
-    D --> E["./gradlew test"]
+    A["📥 checkout"] --> B["☕ Setup JDK 17"]
+    B --> C["📦 ./gradlew assembleDebug"]
+    C --> D["🧪 ./gradlew lint"]
+    D --> E["🧪 ./gradlew test"]
     E --> F{"Branch é main?"}
-    F -->|Sim| G["Upload APK artifact"]
-    F -->|Não| H["Fim"]
+    F -->|Sim| G["📤 Upload APK artifact"]
+    F -->|Não| H["✅ Fim"]
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    class A,B,C,D,E,F,G,H androidNode
 ```
 
 | Etapa | Comando | Critério |
@@ -154,11 +227,12 @@ flowchart LR
 ### Fluxo de Release
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant Dev as Desenvolvedora
-    participant Git as GitHub
-    participant CI as GitHub Actions
-    participant Release as GitHub Releases
+    participant Dev as 👤 Desenvolvedora
+    participant Git as 🐙 GitHub
+    participant CI as 🚀 GitHub Actions
+    participant Release as 📦 GitHub Releases
 
     Dev->>Git: git tag v0.4.0 && git push --tags
     Git->>CI: Trigger release.yml
@@ -192,13 +266,14 @@ sequenceDiagram
 O script `deploy.sh` realiza o deploy completo em todos os servidores configurados.
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant Local as Máquina Local
-    participant Build as Cargo Build
-    participant S1 as server-1
-    participant S2 as server-2
-    participant S3 as server-3
-    participant S4 as server-4
+    participant Local as 💻 Máquina Local
+    participant Build as 🦀 Cargo Build
+    participant S1 as 🖥️ server-1
+    participant S2 as 🖥️ server-2
+    participant S3 as 🖥️ server-3
+    participant S4 as 🖥️ server-4
 
     Local->>Build: cargo build --release --target x86_64-unknown-linux-musl
     Build-->>Local: pocket-noc-agent (static binary, ~4MB)
@@ -245,23 +320,37 @@ chmod +x deploy.sh
 ### Servidores
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Produção"
-        S1["server-1<br/>192.0.2.10<br/>SSH: 22"]
-        S2["server-2<br/>192.0.2.20<br/>SSH: 22"]
-        S3["server-3<br/>192.0.2.30<br/>SSH: 2222"]
-        S4["server-4<br/>192.0.2.40<br/>SSH: 22"]
+    subgraph prod["🐧 Produção"]
+        S1["🖥️ server-1<br/><i>192.0.2.10 · SSH 22</i>"]
+        S2["🖥️ server-2<br/><i>192.0.2.20 · SSH 22</i>"]
+        S3["🖥️ server-3<br/><i>192.0.2.30 · SSH 2222</i>"]
+        S4["🖥️ server-4<br/><i>192.0.2.40 · SSH 22</i>"]
     end
 
-    subgraph "Gerenciamento"
-        RC["Hosting<br/>(Server Management)"]
-        USER["SSH User: deploy"]
+    subgraph mgmt["🔧 Gerenciamento"]
+        RC["☁️ Hosting<br/><i>Server Management</i>"]
+        USER["👤 SSH User: deploy"]
     end
 
-    subgraph "Agente"
+    subgraph agentSg["🦀 Agente"]
         BIN["/usr/local/bin/pocket-noc-agent"]
-        SVC["systemd: pocket-noc-agent.service"]
-        ENV["/etc/pocket-noc/.env"]
+        SVC["⚙️ systemd: pocket-noc-agent.service"]
+        ENV["🔧 /etc/pocket-noc/.env"]
     end
 
     RC --> S1
@@ -272,6 +361,15 @@ graph TB
     S1 --> BIN
     S1 --> SVC
     S1 --> ENV
+
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef userNode fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#eff6ff
+    class S1,S2,S3,S4 kernelNode
+    class BIN,SVC,ENV rustNode
+    class RC externalNode
+    class USER userNode
 ```
 
 | Servidor | IP | Porta SSH | Role |
@@ -308,6 +406,7 @@ ssh deploy@host "sudo systemctl status pocket-noc-agent"
 O agente reinicia em **< 1 segundo** (binário estático, sem warmup). O systemd garante `Restart=always` com `RestartSec=10`, minimizando o impacto de qualquer falha durante o deploy.
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "lineColor": "#64748b" } }}%%
 timeline
     title Timeline de Deploy
     0s : pkill agent

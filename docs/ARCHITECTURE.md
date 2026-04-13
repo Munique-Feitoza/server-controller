@@ -62,54 +62,61 @@ C4Context
 ## Diagrama de Componentes
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "App Android — Controller"
-        UI["UI Layer<br/>(Jetpack Compose)"]
-        VM["ViewModels<br/>(MVVM)"]
-        REPO["ServerRepository"]
-        API_SVC["AgentApiService<br/>(Retrofit)"]
-        DASH_SVC["DashboardApiService"]
-        SSH["SshTunnelManager<br/>(JSch)"]
-        DB["Room Database"]
-        SEC_STORE["SecureTokenManager<br/>(EncryptedSharedPrefs)"]
-        BIO["BiometricAuthManager"]
+    subgraph android["📱 App Android — Controller"]
+        direction TB
+        UI["🎨 UI Layer<br/><i>Jetpack Compose</i>"]
+        VM["🧩 ViewModels<br/><i>MVVM</i>"]
+        REPO["🗄️ ServerRepository"]
+        API_SVC["🌐 AgentApiService<br/><i>Retrofit</i>"]
+        DASH_SVC["📊 DashboardApiService"]
+        SSH["🔐 SshTunnelManager<br/><i>JSch</i>"]
+        DB[("💾 Room Database")]
+        SEC_STORE[("🔑 SecureTokenManager<br/><i>EncryptedSharedPrefs</i>")]
+        BIO["👆 BiometricAuthManager"]
 
-        UI --> VM
-        VM --> REPO
-        REPO --> API_SVC
-        REPO --> DASH_SVC
-        REPO --> DB
+        UI --> VM --> REPO
+        REPO --> API_SVC & DASH_SVC & DB
         API_SVC --> SSH
         SEC_STORE --> SSH
         BIO --> UI
     end
 
-    subgraph "Agente Rust — Por Servidor"
-        MAIN["main.rs<br/>(Axum + Tokio)"]
-        MW["Middleware Stack<br/>(JWT + Rate Limit + Security)"]
-        HANDLERS["API Handlers<br/>(25+ endpoints)"]
-        TELEM["TelemetryCollector<br/>(Cache L1 5s)"]
-        WATCHDOG["WatchdogEngine<br/>(Loop 30s)"]
-        ALERT["AlertManager<br/>(Dedup 30min)"]
-        SECURITY["ThreatTracker<br/>(Honeypot + ZipBomb)"]
-        AUDIT["AuditLog<br/>(Ring Buffer 1000)"]
-        CMD["CommandExecutor<br/>(Whitelist)"]
-        NOTIF["ntfy.sh Client<br/>(Retry + Backoff)"]
+    subgraph agent["🦀 Agente Rust — Por Servidor"]
+        direction TB
+        MAIN["⚙️ main.rs<br/><i>Axum + Tokio</i>"]
+        MW["🛡️ Middleware Stack<br/><i>JWT · Rate Limit · Security</i>"]
+        HANDLERS["🔌 API Handlers<br/><i>25+ endpoints</i>"]
+        TELEM["📈 TelemetryCollector<br/><i>Cache L1 · 5s</i>"]
+        WATCHDOG["🐕 WatchdogEngine<br/><i>Loop · 30s</i>"]
+        ALERT["🚨 AlertManager<br/><i>Dedup · 30min</i>"]
+        SECURITY["🕵️ ThreatTracker<br/><i>Honeypot · ZipBomb</i>"]
+        AUDIT["📜 AuditLog<br/><i>Ring Buffer · 1000</i>"]
+        CMD["⚡ CommandExecutor<br/><i>Whitelist</i>"]
+        NOTIF["📣 ntfy.sh Client<br/><i>Retry · Backoff</i>"]
 
         MAIN --> MW --> HANDLERS
-        HANDLERS --> TELEM
-        HANDLERS --> WATCHDOG
-        HANDLERS --> SECURITY
-        HANDLERS --> AUDIT
-        HANDLERS --> CMD
-        TELEM --> ALERT
-        ALERT --> NOTIF
+        HANDLERS --> TELEM & WATCHDOG & SECURITY & AUDIT & CMD
+        TELEM --> ALERT --> NOTIF
         WATCHDOG --> NOTIF
     end
 
-    SSH -->|"localhost:9443"| MW
-
-    subgraph "Linux Kernel / Sistema"
+    subgraph kernel["🐧 Linux Kernel / Sistema"]
+        direction LR
         PROC["/proc/stat<br/>/proc/meminfo"]
         SYS["/sys/class/hwmon"]
         SYSTEMD["systemctl"]
@@ -117,11 +124,22 @@ graph TB
         JOURNAL["journalctl"]
     end
 
-    TELEM --> PROC
-    TELEM --> SYS
+    SSH ==>|"localhost:9443<br/>TLS + JWT"| MW
+
+    TELEM --> PROC & SYS
     WATCHDOG --> SYSTEMD
     SECURITY --> IPTABLES
     HANDLERS --> JOURNAL
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+
+    class UI,VM,REPO,API_SVC,DASH_SVC,SSH,BIO androidNode
+    class DB,SEC_STORE storeNode
+    class MAIN,MW,HANDLERS,TELEM,WATCHDOG,ALERT,SECURITY,AUDIT,CMD,NOTIF rustNode
+    class PROC,SYS,SYSTEMD,IPTABLES,JOURNAL kernelNode
 ```
 
 ---
@@ -145,19 +163,33 @@ graph TB
 ### Diagrama de Pacotes
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "agent/src/"
-        main["main.rs<br/><i>Entry point + server init</i>"]
-        lib["lib.rs<br/><i>Module declarations</i>"]
+    subgraph src["🦀 agent/src/"]
+        main["⚙️ main.rs<br/><i>Entry point + server init</i>"]
+        lib["📦 lib.rs<br/><i>Module declarations</i>"]
 
-        subgraph "api/"
+        subgraph apiPkg["🔌 api/"]
             handlers["handlers.rs<br/><i>25+ REST endpoints</i>"]
-            middleware["middleware.rs<br/><i>JWT + Security</i>"]
+            middleware["🛡️ middleware.rs<br/><i>JWT + Security</i>"]
             rate_limit["rate_limit.rs<br/><i>Rate limiting por IP</i>"]
             websocket["websocket.rs<br/><i>WebSocket support</i>"]
         end
 
-        subgraph "telemetry/"
+        subgraph telemPkg["📈 telemetry/"]
             telem_mod["mod.rs<br/><i>TelemetryCollector</i>"]
             cpu["cpu.rs"]
             memory["memory.rs"]
@@ -166,14 +198,14 @@ graph LR
             network["network.rs"]
             security_tel["security.rs"]
             processes["processes.rs"]
-            alerts["alerts.rs<br/><i>AlertManager</i>"]
+            alerts["🚨 alerts.rs<br/><i>AlertManager</i>"]
             phpfpm["phpfpm.rs"]
             docker["docker.rs"]
             backup["backup.rs"]
             ssl["ssl.rs"]
         end
 
-        subgraph "watchdog/"
+        subgraph wdPkg["🐕 watchdog/"]
             wd_mod["mod.rs<br/><i>WatchdogEngine</i>"]
             probes["probes.rs<br/><i>HTTP/TCP/Systemctl</i>"]
             cb["circuit_breaker.rs"]
@@ -181,31 +213,36 @@ graph LR
             event["event.rs<br/><i>Ring Buffer 500</i>"]
         end
 
-        subgraph "security/"
+        subgraph secPkg["🕵️ security/"]
             sec_mod["mod.rs<br/><i>ThreatTracker</i>"]
             incidents["incidents.rs<br/><i>IncidentStore</i>"]
             intel["intel.rs<br/><i>GeoIP + Bot detect</i>"]
         end
 
-        auth["auth/mod.rs<br/><i>JWT HS256</i>"]
-        commands["commands/mod.rs<br/><i>Whitelist executor</i>"]
-        audit["audit.rs<br/><i>Ring Buffer 1000</i>"]
+        auth["🔑 auth/mod.rs<br/><i>JWT HS256</i>"]
+        commands["⚡ commands/mod.rs<br/><i>Whitelist executor</i>"]
+        audit["📜 audit.rs<br/><i>Ring Buffer 1000</i>"]
         services["services/mod.rs<br/><i>Systemd monitor</i>"]
-        notifications["notifications/<br/><i>ntfy.sh client</i>"]
+        notifications["📣 notifications/<br/><i>ntfy.sh client</i>"]
     end
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class main,lib,handlers,middleware,rate_limit,websocket,telem_mod,cpu,memory,disk,temperature,network,security_tel,processes,alerts,phpfpm,docker,backup,ssl,wd_mod,probes,cb,remediation,event,sec_mod,incidents,intel,auth,commands,audit,services,notifications rustNode
 ```
 
 ### Ciclo de Vida do Agente
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant Startup as main.rs
-    participant JWT as JwtConfig
-    participant Server as Axum Server
-    participant Telem as TelemetryCollector
-    participant Alert as AlertManager
-    participant WD as WatchdogEngine
-    participant SSL as SSL Checker
+    participant Startup as ⚙️ main.rs
+    participant JWT as 🔑 JwtConfig
+    participant Server as 🔌 Axum Server
+    participant Telem as 📈 TelemetryCollector
+    participant Alert as 🚨 AlertManager
+    participant WD as 🐕 WatchdogEngine
+    participant SSL as 🔐 SSL Checker
 
     Startup->>JWT: Carrega POCKET_NOC_SECRET (≥32 bytes)
     JWT-->>Startup: Config validada
@@ -235,8 +272,22 @@ sequenceDiagram
 ### Padrão MVVM
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "View Layer — Jetpack Compose"
+    subgraph viewLayer["🎨 View Layer — Jetpack Compose"]
         Dashboard["DashboardScreen"]
         ServerList["ServerListScreen"]
         ServerDetails["ServerDetailsScreen"]
@@ -253,23 +304,23 @@ graph TB
         Config["AgentConfigScreen"]
         Export["ExportScreen"]
         Login["LoginScreen"]
-        Biometric["BiometricGateScreen"]
+        Biometric["👆 BiometricGateScreen"]
         Splash["SplashScreen"]
     end
 
-    subgraph "ViewModel Layer"
+    subgraph vmLayer["🧩 ViewModel Layer"]
         DashVM["DashboardViewModel"]
         SecVM["SecurityViewModel"]
         WdVM["WatchdogViewModel"]
     end
 
-    subgraph "Data Layer"
+    subgraph dataLayer["🗄️ Data Layer"]
         Repo["ServerRepository"]
-        AgentAPI["AgentApiService<br/>(Retrofit)"]
-        DashAPI["DashboardApiService"]
-        RoomDB["AppDatabase<br/>(Room)"]
-        Prefs["SecureTokenManager"]
-        SSHTunnel["SshTunnelManager"]
+        AgentAPI["🌐 AgentApiService<br/><i>Retrofit</i>"]
+        DashAPI["📊 DashboardApiService"]
+        RoomDB[("💾 AppDatabase<br/><i>Room</i>")]
+        Prefs[("🔑 SecureTokenManager")]
+        SSHTunnel["🔐 SshTunnelManager"]
     end
 
     Dashboard --> DashVM
@@ -284,8 +335,13 @@ graph TB
     Repo --> AgentAPI
     Repo --> DashAPI
     Repo --> RoomDB
-    AgentAPI --> SSHTunnel
+    AgentAPI ==> SSHTunnel
     SSHTunnel --> Prefs
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class Dashboard,ServerList,ServerDetails,Security,Watchdog,PhpFpm,SSL,Actions,Processes,Logs,Alerts,History,AuditLog,Config,Export,Login,Biometric,Splash,DashVM,SecVM,WdVM,Repo,AgentAPI,DashAPI,SSHTunnel androidNode
+    class RoomDB,Prefs storeNode
 ```
 
 ### Diagrama de Navegação
@@ -293,6 +349,20 @@ graph TB
 A Dashboard expõe **todas** as telas de deep-dive diretamente pelo menu hamburger (antes elas só eram acessíveis passando por `ServerListScreen → ServerDetailsScreen`, o que deixava várias telas órfãs). `WatchdogScreen` está embedded como aba na Dashboard e **não** aparece no menu (evita duplicação).
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 stateDiagram-v2
     [*] --> Splash
     Splash --> Login: App inicializado
@@ -324,14 +394,15 @@ stateDiagram-v2
 ## Fluxo de Dados de Telemetria
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant User as App Android
-    participant SSH as SSH Tunnel (JSch)
-    participant MW as Middleware Stack
-    participant Handler as GET /telemetry
-    participant Cache as TelemetryCollector
-    participant Kernel as Linux Kernel
-    participant Ntfy as ntfy.sh
+    participant User as 📱 App Android
+    participant SSH as 🔐 SSH Tunnel (JSch)
+    participant MW as 🛡️ Middleware Stack
+    participant Handler as 🔌 GET /telemetry
+    participant Cache as 📈 TelemetryCollector
+    participant Kernel as 🐧 Linux Kernel
+    participant Ntfy as 📣 ntfy.sh
 
     User->>SSH: GET /telemetry (JWT Bearer)
     SSH->>MW: Forward → localhost:9443
@@ -376,6 +447,20 @@ sequenceDiagram
 ### Diagrama de Estados do Circuit Breaker
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 stateDiagram-v2
     [*] --> Closed: Estado inicial
 
@@ -408,42 +493,62 @@ stateDiagram-v2
 ### Fluxo Completo do Watchdog
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart TD
-    A["⏱ Loop 30s"] --> B["Seleciona probes por SERVER_ROLE"]
+    A["⏱ Loop 30s"] --> B["🐕 Seleciona probes por SERVER_ROLE"]
 
     B --> C{"Tipo de Probe"}
-    C -->|HTTP| D["GET endpoint + timeout"]
-    C -->|TCP| E["Socket connect + timeout"]
-    C -->|Systemctl| F["systemctl show → ActiveState"]
+    C -->|HTTP| D["🌐 GET endpoint + timeout"]
+    C -->|TCP| E["🔌 Socket connect + timeout"]
+    C -->|Systemctl| F["⚙️ systemctl show → ActiveState"]
 
     D --> G{"Resultado"}
     E --> G
     F --> G
 
-    G -->|"✓ Sucesso"| H["CircuitBreaker.record_success()"]
-    G -->|"✗ Falha"| I["CircuitBreaker.record_failure()"]
+    G -->|"✅ Sucesso"| H["CircuitBreaker.record_success()"]
+    G -->|"❌ Falha"| I["CircuitBreaker.record_failure()"]
 
     H --> J{"Estado anterior era Open?"}
     J -->|Sim| K["Transição → HalfOpen → Closed"]
-    K --> L["📱 Notifica: serviço recuperado"]
+    K --> L["🔔 Notifica: serviço recuperado"]
     J -->|Não| M["Nenhuma ação"]
 
     I --> N{"failures ≥ max_failures?"}
-    N -->|Não| O["Evento: Failing"]
+    N -->|Não| O["⚠️ Evento: Failing"]
     N -->|Sim| P{"CircuitBreaker já Open?"}
 
     P -->|Não| Q["Transição → Open"]
-    Q --> R["📱 Notifica ntfy (1x)"]
+    Q ==> R["🚨 Notifica ntfy (1x)"]
     Q --> S["Bloqueia remediações por cooldown_secs"]
     P -->|Sim| T["Aguarda cooldown expirar"]
 
-    O --> U["RemediationEngine"]
+    O --> U["⚡ RemediationEngine"]
     U --> V["systemctl restart <service>"]
-    V --> W["Registra WatchdogEvent no ring buffer"]
+    V --> W["📜 Registra WatchdogEvent no ring buffer"]
 
-    style A fill:#1a1a2e,color:#fff
-    style R fill:#e63946,color:#fff
-    style L fill:#2a9d8f,color:#fff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+
+    class A,B,H,I,J,K,L,M,N,O,P,Q,S,T,U,W rustNode
+    class R alertNode
+    class D,E,F,V kernelNode
+    class C,G externalNode
 ```
 
 ### Roles de Servidor e Probes
@@ -493,12 +598,13 @@ Parsing em [agent/src/watchdog/probes.rs](../agent/src/watchdog/probes.rs) (`loa
 ### Fluxo de Detecção e Resposta
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant Attacker as Atacante
-    participant MW as Middleware
-    participant Tracker as ThreatTracker
-    participant IPTables as iptables
-    participant Store as IncidentStore
+    participant Attacker as 🤖 Atacante
+    participant MW as 🛡️ Middleware
+    participant Tracker as 🕵️ ThreatTracker
+    participant IPTables as 🔥 iptables
+    participant Store as 📜 IncidentStore
 
     Attacker->>MW: GET /wp-admin (sem JWT)
     MW->>Tracker: is_honeypot_path("/wp-admin") → true
@@ -526,20 +632,34 @@ sequenceDiagram
 O agente utiliza o runtime assíncrono **Tokio** com compartilhamento de estado via `Arc<Mutex<T>>`.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "Tokio Runtime (multi-thread)"
-        HTTP["HTTP Server<br/>(Axum)"]
-        AlertLoop["Alert Loop<br/>(60s spawn)"]
-        WDLoop["Watchdog Loop<br/>(30s spawn)"]
-        SSLLoop["SSL Check Loop<br/>(6h spawn)"]
+    subgraph runtime["🦀 Tokio Runtime (multi-thread)"]
+        HTTP["🔌 HTTP Server<br/><i>Axum</i>"]
+        AlertLoop["🚨 Alert Loop<br/><i>60s spawn</i>"]
+        WDLoop["🐕 Watchdog Loop<br/><i>30s spawn</i>"]
+        SSLLoop["🔐 SSL Check Loop<br/><i>6h spawn</i>"]
     end
 
-    subgraph "Estado Compartilhado (Arc<Mutex<T>>)"
-        TC["TelemetryCollector<br/><i>Cache L1 + sysinfo</i>"]
-        AM["AlertManager<br/><i>Thresholds + cooldowns</i>"]
-        WES["WatchdogEventStore<br/><i>Ring buffer 500</i>"]
-        AL["AuditLog<br/><i>Ring buffer 1000</i>"]
-        TT["ThreatTracker<br/><i>Contadores por IP</i>"]
+    subgraph shared["💾 Estado Compartilhado — Arc&lt;Mutex&lt;T&gt;&gt;"]
+        TC[("📈 TelemetryCollector<br/><i>Cache L1 + sysinfo</i>")]
+        AM[("🚨 AlertManager<br/><i>Thresholds + cooldowns</i>")]
+        WES[("🐕 WatchdogEventStore<br/><i>Ring buffer 500</i>")]
+        AL[("📜 AuditLog<br/><i>Ring buffer 1000</i>")]
+        TT[("🕵️ ThreatTracker<br/><i>Contadores por IP</i>")]
     end
 
     HTTP --> TC
@@ -553,11 +673,10 @@ graph LR
 
     WDLoop --> WES
 
-    style TC fill:#264653,color:#fff
-    style AM fill:#2a9d8f,color:#fff
-    style WES fill:#e9c46a,color:#000
-    style AL fill:#f4a261,color:#000
-    style TT fill:#e76f51,color:#fff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class HTTP,AlertLoop,WDLoop,SSLLoop rustNode
+    class TC,AM,WES,AL,TT storeNode
 ```
 
 **Decisões de concorrência:**
@@ -573,37 +692,59 @@ graph LR
 ## Integrações Externas
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Pocket NOC Agent"
-        Agent[Agente Rust]
+    subgraph pocket["🦀 Pocket NOC Agent"]
+        Agent["⚙️ Agente Rust"]
     end
 
-    subgraph "Dashboard ERP (FastAPI)"
+    subgraph erp["📊 Dashboard ERP — FastAPI"]
         Webhook["POST /webhook/security"]
         Incidents["GET /security/incidents"]
     end
 
-    subgraph "ntfy.sh"
-        Push["Push Notifications"]
+    subgraph ntfySg["📣 ntfy.sh"]
+        Push["🔔 Push Notifications"]
     end
 
-    subgraph "Cloudflare"
-        WAF["WAF Rules"]
+    subgraph cf["☁️ Cloudflare"]
+        WAF["🛡️ WAF Rules"]
         DNS["DNS Management"]
     end
 
-    subgraph "Linux"
-        IPT["iptables"]
-        Systemd["systemctl"]
-        Journal["journalctl"]
+    subgraph linux["🐧 Linux"]
+        IPT["🔥 iptables"]
+        Systemd["⚙️ systemctl"]
+        Journal["📜 journalctl"]
     end
 
-    Dashboard_ERP["Dashboard ERP"] -->|"Incidentes de segurança"| Webhook
-    Agent -->|"Alertas (CPU, RAM, Disco)"| Push
+    Dashboard_ERP["📊 Dashboard ERP"] -->|"Incidentes de segurança"| Webhook
+    Agent ==>|"Alertas (CPU, RAM, Disco)"| Push
     Agent -->|"Bloqueio de IP"| IPT
     Agent -->|"Restart de serviços"| Systemd
     Agent -->|"Leitura de logs"| Journal
     Agent -.->|"Futuro: ban via API"| WAF
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+
+    class Agent rustNode
+    class Webhook,Incidents,Push,WAF,DNS,Dashboard_ERP externalNode
+    class IPT,Systemd,Journal kernelNode
 ```
 
 ---

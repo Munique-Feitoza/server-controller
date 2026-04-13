@@ -14,35 +14,58 @@ Solução completa de **monitoramento**, **segurança** e **gestão de infraestr
 ## Arquitetura
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "📱 Controller Android"
-        APP["Jetpack Compose + MVVM<br/>17 telas | Dark/Light mode<br/>Biometria | Widget"]
+    subgraph controller["📱 Controller Android"]
+        APP["🎨 Jetpack Compose + MVVM<br/><i>17 telas · Dark/Light · Biometria · Widget</i>"]
     end
 
-    subgraph "🔒 Camada de Segurança"
-        SSH["SSH Tunnel<br/>(AES-256 / ChaCha20)"]
-        JWT["JWT Auth<br/>(HS256, ≥32 bytes)"]
+    subgraph secLayer["🛡️ Camada de Segurança"]
+        SSH["🔐 SSH Tunnel<br/><i>AES-256 / ChaCha20</i>"]
+        JWT["🔑 JWT Auth<br/><i>HS256, ≥32 bytes</i>"]
     end
 
-    subgraph "⚙️ Agentes Rust (por servidor)"
-        AGENT["Axum + Tokio<br/>25+ endpoints REST<br/>~4 MB binary"]
-        TELEM["Telemetria<br/>(CPU, RAM, Disco, Rede, Temp)"]
-        WD["WatchdogEngine<br/>(Auto-remediação)"]
-        SEC["Defesa Ativa<br/>(Honeypot + ZIP bomb)"]
+    subgraph agents["🦀 Agentes Rust — por servidor"]
+        AGENT["⚙️ Axum + Tokio<br/><i>25+ endpoints REST · ~4 MB binary</i>"]
+        TELEM["📈 Telemetria<br/><i>CPU, RAM, Disco, Rede, Temp</i>"]
+        WD["🐕 WatchdogEngine<br/><i>Auto-remediação</i>"]
+        SEC["🕵️ Defesa Ativa<br/><i>Honeypot + ZIP bomb</i>"]
     end
 
-    subgraph "🌐 Integrações"
-        ERP["Dashboard ERP<br/>(FastAPI)"]
-        NTFY["ntfy.sh<br/>(Push alerts)"]
-        LINUX["Linux Kernel<br/>(/proc, systemctl, iptables)"]
+    subgraph integrations["🌐 Integrações"]
+        ERP["📊 Dashboard ERP<br/><i>FastAPI</i>"]
+        NTFY["📣 ntfy.sh<br/><i>Push alerts</i>"]
+        LINUX["🐧 Linux Kernel<br/><i>/proc, systemctl, iptables</i>"]
     end
 
-    APP --> SSH --> JWT --> AGENT
+    APP ==> SSH ==> JWT ==> AGENT
     AGENT --> TELEM --> LINUX
     AGENT --> WD --> LINUX
     AGENT --> SEC --> LINUX
     ERP -->|webhook| AGENT
     AGENT -->|alertas| NTFY
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class APP androidNode
+    class SSH,JWT,AGENT,TELEM,WD,SEC rustNode
+    class LINUX kernelNode
+    class ERP,NTFY externalNode
 ```
 
 ---

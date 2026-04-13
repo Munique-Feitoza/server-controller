@@ -744,12 +744,26 @@ Atualiza configuração do agente em runtime. Campos omitidos mantêm valores at
 ## Mapa de Endpoints
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph LR
-    subgraph "Sem Auth"
+    subgraph noAuth["🔓 Sem Auth"]
         H["GET /health"]
     end
 
-    subgraph "Leitura"
+    subgraph reads["📥 Leitura"]
         T["GET /telemetry"]
         A["GET /alerts"]
         P["GET /processes"]
@@ -768,7 +782,7 @@ graph LR
         CFG["GET /config"]
     end
 
-    subgraph "Escrita"
+    subgraph writes["📤 Escrita"]
         AC["POST /alerts/config"]
         DP["DELETE /processes/:pid"]
         CE["POST /commands/:id"]
@@ -779,6 +793,13 @@ graph LR
         DA["DELETE /audit/logs"]
         CP["POST /config"]
     end
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    class H externalNode
+    class T,A,P,S,L,C,M,WE,WB,AL,D,SSL,PHP,BK,SI,CFG rustNode
+    class AC,DP,CE,BI,WH,WR,DW,DA,CP alertNode
 ```
 
 ---

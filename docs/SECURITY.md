@@ -32,8 +32,22 @@ A segurança no Pocket NOC não é um complemento — é o alicerce. Como o sist
 ### Atores de Ameaça
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TD
-    subgraph "Atores de Ameaça"
+    subgraph threats["⚠️ Atores de Ameaça"]
         A1["🤖 Scanners Automatizados<br/><i>Bots varrendo portas e paths</i>"]
         A2["🎯 Atacante Direcionado<br/><i>Brute force SSH/JWT</i>"]
         A3["📱 Dispositivo Comprometido<br/><i>Roubo do celular</i>"]
@@ -41,12 +55,12 @@ graph TD
         A5["🌐 Man-in-the-Middle<br/><i>Interceptação de tráfego</i>"]
     end
 
-    subgraph "Controles"
-        C1["Stealth Bind<br/>(localhost-only)"]
-        C2["SSH Tunnel<br/>(AES-256/ChaCha20)"]
-        C3["Biometria<br/>(Android)"]
-        C4["JWT com Expiração<br/>(1h padrão)"]
-        C5["Honeypot + Auto-ban"]
+    subgraph controls["🛡️ Controles"]
+        C1["🔒 Stealth Bind<br/><i>localhost-only</i>"]
+        C2["🔐 SSH Tunnel<br/><i>AES-256 / ChaCha20</i>"]
+        C3["👆 Biometria<br/><i>Android</i>"]
+        C4["🔑 JWT com Expiração<br/><i>1h padrão</i>"]
+        C5["🕵️ Honeypot + Auto-ban"]
     end
 
     A1 -->|"Mitigado por"| C1
@@ -56,6 +70,13 @@ graph TD
     A3 -->|"Mitigado por"| C3
     A4 -->|"Mitigado por"| C4
     A5 -->|"Mitigado por"| C2
+
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    class A1,A2,A3,A4,A5 alertNode
+    class C1,C2,C4,C5 rustNode
+    class C3 androidNode
 ```
 
 ### Superfície de Ataque
@@ -76,38 +97,53 @@ graph TD
 O sistema implementa **5 camadas de defesa** independentes. A falha de qualquer camada individual não compromete o sistema.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "Camada 1 — Perímetro"
+    subgraph cam1["🔒 Camada 1 — Perímetro"]
         L1["Stealth Bind<br/>127.0.0.1:9443<br/><i>Invisível na internet</i>"]
     end
 
-    subgraph "Camada 2 — Transporte"
+    subgraph cam2["🔐 Camada 2 — Transporte"]
         L2["SSH Tunnel<br/>AES-256 / ChaCha20<br/><i>Criptografia fim-a-fim</i>"]
     end
 
-    subgraph "Camada 3 — Aplicação"
+    subgraph cam3["🔑 Camada 3 — Aplicação"]
         L3["JWT Auth (HS256)<br/>Secret ≥ 32 bytes<br/><i>Autenticação por request</i>"]
     end
 
-    subgraph "Camada 4 — Defesa Ativa"
+    subgraph cam4["🕵️ Camada 4 — Defesa Ativa"]
         L4["Honeypot + ThreatTracker<br/>ZIP Bomb + Auto-ban<br/><i>Detecção e resposta</i>"]
     end
 
-    subgraph "Camada 5 — Dados"
+    subgraph cam5["💾 Camada 5 — Dados"]
         L5["EncryptedSharedPrefs<br/>Android KeyStore<br/><i>Criptografia em repouso</i>"]
     end
 
-    Internet["🌐 Internet"] --> L1
+    Internet["🌐 Internet"] ==> L1
     L1 --> L2
     L2 --> L3
     L3 --> L4
     L4 --> L5
 
-    style L1 fill:#e63946,color:#fff
-    style L2 fill:#457b9d,color:#fff
-    style L3 fill:#2a9d8f,color:#fff
-    style L4 fill:#e9c46a,color:#000
-    style L5 fill:#264653,color:#fff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class L1,L2,L3,L4 rustNode
+    class L5 storeNode
+    class Internet externalNode
 ```
 
 ### Camada 1: Stealth Bind (Perímetro)
@@ -161,12 +197,13 @@ Ver seção [Proteção de Segredos no Mobile](#proteção-de-segredos-no-mobile
 ### Fluxo de Autenticação
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#334155", "actorBkg": "#1e293b", "actorBorder": "#475569", "actorTextColor": "#f8fafc", "signalColor": "#94a3b8", "signalTextColor": "#e2e8f0", "noteBkgColor": "#334155", "noteTextColor": "#f1f5f9", "noteBorderColor": "#64748b" } }}%%
 sequenceDiagram
-    participant App as App Android
-    participant JWT as JwtUtils
-    participant SSH as SSH Tunnel
-    participant MW as Middleware
-    participant Handler as Handler
+    participant App as 📱 App Android
+    participant JWT as 🔑 JwtUtils
+    participant SSH as 🔐 SSH Tunnel
+    participant MW as 🛡️ Middleware
+    participant Handler as 🔌 Handler
 
     App->>JWT: Gera token (secret + claims)
     JWT-->>App: Bearer token (HS256)
@@ -210,29 +247,48 @@ O middleware intercepta requisições a **30+ paths falsos** comumente explorado
 ### Fluxo de Detecção e Resposta
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart TD
-    REQ["Requisição HTTP"] --> PATH{"Path é honeypot?"}
+    REQ["🌐 Requisição HTTP"] --> PATH{"Path é honeypot?"}
 
-    PATH -->|Não| JWT{"JWT válido?"}
-    JWT -->|Sim| HANDLER["Processa normalmente"]
-    JWT -->|Não| DENY["401 Unauthorized<br/><i>NÃO conta para ban</i>"]
+    PATH -->|Não| JWT{"🔑 JWT válido?"}
+    JWT -->|Sim| HANDLER["✅ Processa normalmente"]
+    JWT -->|Não| DENY["❌ 401 Unauthorized<br/><i>NÃO conta para ban</i>"]
 
-    PATH -->|Sim| TRACK["ThreatTracker: incrementa IP"]
-    TRACK --> SAFE{"IP é seguro?<br/>(localhost, 10.*, 192.168.*, 172.16-17.*)"}
+    PATH -->|Sim| TRACK["🕵️ ThreatTracker: incrementa IP"]
+    TRACK --> SAFE{"IP é seguro?<br/><i>localhost, 10.*, 192.168.*, 172.16-17.*</i>"}
 
-    SAFE -->|Sim| LOG["Apenas registra log"]
+    SAFE -->|Sim| LOG["📜 Apenas registra log"]
 
     SAFE -->|Não| COUNT{"Tentativas ≥ 5?"}
-    COUNT -->|"< 5"| MONITOR["404 Not Found<br/><i>Continua monitorando</i>"]
+    COUNT -->|"< 5"| MONITOR["⚠️ 404 Not Found<br/><i>Continua monitorando</i>"]
 
-    COUNT -->|"≥ 5"| BAN["IP BANIDO"]
-    BAN --> IPTABLES["iptables -I INPUT -s IP -j DROP"]
-    BAN --> ZIPBOMB["Serve ZIP bomb (50MB gzip)"]
-    BAN --> INCIDENT["Registra incidente"]
+    COUNT -->|"≥ 5"| BAN["🚨 IP BANIDO"]
+    BAN ==> IPTABLES["🔥 iptables -I INPUT -s IP -j DROP"]
+    BAN --> ZIPBOMB["💣 Serve ZIP bomb (50MB gzip)"]
+    BAN --> INCIDENT["📜 Registra incidente"]
 
-    style BAN fill:#e63946,color:#fff
-    style HANDLER fill:#2a9d8f,color:#fff
-    style LOG fill:#457b9d,color:#fff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class HANDLER,TRACK,LOG,MONITOR,ZIPBOMB,INCIDENT,DENY rustNode
+    class BAN alertNode
+    class IPTABLES kernelNode
+    class REQ,PATH,JWT,SAFE,COUNT externalNode
 ```
 
 ### Parâmetros do ThreatTracker
@@ -252,20 +308,34 @@ flowchart TD
 ### Diagrama de Armazenamento Seguro
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 graph TB
-    subgraph "App Android"
-        Token["JWT Secret"]
-        SSHKey["Chave SSH Privada"]
-        Creds["Credenciais de servidor"]
+    subgraph app["📱 App Android"]
+        Token["🔑 JWT Secret"]
+        SSHKey["🔐 Chave SSH Privada"]
+        Creds["🔑 Credenciais de servidor"]
     end
 
-    subgraph "SecureTokenManager"
-        ESP["EncryptedSharedPreferences"]
+    subgraph stm["🗄️ SecureTokenManager"]
+        ESP[("💾 EncryptedSharedPreferences")]
     end
 
-    subgraph "Android KeyStore"
-        MK["Master Key (AES-256-GCM)"]
-        HW["Hardware-backed<br/>(se disponível)"]
+    subgraph ks["🛡️ Android KeyStore"]
+        MK[("🔑 Master Key<br/><i>AES-256-GCM</i>")]
+        HW["🔒 Hardware-backed<br/><i>se disponível</i>"]
     end
 
     Token --> ESP
@@ -273,6 +343,11 @@ graph TB
     Creds --> ESP
     ESP --> MK
     MK --> HW
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class Token,SSHKey,Creds,HW androidNode
+    class ESP,MK storeNode
 ```
 
 **Medidas implementadas:**
@@ -294,16 +369,37 @@ graph TB
 O Action Center opera com uma **whitelist compilada** — não é possível executar comandos arbitrários.
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    APP["App Android"] -->|"POST /commands/restart_nginx"| MW["Middleware JWT"]
-    MW --> HANDLER["Command Handler"]
+    APP["📱 App Android"] ==>|"POST /commands/restart_nginx"| MW["🛡️ Middleware JWT"]
+    MW --> HANDLER["🔌 Command Handler"]
     HANDLER --> WL{"Está na whitelist?"}
 
-    WL -->|Sim| EXEC["Command::new('systemctl')<br/>.arg('restart')<br/>.arg('nginx')"]
-    WL -->|Não| DENY["403 Forbidden"]
+    WL -->|Sim| EXEC["⚡ Command::new('systemctl')<br/>.arg('restart')<br/>.arg('nginx')"]
+    WL -->|Não| DENY["❌ 403 Forbidden"]
 
-    EXEC --> RESULT["Output capturado"]
-    RESULT --> AUDIT["AuditLog.record()"]
+    EXEC --> RESULT["✅ Output capturado"]
+    RESULT --> AUDIT["📜 AuditLog.record()"]
+
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    class APP androidNode
+    class MW,HANDLER,EXEC,RESULT,AUDIT rustNode
+    class DENY alertNode
 ```
 
 **Garantias de segurança:**
@@ -323,24 +419,38 @@ flowchart LR
 ### Pipeline de Inteligência
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    subgraph "Coleta"
-        LASTB["lastb<br/>(failed logins)"]
-        HONEY["Honeypot hits"]
-        WEBHOOK["Dashboard ERP<br/>(webhook)"]
+    subgraph coleta["📥 Coleta"]
+        LASTB["📜 lastb<br/><i>failed logins</i>"]
+        HONEY["🕵️ Honeypot hits"]
+        WEBHOOK["📊 Dashboard ERP<br/><i>webhook</i>"]
     end
 
-    subgraph "Análise"
-        FILTER["Filtro de ruído<br/>(threshold: 10 tentativas/hora)"]
-        GEOIP["GeoIP Lookup<br/>(país, cidade, ISP)"]
-        BOT["Bot Detection<br/>(user-agent, padrões)"]
+    subgraph analise["🔍 Análise"]
+        FILTER["⚙️ Filtro de ruído<br/><i>threshold: 10/hora</i>"]
+        GEOIP["🌐 GeoIP Lookup<br/><i>país, cidade, ISP</i>"]
+        BOT["🤖 Bot Detection<br/><i>user-agent, padrões</i>"]
     end
 
-    subgraph "Resposta"
-        ALERT["Alerta ntfy"]
-        BAN["Auto-ban (iptables)"]
-        INCIDENT["Registro de incidente"]
-        CF["Cloudflare WAF<br/>(futuro)"]
+    subgraph resposta["🚨 Resposta"]
+        ALERT["📣 Alerta ntfy"]
+        BAN["🔥 Auto-ban (iptables)"]
+        INCIDENT["📜 Registro de incidente"]
+        CF["☁️ Cloudflare WAF<br/><i>futuro</i>"]
     end
 
     LASTB --> FILTER
@@ -350,8 +460,16 @@ flowchart LR
     FILTER --> GEOIP
     GEOIP --> BOT
     BOT --> ALERT
-    BOT --> BAN
+    BOT ==> BAN
     BAN --> INCIDENT
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef externalNode fill:#475569,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef alertNode fill:#991b1b,stroke:#f87171,stroke-width:2px,color:#fef2f2
+    class FILTER,GEOIP,BOT,INCIDENT rustNode
+    class LASTB,BAN kernelNode
+    class HONEY,WEBHOOK,CF,ALERT externalNode
 ```
 
 **Capacidades:**

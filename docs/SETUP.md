@@ -54,13 +54,32 @@ chmod +x deploy.sh
 **O script executa automaticamente:**
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    A["Compila musl<br/>(x86_64-static)"] --> B["Para cada servidor"]
-    B --> C["pkill agent"]
-    C --> D["scp binário"]
-    D --> E["mv → /usr/local/bin/"]
-    E --> F["systemctl restart"]
-    F --> G["Verifica status"]
+    A["🦀 Compila musl<br/><i>x86_64-static</i>"] --> B["🔁 Para cada servidor"]
+    B --> C["❌ pkill agent"]
+    C --> D["📤 scp binário"]
+    D --> E["📦 mv → /usr/local/bin/"]
+    E --> F["⚙️ systemctl restart"]
+    F --> G["✅ Verifica status"]
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    class A,B,D rustNode
+    class C,E,F,G kernelNode
 ```
 
 ### Opção B — Compilação Manual

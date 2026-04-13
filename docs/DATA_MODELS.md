@@ -26,6 +26,7 @@ O Pocket NOC utiliza modelos de dados serializados em JSON para comunicação en
 ## Diagrama de Classes — Agente (Rust)
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class SystemTelemetry {
         +CpuMetrics cpu
@@ -152,6 +153,7 @@ classDiagram
 ### Modelos de Alerta
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class Alert {
         +AlertType alert_type
@@ -187,6 +189,7 @@ classDiagram
 ### Modelos do Watchdog
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class WatchdogEvent {
         +String id
@@ -218,6 +221,7 @@ classDiagram
 ### Modelos de Segurança
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class ThreatTracker {
         +HashMap~IpAddr, ThreatEntry~ entries
@@ -261,6 +265,7 @@ classDiagram
 ## Diagrama de Classes — Controller (Android)
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class SystemTelemetry {
         +CpuMetrics cpu
@@ -380,6 +385,20 @@ classDiagram
 ## Diagrama ER — Persistência Local (Room)
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 erDiagram
     SERVER_ENTITY {
         string id PK
@@ -419,6 +438,7 @@ erDiagram
 ### DAOs (Data Access Objects)
 
 ```mermaid
+%%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class ServerDao {
         +getAll() Flow~List~ServerEntity~~
@@ -474,21 +494,44 @@ classDiagram
 ### Ciclo de Vida dos Dados
 
 ```mermaid
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, -apple-system, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#f8fafc",
+    "primaryBorderColor": "#334155",
+    "lineColor": "#64748b",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 20 }
+}}%%
 flowchart LR
-    subgraph "Agente Rust"
-        KERNEL["/proc + /sys"] --> COLLECT["TelemetryCollector"]
-        COLLECT --> CACHE["Cache L1 (5s)"]
-        CACHE --> SERIALIZE["serde_json::to_string()"]
+    subgraph rust["🦀 Agente Rust"]
+        KERNEL["🐧 /proc + /sys"] --> COLLECT["📈 TelemetryCollector"]
+        COLLECT --> CACHE[("💾 Cache L1<br/><i>5s</i>")]
+        CACHE --> SERIALIZE["⚙️ serde_json::to_string()"]
     end
 
-    SERIALIZE -->|JSON via HTTP| DESERIALIZE
+    SERIALIZE ==>|JSON via HTTP| DESERIALIZE
 
-    subgraph "Controller Android"
-        DESERIALIZE["Gson.fromJson()"] --> MODEL["data class"]
-        MODEL --> VM["ViewModel (StateFlow)"]
-        VM --> COMPOSE["Jetpack Compose"]
-        MODEL --> ROOM["Room Database"]
+    subgraph android["📱 Controller Android"]
+        DESERIALIZE["🌐 Gson.fromJson()"] --> MODEL["🧩 data class"]
+        MODEL --> VM["🧩 ViewModel<br/><i>StateFlow</i>"]
+        VM --> COMPOSE["🎨 Jetpack Compose"]
+        MODEL --> ROOM[("💾 Room Database")]
     end
+
+    classDef rustNode fill:#c2410c,stroke:#fb923c,stroke-width:2px,color:#fff7ed
+    classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
+    classDef kernelNode fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f1f5f9
+    classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
+    class KERNEL kernelNode
+    class COLLECT,SERIALIZE rustNode
+    class DESERIALIZE,MODEL,VM,COMPOSE androidNode
+    class CACHE,ROOM storeNode
 ```
 
 ### Enums de Status
