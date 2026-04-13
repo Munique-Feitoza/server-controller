@@ -21,6 +21,7 @@ pub mod alerts;
 pub mod backup;
 pub mod docker;
 pub mod phpfpm;
+pub mod ssl;
 
 pub use cpu::CpuMetrics;
 pub use memory::MemoryMetrics;
