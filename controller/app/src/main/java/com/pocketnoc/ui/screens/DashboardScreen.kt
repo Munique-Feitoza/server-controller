@@ -209,6 +209,87 @@ fun DashboardScreen(
                             selectedServer?.let { s ->
                                 HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
                                 DropdownMenuItem(
+                                    text = { Text("PHP-FPM Pools", color = colors.onSurface) },
+                                    onClick = {
+                                        val route = AppRoute.PhpFpm.createRoute(s.id)
+                                        android.util.Log.d("MenuClick", "PHP-FPM clicado, serverId=${s.id}, route=$route")
+                                        menuExpanded = false
+                                        navController.navigate(route)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Dns, null, tint = ext.blue) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("SSL Monitor", color = colors.onSurface) },
+                                    onClick = {
+                                        val route = AppRoute.SslCheck.createRoute(s.id)
+                                        android.util.Log.d("MenuClick", "SSL clicado, serverId=${s.id}, route=$route")
+                                        menuExpanded = false
+                                        navController.navigate(route)
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Lock, null, tint = ext.green) }
+                                )
+                                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                                DropdownMenuItem(
+                                    text = { Text("Analise Completa (Graficos)", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.ServerDetails.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.ShowChart, null, tint = ext.magenta) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Explorador de Processos", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.ProcessExplorer.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Memory, null, tint = ext.blue) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Central de Acoes", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.ActionCenter.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.PlayArrow, null, tint = ext.green) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Logs do Sistema", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.LogViewer.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Description, null, tint = colors.onSurfaceVariant) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Auditoria", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.AuditLog.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.History, null, tint = colors.onSurfaceVariant) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Configuracao do Agente", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.AgentConfig.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Settings, null, tint = colors.onSurfaceVariant) }
+                                )
+                            }
+                            HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                            DropdownMenuItem(
+                                text = { Text("Configuracao de Alertas", color = colors.onSurface) },
+                                onClick = {
+                                    menuExpanded = false
+                                    navController.navigate(AppRoute.AlertSettings.route)
+                                },
+                                leadingIcon = { Icon(Icons.Default.NotificationsActive, null, tint = ext.magenta) }
+                            )
+                            selectedServer?.let { s ->
+                                HorizontalDivider(color = colors.outline.copy(alpha = 0.3f))
+                                DropdownMenuItem(
                                     text = { Text("Remover Servidor", color = StatusColors.critical) },
                                     onClick = { serverToDelete = s; showDeleteDialog = true; menuExpanded = false },
                                     leadingIcon = { Icon(Icons.Default.Delete, null, tint = StatusColors.critical) }
