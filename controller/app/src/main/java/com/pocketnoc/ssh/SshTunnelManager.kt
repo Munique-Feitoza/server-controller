@@ -96,7 +96,7 @@ object SshTunnelManager {
                 session.setServerAliveInterval(30000) // 30s
                 session.setServerAliveCountMax(3)
                 
-                session.connect(15000) // 15s timeout
+                session.connect(30000) // 30s timeout (redes moveis podem ser lentas)
                 
                 // Se chegou aqui, a autenticação foi um sucesso! Reseta o contador.
                 authFailures[serverId] = 0
