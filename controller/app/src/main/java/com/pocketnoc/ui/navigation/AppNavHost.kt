@@ -3,12 +3,41 @@ package com.pocketnoc.ui.navigation
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.ui.screens.*
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.WatchdogViewModel
+
+/**
+ * Helper para rotas que recebem serverId — elimina boilerplate repetido.
+ */
+private fun NavGraphBuilder.serverRoute(
+    route: String,
+    serversState: () -> List<ServerEntity>,
+    content: @Composable (ServerEntity) -> Unit
+) {
+    composable(
+        route = route,
+        arguments = listOf(
+            androidx.navigation.navArgument("serverId") {
+                type = androidx.navigation.NavType.IntType
+            }
+        )
+    ) { backStackEntry ->
+        val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
+        val currentServers = serversState()
+        val server = currentServers.find { it.id == serverId }
+        if (server != null) {
+            content(server)
+        } else {
+            androidx.compose.material3.Text("Carregando...")
+        }
+    }
+}
 
 @Composable
 fun AppNavHost(
@@ -290,55 +319,54 @@ fun AppNavHost(
             )
         }
 
-        // PHP-FPM Pools por servidor
-        composable(
-            route = AppRoute.PhpFpm.route,
-            arguments = listOf(
-                androidx.navigation.navArgument("serverId") {
-                    type = androidx.navigation.NavType.IntType
+        // SSL Check por servidor
+        serverRoute(AppRoute.SslCheck.route, { servers }) { server ->
+            var sslData by remember { mutableStateOf<com.pocketnoc.data.models.SslCheckResponse?>(null) }
+            var isLoading by remember { mutableStateOf(true) }
+            var error by remember { mutableStateOf<String?>(null) }
+            val scope = rememberCoroutineScope()
+            fun load() {
+                isLoading = true
+                error = null
+                scope.launch {
+                    try {
+                        sslData = dashboardViewModel.fetchSslCheck(server)
+                    } catch (e: Exception) {
+                        error = e.message
+                        android.util.Log.e("SslCheck", "Erro: ${e.message}", e)
+                    }
+                    isLoading = false
                 }
-            )
-        ) { backStackEntry ->
-            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-            val server = servers.find { it.id == serverId }
+            }
+            LaunchedEffect(server) { load() }
+            SslCheckScreen(sslData = sslData, serverName = server.name, isLoading = isLoading, onRefresh = { load() }, onNavigateBack = { navController.popBackStack() })
+        }
 
+        // PHP-FPM Pools por servidor
+        serverRoute(AppRoute.PhpFpm.route, { servers }) { server ->
             var pools by remember { mutableStateOf<List<com.pocketnoc.data.models.PhpFpmPool>>(emptyList()) }
             var totalWorkers by remember { mutableIntStateOf(0) }
             var totalCpu by remember { mutableFloatStateOf(0f) }
             var totalMemory by remember { mutableFloatStateOf(0f) }
             var isLoading by remember { mutableStateOf(true) }
             val scope = rememberCoroutineScope()
-
-            fun loadPools() {
-                server?.let { srv ->
-                    isLoading = true
-                    scope.launch {
-                        try {
-                            val resp = dashboardViewModel.fetchPhpFpmPools(srv)
-                            pools = resp.pools
-                            totalWorkers = resp.totalWorkers
-                            totalCpu = resp.totalCpuPercent
-                            totalMemory = resp.totalMemoryMb
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                        isLoading = false
+            fun load() {
+                isLoading = true
+                scope.launch {
+                    try {
+                        val r = dashboardViewModel.fetchPhpFpmPools(server)
+                        pools = r.pools
+                        totalWorkers = r.totalWorkers
+                        totalCpu = r.totalCpuPercent
+                        totalMemory = r.totalMemoryMb
+                    } catch (e: Exception) {
+                        android.util.Log.e("PhpFpm", "Erro: ${e.message}", e)
                     }
+                    isLoading = false
                 }
             }
-
-            LaunchedEffect(server) { loadPools() }
-
-            PhpFpmScreen(
-                pools = pools,
-                totalWorkers = totalWorkers,
-                totalCpu = totalCpu,
-                totalMemory = totalMemory,
-                serverName = server?.name ?: "Servidor",
-                isLoading = isLoading,
-                onRefresh = { loadPools() },
-                onNavigateBack = { navController.popBackStack() }
-            )
+            LaunchedEffect(server) { load() }
+            PhpFpmScreen(pools = pools, totalWorkers = totalWorkers, totalCpu = totalCpu, totalMemory = totalMemory, serverName = server.name, isLoading = isLoading, onRefresh = { load() }, onNavigateBack = { navController.popBackStack() })
         }
     }
 }
