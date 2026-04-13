@@ -24,7 +24,12 @@ pub struct DockerMetrics {
 /// Retorna `None` se o Docker não estiver instalado ou acessível.
 pub fn collect_docker_metrics() -> Option<DockerMetrics> {
     let output = std::process::Command::new("docker")
-        .args(["ps", "-a", "--format", "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}|{{.CreatedAt}}|{{.Ports}}"])
+        .args([
+            "ps",
+            "-a",
+            "--format",
+            "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.State}}|{{.CreatedAt}}|{{.Ports}}",
+        ])
         .output()
         .ok()?;
 

@@ -33,7 +33,11 @@ fn test_event_store_push_and_recent() {
 fn test_event_store_ring_buffer_overflow() {
     let mut store = WatchdogEventStore::new(5);
     for i in 0..10 {
-        store.push(make_test_event(&format!("svc-{}", i), "Success", "server-1"));
+        store.push(make_test_event(
+            &format!("svc-{}", i),
+            "Success",
+            "server-1",
+        ));
     }
 
     assert_eq!(store.len(), 5, "Ring buffer should cap at 5 events");

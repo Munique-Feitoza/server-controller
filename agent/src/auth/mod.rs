@@ -1,5 +1,5 @@
 use crate::error::{AgentError, Result};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation, Algorithm};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -29,7 +29,7 @@ pub struct Claims {
 
 impl JwtConfig {
     /// Cria uma nova configuração JWT com validação de segurança
-    /// 
+    ///
     /// # Security
     /// - Secret DEVE ter mínimo 32 bytes (256 bits)
     /// - Expiration deve ser razoável (recomenda-se 1-24h)
@@ -39,23 +39,19 @@ impl JwtConfig {
     pub fn new(secret: String, expiration: u64) -> Result<Self> {
         // OWASP: Chave secreta DEVE ter no mínimo 256 bits (32 bytes)
         if secret.len() < 32 {
-            return Err(AgentError::AuthError(
-                format!(
-                    "JWT secret too short: {} bytes (minimum 32 required). \
+            return Err(AgentError::AuthError(format!(
+                "JWT secret too short: {} bytes (minimum 32 required). \
                      Use: openssl rand -base64 32",
-                    secret.len()
-                )
-            ));
+                secret.len()
+            )));
         }
 
         // Validação de expiração razoável (máximo 30 dias)
         if expiration > 30 * 24 * 3600 {
-            return Err(AgentError::AuthError(
-                format!(
-                    "JWT expiration too long: {} seconds (maximum 2592000 allowed)",
-                    expiration
-                )
-            ));
+            return Err(AgentError::AuthError(format!(
+                "JWT expiration too long: {} seconds (maximum 2592000 allowed)",
+                expiration
+            )));
         }
 
         Ok(Self { secret, expiration })
@@ -90,7 +86,7 @@ impl JwtConfig {
     }
 
     /// Valida e decodifica um token JWT com validação rigorosa
-    /// 
+    ///
     /// # Security Checks
     /// - Verifica assinatura HMAC-SHA256
     /// - Valida expiração (exp)
@@ -117,7 +113,7 @@ impl JwtConfig {
             // Validação adicional: iat deve ser menor que exp
             if data.claims.iat >= data.claims.exp {
                 return Err(AgentError::AuthError(
-                    "Invalid token: issued time >= expiration".to_string()
+                    "Invalid token: issued time >= expiration".to_string(),
                 ));
             }
             Ok(data.claims)
@@ -127,7 +123,7 @@ impl JwtConfig {
 }
 
 /// API Key simples para fallback de autenticação
-/// 
+///
 /// # Security
 /// - Strings são comparadas com timing-safe comparison (via == Rust)
 /// - Chave deve ter mínimo 32 caracteres
@@ -139,25 +135,23 @@ pub struct ApiKeyAuth {
 
 impl ApiKeyAuth {
     /// Cria um novo validador de API Key
-    /// 
+    ///
     /// # Errors
     /// Retorna erro se chave é muito curta (< 32 bytes)
     pub fn new(key: String) -> Result<Self> {
         if key.len() < 32 {
-            return Err(AgentError::AuthError(
-                format!(
-                    "API key too short: {} bytes (minimum 32 required). \
+            return Err(AgentError::AuthError(format!(
+                "API key too short: {} bytes (minimum 32 required). \
                      Use: openssl rand -base64 32",
-                    key.len()
-                )
-            ));
+                key.len()
+            )));
         }
 
         Ok(Self { valid_key: key })
     }
 
     /// Valida uma chave API
-    /// 
+    ///
     /// # Security
     /// Usa comparação de igualdade padrão do Rust (não é timing-safe para este caso)
     /// Para máxima segurança contra timing attacks, considere `constant_time_eq`
@@ -169,7 +163,7 @@ impl ApiKeyAuth {
         // Timing-safe comparison seria ideal aqui
         // Para produção, considere usar crate `subtle`:
         // subtle::ConstantTimeEq::ct_eq(key.as_bytes(), self.valid_key.as_bytes())
-        
+
         if key == self.valid_key {
             Ok(())
         } else {
@@ -211,10 +205,12 @@ mod tests {
     fn test_generate_and_validate_token() {
         let secret = get_test_secret();
         let config = JwtConfig::new(secret, 3600).unwrap();
-        
-        let token = config.generate_token("test-user", vec!["read".to_string()]).unwrap();
+
+        let token = config
+            .generate_token("test-user", vec!["read".to_string()])
+            .unwrap();
         let result = config.validate_token(&token);
-        
+
         assert!(result.is_ok());
     }
 
@@ -223,7 +219,7 @@ mod tests {
         let secret = get_test_secret();
         let config = JwtConfig::new(secret, 3600).unwrap();
         let result = config.validate_token("invalid.token.here");
-        
+
         assert!(result.is_err());
     }
 

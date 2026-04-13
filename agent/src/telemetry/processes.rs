@@ -33,7 +33,11 @@ impl ProcessMetrics {
             .collect();
 
         // Ordena por uso de CPU (decrescente) e pega os top 10
-        processes.sort_by(|a, b| b.cpu_usage.partial_cmp(&a.cpu_usage).unwrap_or(std::cmp::Ordering::Equal));
+        processes.sort_by(|a, b| {
+            b.cpu_usage
+                .partial_cmp(&a.cpu_usage)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let top_processes = processes.into_iter().take(10).collect();
 
         // Conta os containers ativos via CLI do Docker (com timeout para evitar hangs do daemon)
@@ -52,6 +56,9 @@ impl ProcessMetrics {
             }
         });
 
-        Ok(Self { top_processes, docker_containers_running })
+        Ok(Self {
+            top_processes,
+            docker_containers_running,
+        })
     }
 }

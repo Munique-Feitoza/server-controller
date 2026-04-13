@@ -42,7 +42,10 @@ pub fn check_all_ssl() -> SslCheckResult {
     let ok_count = certs.iter().filter(|c| c.status == "ok").count();
     let expiring_count = certs.iter().filter(|c| c.status == "expiring").count();
     let expired_count = certs.iter().filter(|c| c.status == "expired").count();
-    let error_count = certs.iter().filter(|c| c.status == "error" || c.status == "no_cert").count();
+    let error_count = certs
+        .iter()
+        .filter(|c| c.status == "error" || c.status == "no_cert")
+        .count();
 
     // Ordena: problemas primeiro
     certs.sort_by(|a, b| a.days_remaining.cmp(&b.days_remaining));
@@ -75,13 +78,11 @@ fn list_nginx_domains() -> Vec<String> {
         .output();
 
     match output {
-        Ok(o) if o.status.success() => {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .filter(|l| !l.is_empty() && !l.contains("_") && l.contains('.'))
-                .map(|l| l.trim().to_string())
-                .collect()
-        }
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .filter(|l| !l.is_empty() && !l.contains("_") && l.contains('.'))
+            .map(|l| l.trim().to_string())
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -142,7 +143,7 @@ fn check_domain_ssl(domain: &str) -> SslCertStatus {
     // Verifica se o certificado eh do dominio certo
     // Aceita: cert exato, wildcard, ou cert do dominio pai (subdominio de idioma)
     // Ex: fr.zenlupe.com aceita cert de zenlupe.com ou *.zenlupe.com
-    let parent_domain = domain.splitn(2, '.').nth(1).unwrap_or("");
+    let parent_domain = domain.split_once('.').map(|x| x.1).unwrap_or("");
     let cert_matches = subject.contains(domain)
         || subject.contains(&format!("*.{}", parent_domain))
         || subject.contains(parent_domain);
@@ -175,13 +176,14 @@ fn parse_expiry_days(date_str: &str) -> i64 {
     }
 
     // Usa o comando date para converter
-    let output = Command::new("date")
-        .args(["-d", date_str, "+%s"])
-        .output();
+    let output = Command::new("date").args(["-d", date_str, "+%s"]).output();
 
     match output {
         Ok(o) if o.status.success() => {
-            let expiry_ts: i64 = String::from_utf8_lossy(&o.stdout).trim().parse().unwrap_or(0);
+            let expiry_ts: i64 = String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .parse()
+                .unwrap_or(0);
             let now_ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()

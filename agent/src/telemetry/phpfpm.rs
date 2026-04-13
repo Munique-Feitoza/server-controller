@@ -30,13 +30,18 @@ pub struct PhpFpmMetrics {
 /// Coleta metricas de todos os pools PHP-FPM ativos no servidor.
 /// Funciona com Hosting (php*-fpm) e instalacoes padrão.
 pub fn collect_phpfpm_metrics() -> PhpFpmMetrics {
-    let output = std::process::Command::new("ps")
-        .args(["aux"])
-        .output();
+    let output = std::process::Command::new("ps").args(["aux"]).output();
 
     let stdout = match output {
         Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
-        _ => return PhpFpmMetrics { pools: vec![], total_workers: 0, total_cpu_percent: 0.0, total_memory_mb: 0.0 },
+        _ => {
+            return PhpFpmMetrics {
+                pools: vec![],
+                total_workers: 0,
+                total_cpu_percent: 0.0,
+                total_memory_mb: 0.0,
+            }
+        }
     };
 
     // Agrupa por pool name
@@ -64,7 +69,8 @@ pub fn collect_phpfpm_metrics() -> PhpFpmMetrics {
         entry.2 += 1;
     }
 
-    let mut pools: Vec<PhpFpmPool> = pool_data.into_iter()
+    let mut pools: Vec<PhpFpmPool> = pool_data
+        .into_iter()
         .map(|(name, (cpu, rss_kb, count))| PhpFpmPool {
             pool_name: name,
             cpu_percent: cpu,
@@ -74,7 +80,11 @@ pub fn collect_phpfpm_metrics() -> PhpFpmMetrics {
         .collect();
 
     // Ordena por CPU decrescente
-    pools.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+    pools.sort_by(|a, b| {
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let total_workers = pools.iter().map(|p| p.worker_count).sum();
     let total_cpu = pools.iter().map(|p| p.cpu_percent).sum();

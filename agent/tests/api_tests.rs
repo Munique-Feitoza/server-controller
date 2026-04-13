@@ -1,11 +1,14 @@
-use pocket_noc_agent::commands::{CommandExecutor, default_emergency_commands};
 use pocket_noc_agent::auth::JwtConfig;
+use pocket_noc_agent::commands::{default_emergency_commands, CommandExecutor};
 
 #[test]
 fn test_jwt_config_creation() {
     let secret = "this-is-a-32-char-test-secret-ok";
     let config = JwtConfig::new(secret.to_string(), 3600);
-    assert!(config.is_ok(), "JWT config should be created with 32-char secret");
+    assert!(
+        config.is_ok(),
+        "JWT config should be created with 32-char secret"
+    );
 }
 
 #[test]
@@ -19,7 +22,9 @@ fn test_jwt_config_rejects_short_secret() {
 fn test_jwt_token_generation_and_validation() {
     let secret = "this-is-a-32-char-test-secret-ok";
     let config = JwtConfig::new(secret.to_string(), 3600).unwrap();
-    let token = config.generate_token().unwrap();
+    let token = config
+        .generate_token("test-user", vec!["admin".to_string()])
+        .unwrap();
     assert!(!token.is_empty(), "Token should not be empty");
 
     let result = config.validate_token(&token);
@@ -54,7 +59,16 @@ fn test_command_executor_rejects_unknown_command() {
 fn test_default_commands_have_expected_ids() {
     let commands = default_emergency_commands();
     let ids: Vec<String> = commands.iter().map(|c| c.id.clone()).collect();
-    assert!(ids.contains(&"restart_nginx".to_string()), "Should contain restart_nginx");
-    assert!(ids.contains(&"restart_docker".to_string()), "Should contain restart_docker");
-    assert!(ids.contains(&"disk_usage".to_string()), "Should contain disk_usage");
+    assert!(
+        ids.contains(&"restart_nginx".to_string()),
+        "Should contain restart_nginx"
+    );
+    assert!(
+        ids.contains(&"restart_docker".to_string()),
+        "Should contain restart_docker"
+    );
+    assert!(
+        ids.contains(&"check_disk_space".to_string()),
+        "Should contain check_disk_space"
+    );
 }

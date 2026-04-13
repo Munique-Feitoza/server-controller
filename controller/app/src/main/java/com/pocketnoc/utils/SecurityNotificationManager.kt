@@ -178,6 +178,7 @@ class SecurityNotificationManager(private val context: Context) {
         showNotification(title, alert.message, notificationId, CHANNEL_ID_TELEMETRY)
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     private fun showNotification(title: String, message: String, notificationId: Int, channelId: String) {
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_security) // Assumindo que este ícone existe ou será criado

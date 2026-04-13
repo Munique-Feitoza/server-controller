@@ -1,3 +1,5 @@
+pub mod circuit_breaker;
+pub mod event;
 /// Modulo Watchdog -- Auto-Remediacao com Circuit Breaker
 ///
 /// # Arquitetura:
@@ -9,22 +11,19 @@
 ///   +-- event.rs           -- Telemetria estruturada -> Kotlin app
 /// ```
 pub mod probes;
-pub mod circuit_breaker;
 pub mod remediation;
-pub mod event;
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::notifications::NtfyClient;
+use event::{WatchdogEvent, WatchdogEventStore};
 use probes::{
-    AnyProbeConfig, ProbeStatus,
-    run_http_probe, run_service_probe, run_tcp_probe,
-    default_probes_for_role,
+    default_probes_for_role, run_http_probe, run_service_probe, run_tcp_probe, AnyProbeConfig,
+    ProbeStatus,
 };
 use remediation::{RemediationEngine, RemediationStatus};
-use event::{WatchdogEvent, WatchdogEventStore};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURAÇÃO DO ENGINE
@@ -34,19 +33,19 @@ use event::{WatchdogEvent, WatchdogEventStore};
 #[derive(Debug, Clone)]
 pub struct WatchdogConfig {
     /// ID único do servidor (ex: "vps-deploy-01")
-    pub server_id:       String,
+    pub server_id: String,
     /// Papel do servidor (ex: "wordpress", "erp", "database", "generic")
-    pub server_role:     String,
+    pub server_role: String,
     /// Hostname da máquina (resultado de `hostname`)
     pub server_hostname: String,
     /// Intervalo de ciclo em segundos (padrão: 30)
-    pub cycle_secs:      u64,
+    pub cycle_secs: u64,
     /// Máximo de falhas antes de abrir o Circuit Breaker (padrão: 3)
-    pub max_failures:    u32,
+    pub max_failures: u32,
     /// Cooldown em segundos após abrir o Circuit Breaker (padrão: 300)
-    pub cooldown_secs:   u64,
+    pub cooldown_secs: u64,
     /// URL do webhook para enviar eventos JSON (opcional)
-    pub webhook_url:     Option<String>,
+    pub webhook_url: Option<String>,
 }
 
 impl WatchdogConfig {
@@ -58,16 +57,14 @@ impl WatchdogConfig {
             .unwrap_or_else(|_| "unknown-host".to_string());
 
         Self {
-            server_id: std::env::var("SERVER_ID")
-                .unwrap_or_else(|_| {
-                    warn!("⚠️  SERVER_ID não definido — usando hostname como fallback");
-                    server_hostname.clone()
-                }),
-            server_role: std::env::var("SERVER_ROLE")
-                .unwrap_or_else(|_| {
-                    warn!("⚠️  SERVER_ROLE não definido — usando perfil 'generic'");
-                    "generic".to_string()
-                }),
+            server_id: std::env::var("SERVER_ID").unwrap_or_else(|_| {
+                warn!("⚠️  SERVER_ID não definido — usando hostname como fallback");
+                server_hostname.clone()
+            }),
+            server_role: std::env::var("SERVER_ROLE").unwrap_or_else(|_| {
+                warn!("⚠️  SERVER_ROLE não definido — usando perfil 'generic'");
+                "generic".to_string()
+            }),
             server_hostname,
             cycle_secs: std::env::var("WATCHDOG_INTERVAL_SECS")
                 .ok()
@@ -94,14 +91,14 @@ impl WatchdogConfig {
 ///
 /// # Arquitetura de Concorrência e Rust Safety
 /// O `WatchdogEventStore` é compartilhado com a API via `Arc<Mutex<>>`, garantindo `Thread-Safety`.
-/// 
-/// O `RemediationEngine` vive *exclusivamente* dentro da Task principal (não obedece ao padrão 
+///
+/// O `RemediationEngine` vive *exclusivamente* dentro da Task principal (não obedece ao padrão
 /// de state compartilhado) pois é o único que escreve no `HashMap<service, CircuitBreaker>`.
-/// Isolando o estado mutável do Circuit Breaker em uma única Thread Local, evitamos contenção de Locks 
+/// Isolando o estado mutável do Circuit Breaker em uma única Thread Local, evitamos contenção de Locks
 /// de alta sobrecarga (Lock Contention) e garantimos máxima performance analítica `O(1)`.
 pub struct WatchdogEngine {
-    config:      WatchdogConfig,
-    probes:      Vec<AnyProbeConfig>,
+    config: WatchdogConfig,
+    probes: Vec<AnyProbeConfig>,
     event_store: Arc<Mutex<WatchdogEventStore>>,
     ntfy_client: Arc<NtfyClient>,
 }
@@ -117,10 +114,18 @@ impl WatchdogEngine {
 
         info!(
             "🐕 WatchdogEngine iniciado | servidor: {} | role: {} | probes: {} | ciclo: {}s",
-            config.server_id, config.server_role, probes.len(), config.cycle_secs
+            config.server_id,
+            config.server_role,
+            probes.len(),
+            config.cycle_secs
         );
 
-        Self { config, probes, event_store, ntfy_client }
+        Self {
+            config,
+            probes,
+            event_store,
+            ntfy_client,
+        }
     }
 
     /// Loop principal do Watchdog — roda indefinidamente (spawn via tokio::spawn)
@@ -145,12 +150,13 @@ impl WatchdogEngine {
         loop {
             info!(
                 "🔍 [{}] Iniciando ciclo de verificação ({} probes)...",
-                config.server_id, probes.len()
+                config.server_id,
+                probes.len()
             );
 
             for probe in &probes {
                 let probe_result = match probe {
-                    AnyProbeConfig::Http(cfg)    => run_http_probe(cfg).await,
+                    AnyProbeConfig::Http(cfg) => run_http_probe(cfg).await,
                     AnyProbeConfig::Service(cfg) => {
                         // Probes de systemctl são síncronas — evitamos bloquear o runtime
                         // movendo para uma thread de bloqueio gerenciada pelo tokio
@@ -158,10 +164,10 @@ impl WatchdogEngine {
                         tokio::task::spawn_blocking(move || run_service_probe(&cfg_clone))
                             .await
                             .unwrap_or_else(|e| probes::ProbeResult {
-                                status:     ProbeStatus::Down,
+                                status: ProbeStatus::Down,
                                 latency_ms: None,
-                                message:    format!("Falha ao executar probe em thread: {e}"),
-                                service:    cfg.service_name.clone(),
+                                message: format!("Falha ao executar probe em thread: {e}"),
+                                service: cfg.service_name.clone(),
                             })
                     }
                     AnyProbeConfig::Tcp(cfg) => {
@@ -169,10 +175,10 @@ impl WatchdogEngine {
                         tokio::task::spawn_blocking(move || run_tcp_probe(&cfg_clone))
                             .await
                             .unwrap_or_else(|e| probes::ProbeResult {
-                                status:     ProbeStatus::Down,
+                                status: ProbeStatus::Down,
                                 latency_ms: None,
-                                message:    format!("Falha ao executar TCP probe em thread: {e}"),
-                                service:    cfg.service.clone(),
+                                message: format!("Falha ao executar TCP probe em thread: {e}"),
+                                service: cfg.service.clone(),
                             })
                     }
                 };
@@ -183,7 +189,10 @@ impl WatchdogEngine {
                         "✅ [{}] {} — OK ({}ms)",
                         config.server_id,
                         probe_result.service,
-                        probe_result.latency_ms.map(|l| l.to_string()).unwrap_or("-".to_string())
+                        probe_result
+                            .latency_ms
+                            .map(|l| l.to_string())
+                            .unwrap_or("-".to_string())
                     );
                     {
                         let mut rem = remediation.lock().await;
@@ -209,8 +218,11 @@ impl WatchdogEngine {
                 } else {
                     warn!(
                         "⚠️  [{}] {} — {} | {} | Ação: {}",
-                        config.server_id, probe_result.service,
-                        probe_result.status, probe_result.message, rem_result.action
+                        config.server_id,
+                        probe_result.service,
+                        probe_result.status,
+                        probe_result.message,
+                        rem_result.action
                     );
                 }
 
@@ -239,20 +251,20 @@ impl WatchdogEngine {
                 let (priority, tags) = ntfy_priority_for(&rem_result.status, &probe_result.status);
                 let ntfy_title = format!(
                     "[{}] {} {}",
-                    config.server_id,
-                    probe_result.service,
-                    probe_result.status
+                    config.server_id, probe_result.service, probe_result.status
                 );
 
                 // Evita spam: Notifica apenas em transições de estado ou falhas/sucessos reais.
                 let should_notify = match rem_result.status {
                     RemediationStatus::CircuitOpen => rem_result.just_opened,
                     RemediationStatus::NotNeeded => false,
-                    _ => true // Success e Failed (tentativas ainda permitidas) notificam
+                    _ => true, // Success e Failed (tentativas ainda permitidas) notificam
                 };
 
                 if should_notify {
-                    let _ = ntfy.send_alert(&ntfy_title, &rem_result.message, priority, tags).await;
+                    let _ = ntfy
+                        .send_alert(&ntfy_title, &rem_result.message, priority, tags)
+                        .await;
                     // Pequeno respiro para evitar 429 (Too Many Requests) se houver múltiplos alertas
                     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 }
@@ -278,14 +290,12 @@ impl WatchdogEngine {
 /// Retorna (priority, tags) para o ntfy baseado no resultado da remediação
 fn ntfy_priority_for(status: &RemediationStatus, probe: &ProbeStatus) -> (u8, &'static str) {
     match status {
-        RemediationStatus::CircuitOpen  => (5, "rotating_light,skull,danger"),   // urgent
-        RemediationStatus::Failed       => (4, "warning,tools"),                  // high
-        RemediationStatus::Success      => (3, "white_check_mark,tools"),         // default
-        RemediationStatus::NotNeeded    => {
-            match probe {
-                ProbeStatus::Degraded => (3, "warning"),
-                _                     => (2, "info"),
-            }
-        }
+        RemediationStatus::CircuitOpen => (5, "rotating_light,skull,danger"), // urgent
+        RemediationStatus::Failed => (4, "warning,tools"),                    // high
+        RemediationStatus::Success => (3, "white_check_mark,tools"),          // default
+        RemediationStatus::NotNeeded => match probe {
+            ProbeStatus::Degraded => (3, "warning"),
+            _ => (2, "info"),
+        },
     }
 }

@@ -24,6 +24,7 @@ pub struct AttackerIntel {
 
 /// Resultado da API ip-api.com
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct IpApiResponse {
     status: String,
     country: Option<String>,
@@ -87,8 +88,15 @@ pub async fn coletar_intel(ip: &str, user_agent: &str, paths: &[String]) -> Atta
                 data.reverse.unwrap_or_default(),
             ),
             _ => (
-                "Desconhecido".to_string(), "??".to_string(), "Desconhecido".to_string(),
-                "Desconhecido".to_string(), String::new(), false, false, false, String::new(),
+                "Desconhecido".to_string(),
+                "??".to_string(),
+                "Desconhecido".to_string(),
+                "Desconhecido".to_string(),
+                String::new(),
+                false,
+                false,
+                false,
+                String::new(),
             ),
         };
 
@@ -115,9 +123,15 @@ pub async fn coletar_intel(ip: &str, user_agent: &str, paths: &[String]) -> Atta
 
     tracing::info!(
         "🔍 Intel coletada: {} ({}, {}) — ISP: {} — {} — {}",
-        intel.ip, intel.city, intel.country,
+        intel.ip,
+        intel.city,
+        intel.country,
         intel.isp,
-        if intel.likely_human { "HUMANO PROVAVEL" } else { "BOT PROVAVEL" },
+        if intel.likely_human {
+            "HUMANO PROVAVEL"
+        } else {
+            "BOT PROVAVEL"
+        },
         intel.classification_reason
     );
 
@@ -137,46 +151,89 @@ fn classificar(
 
     // Bots obvios — User-Agent de scanner conhecido
     let bot_signatures = [
-        "masscan", "nmap", "zgrab", "censys", "shodan",
-        "nuclei", "nikto", "sqlmap", "dirbuster", "gobuster",
-        "wpscan", "curl/", "wget/", "python-requests", "go-http-client",
-        "httpclient", "libwww", "scrapy", "bot", "crawler", "spider",
+        "masscan",
+        "nmap",
+        "zgrab",
+        "censys",
+        "shodan",
+        "nuclei",
+        "nikto",
+        "sqlmap",
+        "dirbuster",
+        "gobuster",
+        "wpscan",
+        "curl/",
+        "wget/",
+        "python-requests",
+        "go-http-client",
+        "httpclient",
+        "libwww",
+        "scrapy",
+        "bot",
+        "crawler",
+        "spider",
     ];
     for sig in bot_signatures {
         if ua_lower.contains(sig) {
-            return (false, format!("User-Agent contem '{}' — scanner automatizado", sig));
+            return (
+                false,
+                format!("User-Agent contem '{}' — scanner automatizado", sig),
+            );
         }
     }
 
     // Hosting/datacenter = provavel bot/VPS de ataque
     if is_hosting && !is_proxy {
-        return (false, format!("IP de datacenter/hosting ({}) sem proxy — provavel servidor de ataque", isp));
+        return (
+            false,
+            format!(
+                "IP de datacenter/hosting ({}) sem proxy — provavel servidor de ataque",
+                isp
+            ),
+        );
     }
 
     // Se acessou mais de 3 honeypots diferentes = scan automatizado
     if paths.len() > 3 {
         let unique: std::collections::HashSet<&String> = paths.iter().collect();
         if unique.len() > 3 {
-            return (false, format!("{} paths unicos tentados — scan automatizado", unique.len()));
+            return (
+                false,
+                format!("{} paths unicos tentados — scan automatizado", unique.len()),
+            );
         }
     }
 
     // User-Agent de navegador real = provavel humano
-    let browser_signatures = ["mozilla/", "chrome/", "safari/", "firefox/", "edge/", "opera/"];
+    let browser_signatures = [
+        "mozilla/", "chrome/", "safari/", "firefox/", "edge/", "opera/",
+    ];
     let has_browser_ua = browser_signatures.iter().any(|s| ua_lower.contains(s));
 
     if has_browser_ua && !is_hosting {
-        return (true, format!("User-Agent de navegador real + ISP residencial ({})", isp));
+        return (
+            true,
+            format!("User-Agent de navegador real + ISP residencial ({})", isp),
+        );
     }
 
     if has_browser_ua && is_proxy {
-        return (true, format!("User-Agent de navegador + VPN/proxy — possivelmente humano curioso"));
+        return (
+            true,
+            "User-Agent de navegador + VPN/proxy — possivelmente humano curioso".to_string(),
+        );
     }
 
     // Default: sem certeza, mas User-Agent vazio ou generico = bot
     if user_agent.is_empty() || user_agent == "unknown" || ua_lower.len() < 10 {
-        return (false, "User-Agent ausente ou muito curto — bot provavel".to_string());
+        return (
+            false,
+            "User-Agent ausente ou muito curto — bot provavel".to_string(),
+        );
     }
 
-    (false, "Nao classificado com certeza — tratando como bot por precaucao".to_string())
+    (
+        false,
+        "Nao classificado com certeza — tratando como bot por precaucao".to_string(),
+    )
 }

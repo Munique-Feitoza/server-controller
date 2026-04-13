@@ -35,7 +35,16 @@ impl ServiceMonitor {
     /// (ActiveState + Description + MainPID em um único subprocesso)
     pub fn check_service(service_name: &str) -> Result<ServiceInfo> {
         let output = Command::new("systemctl")
-            .args(["show", "-p", "ActiveState", "-p", "Description", "-p", "MainPID", service_name])
+            .args([
+                "show",
+                "-p",
+                "ActiveState",
+                "-p",
+                "Description",
+                "-p",
+                "MainPID",
+                service_name,
+            ])
             .output()
             .map_err(|e| AgentError::ServiceError(format!("Failed to check service: {}", e)))?;
 
@@ -68,7 +77,11 @@ impl ServiceMonitor {
                     .status()
                     .map(|s| s.success())
                     .unwrap_or(false);
-                if process_exists { ServiceStatus::Active } else { ServiceStatus::Inactive }
+                if process_exists {
+                    ServiceStatus::Active
+                } else {
+                    ServiceStatus::Inactive
+                }
             }
             _ => ServiceStatus::Unknown,
         };

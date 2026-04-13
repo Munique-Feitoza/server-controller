@@ -51,10 +51,17 @@ impl NetworkMetrics {
                 let rest = &out_str[time_idx + 5..];
                 if let Some(space_idx) = rest.find(" ms") {
                     rest[..space_idx].parse::<f64>().ok()
-                } else { None }
-            } else { None }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         });
 
-        Ok(Self { interfaces, ping_latency_ms })
+        Ok(Self {
+            interfaces,
+            ping_latency_ms,
+        })
     }
 }

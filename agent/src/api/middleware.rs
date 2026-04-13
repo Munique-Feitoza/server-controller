@@ -1,10 +1,10 @@
+use crate::auth::JwtConfig;
+use crate::security::{gerar_zip_bomb, is_honeypot_path, ThreatAction, ThreatTracker};
 use axum::body::Body;
+use axum::extract::State;
 use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
-use axum::extract::State;
-use crate::auth::JwtConfig;
-use crate::security::{ThreatTracker, ThreatAction, is_honeypot_path, gerar_zip_bomb};
 use std::net::IpAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -65,7 +65,10 @@ pub async fn security_middleware(
     if is_honeypot_path(&path) {
         tracing::warn!(
             "🍯 HONEYPOT: {} {} de {} (UA: {})",
-            method, path, ip, &user_agent[..user_agent.len().min(60)]
+            method,
+            path,
+            ip,
+            &user_agent[..user_agent.len().min(60)]
         );
 
         let mut tracker = security.threat_tracker.lock().await;
@@ -73,12 +76,18 @@ pub async fn security_middleware(
 
         return match action {
             ThreatAction::NeutralizarEBanir => {
-                tracing::error!("💣 ZIP BOMB servido para {} apos acessos repetidos a honeypots", ip);
+                tracing::error!(
+                    "💣 ZIP BOMB servido para {} apos acessos repetidos a honeypots",
+                    ip
+                );
                 let bomb = gerar_zip_bomb();
                 Ok(Response::builder()
                     .status(200)
                     .header("Content-Type", "application/gzip")
-                    .header("Content-Disposition", "attachment; filename=\"backup.tar.gz\"")
+                    .header(
+                        "Content-Disposition",
+                        "attachment; filename=\"backup.tar.gz\"",
+                    )
                     .header("Content-Encoding", "gzip")
                     .body(Body::from(bomb))
                     .unwrap())
@@ -140,7 +149,11 @@ pub async fn security_middleware(
         Err(e) => {
             // Token invalido/expirado — erro normal, NAO eh ameaca.
             // Devs com token expirado apenas recebem 401 para renovar.
-            tracing::warn!("Auth falhou para {} (erro normal, nao eh ameaca): {}", ip, e);
+            tracing::warn!(
+                "Auth falhou para {} (erro normal, nao eh ameaca): {}",
+                ip,
+                e
+            );
 
             Err(Response::builder()
                 .status(StatusCode::UNAUTHORIZED)
@@ -151,10 +164,7 @@ pub async fn security_middleware(
 }
 
 /// Middleware de logging
-pub async fn logging_middleware(
-    request: Request<Body>,
-    next: Next,
-) -> Response {
+pub async fn logging_middleware(request: Request<Body>, next: Next) -> Response {
     let method = request.method().clone();
     let uri = request.uri().clone();
 

@@ -1,6 +1,6 @@
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, SystemExt, CpuExt};
+use sysinfo::{CpuExt, System, SystemExt};
 
 /// Métricas de CPU
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +34,11 @@ impl CpuMetrics {
             ));
         }
 
-        let usage_percent = cpus.iter().map(|p: &sysinfo::Cpu| p.cpu_usage()).sum::<f32>() / cpus.len() as f32;
+        let usage_percent = cpus
+            .iter()
+            .map(|p: &sysinfo::Cpu| p.cpu_usage())
+            .sum::<f32>()
+            / cpus.len() as f32;
 
         let cores = cpus
             .iter()
@@ -45,7 +49,10 @@ impl CpuMetrics {
             })
             .collect();
 
-        let frequency_mhz = cpus.get(0).map(|p: &sysinfo::Cpu| p.frequency() as u64).unwrap_or(0);
+        let frequency_mhz = cpus
+            .first()
+            .map(|p: &sysinfo::Cpu| p.frequency())
+            .unwrap_or(0);
 
         Ok(Self {
             usage_percent,

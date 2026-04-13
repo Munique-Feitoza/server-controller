@@ -1,36 +1,35 @@
 use crate::error::Result;
+use crate::services::{ServiceInfo, ServiceMonitor};
 use serde::{Deserialize, Serialize};
 use sysinfo::{System, SystemExt};
-use crate::services::{ServiceInfo, ServiceMonitor};
 
+pub mod alerts;
+pub mod backup;
 /// POR QUE RUST? (Decisão de Engenharia)
 /// Escolhi Rust para o Agente por ser uma linguagem de sistemas que oferece "Zero-Cost Abstractions".
 /// Isso significa que o monitoramento consome o mínimo possível de CPU e RAM (footprint < 15MB),
 /// garantindo que o próprio monitor não interfira na performance do servidor vigiado.
 /// O sistema de tipos e o 'borrow checker' eliminam bugs de memória e race conditions
 /// em tempo de compilação, algo crítico para um serviço que roda como root.
-
 mod cpu;
-mod memory;
 mod disk;
-mod temperature;
-mod network;
-mod security;
-mod processes;
-pub mod alerts;
-pub mod backup;
 pub mod docker;
+mod memory;
+mod network;
 pub mod phpfpm;
+mod processes;
+mod security;
 pub mod ssl;
+mod temperature;
 
-pub use cpu::CpuMetrics;
-pub use memory::MemoryMetrics;
-pub use disk::DiskMetrics;
-pub use temperature::TemperatureMetrics;
-pub use network::NetworkMetrics;
-pub use security::SecurityMetrics;
-pub use processes::ProcessMetrics;
 pub use alerts::{Alert, AlertManager, AlertThresholds, AlertType};
+pub use cpu::CpuMetrics;
+pub use disk::DiskMetrics;
+pub use memory::MemoryMetrics;
+pub use network::NetworkMetrics;
+pub use processes::ProcessMetrics;
+pub use security::SecurityMetrics;
+pub use temperature::TemperatureMetrics;
 
 /// Estrutura completa de telemetria do sistema
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,15 +57,21 @@ pub struct UptimeInfo {
 
 impl UptimeInfo {
     fn collect() -> Result<Self> {
-        let uptime = procfs::Uptime::new()
-            .map_err(|e| crate::error::AgentError::TelemetryError(format!("Failed to read uptime: {}", e)))?;
+        let uptime = procfs::Uptime::new().map_err(|e| {
+            crate::error::AgentError::TelemetryError(format!("Failed to read uptime: {}", e))
+        })?;
 
-        let load_avg = procfs::LoadAverage::new()
-            .map_err(|e| crate::error::AgentError::TelemetryError(format!("Failed to read load average: {}", e)))?;
+        let load_avg = procfs::LoadAverage::new().map_err(|e| {
+            crate::error::AgentError::TelemetryError(format!("Failed to read load average: {}", e))
+        })?;
 
         Ok(Self {
             uptime_seconds: uptime.uptime as u64,
-            load_average: [load_avg.one as f64, load_avg.five as f64, load_avg.fifteen as f64],
+            load_average: [
+                load_avg.one as f64,
+                load_avg.five as f64,
+                load_avg.fifteen as f64,
+            ],
         })
     }
 }
@@ -145,23 +150,39 @@ impl TelemetryCollector {
         // Lista de servicos candidatos — inclui variantes Hosting
         let candidates = [
             // Web servers
-            "nginx", "nginx", "apache2", "apache2",
+            "nginx",
+            "nginx",
+            "apache2",
+            "apache2",
             // PHP
-            "php81-fpm", "php82rc-fpm", "php83rc-fpm", "php84rc-fpm",
-            "php8.1-fpm", "php8.2-fpm", "php8.3-fpm",
+            "php81-fpm",
+            "php82rc-fpm",
+            "php83rc-fpm",
+            "php84rc-fpm",
+            "php8.1-fpm",
+            "php8.2-fpm",
+            "php8.3-fpm",
             // Banco de dados
-            "mysql", "mariadb", "postgresql", "redis-server", "redis",
+            "mysql",
+            "mariadb",
+            "postgresql",
+            "redis-server",
+            "redis",
             // Docker
             "docker",
             // Node/Python
-            "gunicorn", "pm2",
+            "gunicorn",
+            "pm2",
             // Agente
             "pocket-noc-agent",
         ];
 
-        candidates.iter()
+        candidates
+            .iter()
             .filter_map(|name| ServiceMonitor::check_service(name).ok())
-            .filter(|info| info.status == crate::services::ServiceStatus::Active || info.pid.is_some())
+            .filter(|info| {
+                info.status == crate::services::ServiceStatus::Active || info.pid.is_some()
+            })
             .collect()
     }
 
@@ -172,7 +193,10 @@ impl TelemetryCollector {
         if let Some(process) = self.system.process(sys_pid) {
             Ok(process.kill())
         } else {
-            Err(crate::error::AgentError::CommandError(format!("Process with PID {} not found", pid)))
+            Err(crate::error::AgentError::CommandError(format!(
+                "Process with PID {} not found",
+                pid
+            )))
         }
     }
 }

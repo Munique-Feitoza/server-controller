@@ -24,6 +24,12 @@ pub struct IncidentStore {
     capacity: usize,
 }
 
+impl Default for IncidentStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IncidentStore {
     pub fn new() -> Self {
         Self {
@@ -44,15 +50,25 @@ impl IncidentStore {
     }
 
     pub fn by_severity(&self, severity: &str) -> Vec<&SecurityIncident> {
-        self.incidents.iter().filter(|i| i.severity == severity).collect()
+        self.incidents
+            .iter()
+            .filter(|i| i.severity == severity)
+            .collect()
     }
 
     pub fn count_critical(&self) -> usize {
-        self.incidents.iter().filter(|i| i.severity == "CRITICAL" || i.severity == "critical").count()
+        self.incidents
+            .iter()
+            .filter(|i| i.severity == "CRITICAL" || i.severity == "critical")
+            .count()
     }
 
     pub fn len(&self) -> usize {
         self.incidents.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.incidents.is_empty()
     }
 
     pub fn clear(&mut self) {

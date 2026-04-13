@@ -1,7 +1,7 @@
+use crate::watchdog::circuit_breaker::CircuitBreaker;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Command;
-use serde::{Deserialize, Serialize};
-use crate::watchdog::circuit_breaker::CircuitBreaker;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AÇÕES DE REMEDIAÇÃO DISPONÍVEIS
@@ -31,11 +31,11 @@ pub enum RemediationAction {
 impl std::fmt::Display for RemediationAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RemediationAction::RestartService(s)  => write!(f, "RestartService({})", s),
-            RemediationAction::ReloadConfig(s)    => write!(f, "ReloadConfig({})", s),
-            RemediationAction::KillProcess(pid)   => write!(f, "KillProcess({})", pid),
-            RemediationAction::ClearTmpFiles      => write!(f, "ClearTmpFiles"),
-            RemediationAction::EscalateToHuman    => write!(f, "EscalateToHuman"),
+            RemediationAction::RestartService(s) => write!(f, "RestartService({})", s),
+            RemediationAction::ReloadConfig(s) => write!(f, "ReloadConfig({})", s),
+            RemediationAction::KillProcess(pid) => write!(f, "KillProcess({})", pid),
+            RemediationAction::ClearTmpFiles => write!(f, "ClearTmpFiles"),
+            RemediationAction::EscalateToHuman => write!(f, "EscalateToHuman"),
         }
     }
 }
@@ -57,10 +57,10 @@ pub enum RemediationStatus {
 impl std::fmt::Display for RemediationStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RemediationStatus::Success      => write!(f, "Success"),
-            RemediationStatus::Failed       => write!(f, "Failed"),
-            RemediationStatus::CircuitOpen  => write!(f, "CircuitOpen"),
-            RemediationStatus::NotNeeded    => write!(f, "NotNeeded"),
+            RemediationStatus::Success => write!(f, "Success"),
+            RemediationStatus::Failed => write!(f, "Failed"),
+            RemediationStatus::CircuitOpen => write!(f, "CircuitOpen"),
+            RemediationStatus::NotNeeded => write!(f, "NotNeeded"),
         }
     }
 }
@@ -68,12 +68,12 @@ impl std::fmt::Display for RemediationStatus {
 /// Resultado completo de uma tentativa de remediação
 #[derive(Debug, Clone)]
 pub struct RemediationResult {
-    pub action:    RemediationAction,
-    pub status:    RemediationStatus,
-    pub attempts:  u32,
+    pub action: RemediationAction,
+    pub status: RemediationStatus,
+    pub attempts: u32,
     pub circuit_open: bool,
-    pub just_opened:  bool, // Novo: indica se o circuito ACABOU de abrir
-    pub message:   String,
+    pub just_opened: bool, // Novo: indica se o circuito ACABOU de abrir
+    pub message: String,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -132,7 +132,8 @@ impl RemediationEngine {
             tracing::warn!(
                 "🔴 [{}] Circuit Breaker ABERTO — remediação bloqueada. \
                  Cooldown restante: {}s",
-                service, remaining
+                service,
+                remaining
             );
             return RemediationResult {
                 action: action.clone(),
@@ -160,7 +161,7 @@ impl RemediationEngine {
         let breaker = self.breaker_for(service);
         let circuit_open = breaker.is_open();
         let attempts = breaker.failure_count();
-        
+
         // Determina se o circuito se abriu NESTA tentativa
         let just_opened = circuit_open && (attempts == self.max_failures);
 
@@ -257,53 +258,63 @@ impl RemediationEngine {
         // Remove sufixos comuns de probes (ex: "nginx-http-80" -> "nginx")
         let base_name = service
             .split("-http")
-            .next().unwrap()
+            .next()
+            .unwrap()
             .split("-tcp")
-            .next().unwrap()
+            .next()
+            .unwrap()
             .to_string();
 
         match base_name.as_str() {
             // Pilha Hosting (Smarter Mapping para Munique)
-            s if s.contains("nginx")  => {
+            s if s.contains("nginx") => {
                 // No Hosting, mesmo sensores http/tcp para nginx devem resetar o nginx
-                if service.contains("-rc") || service.contains("http") || service.contains("80") { 
-                    RemediationAction::RestartService("nginx".to_string()) 
-                } else { 
-                    RemediationAction::RestartService("nginx".to_string()) 
+                if service.contains("-rc") || service.contains("http") || service.contains("80") {
+                    RemediationAction::RestartService("nginx".to_string())
+                } else {
+                    RemediationAction::RestartService("nginx".to_string())
                 }
-            },
+            }
             s if s.contains("apache") => {
-                if service.contains("-rc") { RemediationAction::RestartService("apache2".to_string()) }
-                else { RemediationAction::RestartService("apache2".to_string()) }
-            },
+                if service.contains("-rc") {
+                    RemediationAction::RestartService("apache2".to_string())
+                } else {
+                    RemediationAction::RestartService("apache2".to_string())
+                }
+            }
             "mariadb" | "mysql" => RemediationAction::RestartService("mariadb".to_string()),
             "postgresql" | "postgres" => {
-                if service.contains("@") { RemediationAction::RestartService(service.to_string()) }
-                else { RemediationAction::RestartService("postgresql".to_string()) }
-            },
-            
+                if service.contains("@") {
+                    RemediationAction::RestartService(service.to_string())
+                } else {
+                    RemediationAction::RestartService("postgresql".to_string())
+                }
+            }
+
             // PHP dinâmico (Hosting usa phpXX-fpm)
             s if s.starts_with("php") => {
-                let version = s.chars().filter(|c| c.is_digit(10)).collect::<String>();
+                let version = s.chars().filter(|c| c.is_ascii_digit()).collect::<String>();
                 if !version.is_empty() {
                     RemediationAction::RestartService(format!("php{}rc-fpm", version))
                 } else {
                     RemediationAction::RestartService("php81-fpm".to_string())
                 }
-            },
-            
+            }
+
             // ERP / Python Stacks (Acme)
             "gunicorn" | "uvicorn" | "python" | "python-api" => {
                 RemediationAction::RestartService("gunicorn".to_string())
-            },
-            
+            }
+
             // Nodes & Frontends
             "nextjs" | "node" | "npm" => RemediationAction::RestartService("nextjs".to_string()),
 
             // Fallback genérico: se o nome base parecer um serviço systemd, tenta ele.
             // Probes TCP/HTTP puras que não casarem com os nomes acima caem aqui.
-            s if s.len() > 1 && !s.contains('.') => RemediationAction::RestartService(s.to_string()),
-            
+            s if s.len() > 1 && !s.contains('.') => {
+                RemediationAction::RestartService(s.to_string())
+            }
+
             _ => RemediationAction::EscalateToHuman,
         }
     }

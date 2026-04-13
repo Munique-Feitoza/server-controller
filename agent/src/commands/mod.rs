@@ -53,7 +53,9 @@ impl CommandExecutor {
             .allowed_commands
             .iter()
             .find(|c| c.id == command_id)
-            .ok_or_else(|| AgentError::CommandError(format!("Command '{}' not found", command_id)))?;
+            .ok_or_else(|| {
+                AgentError::CommandError(format!("Command '{}' not found", command_id))
+            })?;
 
         let mut cmd = Command::new(&command.command);
         cmd.args(&command.args);

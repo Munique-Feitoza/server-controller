@@ -1,13 +1,13 @@
 use axum::{
-    extract::{State, Query},
+    extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use serde_json::json;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::collections::HashMap;
 
 use crate::{
     audit::AuditLog,
@@ -15,27 +15,24 @@ use crate::{
     error::Result,
     security::incidents::{IncidentStore, SecurityIncident},
     services::ServiceMonitor,
-    telemetry::{TelemetryCollector, AlertManager},
-    watchdog::{
-        event::WatchdogEventStore,
-        remediation::RemediationEngine,
-    },
+    telemetry::{AlertManager, TelemetryCollector},
+    watchdog::{event::WatchdogEventStore, remediation::RemediationEngine},
 };
 
 /// Estado compartilhado da aplicação
 #[derive(Clone)]
 pub struct AppState {
-    pub telemetry_collector:  Arc<Mutex<TelemetryCollector>>,
-    pub command_executor:     Arc<CommandExecutor>,
-    pub alert_manager:        Arc<Mutex<AlertManager>>,
+    pub telemetry_collector: Arc<Mutex<TelemetryCollector>>,
+    pub command_executor: Arc<CommandExecutor>,
+    pub alert_manager: Arc<Mutex<AlertManager>>,
     /// Store de eventos do Watchdog — compartilhado com o engine background
     pub watchdog_event_store: Arc<Mutex<WatchdogEventStore>>,
     /// Motor de remediação — compartilhado para reset manual de Circuit Breakers
-    pub remediation_engine:   Arc<Mutex<RemediationEngine>>,
+    pub remediation_engine: Arc<Mutex<RemediationEngine>>,
     /// Log de auditoria — registra todas as ações da API
-    pub audit_log:            Arc<Mutex<AuditLog>>,
+    pub audit_log: Arc<Mutex<AuditLog>>,
     /// Incidentes de seguranca (webhook do dashboard + deteccoes locais)
-    pub incident_store:       Arc<Mutex<IncidentStore>>,
+    pub incident_store: Arc<Mutex<IncidentStore>>,
 }
 
 /// GET /health - Verificação de saúde do agente
@@ -51,9 +48,7 @@ pub async fn health_check() -> impl IntoResponse {
 }
 
 /// GET /telemetry - Retorna telemetria completa do sistema
-pub async fn get_telemetry(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>> {
+pub async fn get_telemetry(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
     let mut collector = state.telemetry_collector.lock().await;
     let telemetry = collector.collect()?;
 
@@ -69,9 +64,7 @@ pub async fn get_service_status(
 }
 
 /// GET /commands - Lista todos os comandos disponíveis
-pub async fn list_commands(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn list_commands(State(state): State<AppState>) -> impl IntoResponse {
     let commands = state.command_executor.list_commands();
     Json(json!({
         "commands": commands,
@@ -88,18 +81,19 @@ pub async fn execute_command(
 }
 
 /// GET /metrics - Retorna métricas simplificadas (compatível com Prometheus)
-pub async fn get_metrics(
-    State(state): State<AppState>,
-) -> Result<String> {
+pub async fn get_metrics(State(state): State<AppState>) -> Result<String> {
     let mut collector = state.telemetry_collector.lock().await;
     let telemetry = collector.collect()?;
 
     let mut output = String::new();
 
     // Métricas de CPU
-    output.push_str(&format!("# HELP cpu_usage_percent CPU usage percentage\n"));
-    output.push_str(&format!("# TYPE cpu_usage_percent gauge\n"));
-    output.push_str(&format!("cpu_usage_percent {}\n", telemetry.cpu.usage_percent));
+    output.push_str("# HELP cpu_usage_percent CPU usage percentage\n");
+    output.push_str("# TYPE cpu_usage_percent gauge\n");
+    output.push_str(&format!(
+        "cpu_usage_percent {}\n",
+        telemetry.cpu.usage_percent
+    ));
 
     for core in &telemetry.cpu.cores {
         output.push_str(&format!(
@@ -109,9 +103,12 @@ pub async fn get_metrics(
     }
 
     // Métricas de memória
-    output.push_str(&format!("# HELP memory_usage_percent Memory usage percentage\n"));
-    output.push_str(&format!("# TYPE memory_usage_percent gauge\n"));
-    output.push_str(&format!("memory_usage_percent {}\n", telemetry.memory.usage_percent));
+    output.push_str("# HELP memory_usage_percent Memory usage percentage\n");
+    output.push_str("# TYPE memory_usage_percent gauge\n");
+    output.push_str(&format!(
+        "memory_usage_percent {}\n",
+        telemetry.memory.usage_percent
+    ));
 
     output.push_str(&format!("memory_used_mb {}\n", telemetry.memory.used_mb));
     output.push_str(&format!("memory_total_mb {}\n", telemetry.memory.total_mb));
@@ -150,8 +147,14 @@ pub async fn get_metrics(
 pub async fn get_service_logs(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>> {
-    let service = params.get("service").map(|s| s.as_str()).unwrap_or("pocket-noc-agent");
-    let lines = params.get("lines").and_then(|l| l.parse::<u32>().ok()).unwrap_or(100);
+    let service = params
+        .get("service")
+        .map(|s| s.as_str())
+        .unwrap_or("pocket-noc-agent");
+    let lines = params
+        .get("lines")
+        .and_then(|l| l.parse::<u32>().ok())
+        .unwrap_or(100);
 
     let output = std::process::Command::new("journalctl")
         .arg("-u")
@@ -160,7 +163,9 @@ pub async fn get_service_logs(
         .arg(lines.to_string())
         .arg("--no-pager")
         .output()
-        .map_err(|e| crate::error::AgentError::CommandError(format!("Failed to execute journalctl: {}", e)))?;
+        .map_err(|e| {
+            crate::error::AgentError::CommandError(format!("Failed to execute journalctl: {}", e))
+        })?;
 
     let logs = String::from_utf8_lossy(&output.stdout).to_string();
 
@@ -173,9 +178,7 @@ pub async fn get_service_logs(
 }
 
 /// GET /alerts - Retorna uma lista de alertas atuais
-pub async fn get_alerts(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>> {
+pub async fn get_alerts(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
     let mut collector = state.telemetry_collector.lock().await;
     let telemetry = collector.collect()?;
     let alert_manager = state.alert_manager.lock().await;
@@ -189,12 +192,10 @@ pub async fn get_alerts(
 }
 
 /// GET /processes - Retorna a lista de processos (Top 10)
-pub async fn get_top_processes(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>> {
+pub async fn get_top_processes(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
     let mut collector = state.telemetry_collector.lock().await;
     let telemetry = collector.collect()?;
-    
+
     Ok(Json(json!({
         "processes": telemetry.processes.top_processes,
         "timestamp": chrono::Utc::now().to_rfc3339(),
@@ -208,7 +209,7 @@ pub async fn kill_process(
 ) -> Result<Json<serde_json::Value>> {
     let mut collector = state.telemetry_collector.lock().await;
     let success = collector.kill_process(pid)?;
-    
+
     if success {
         tracing::warn!("💀 Process killed by remote user: PID {}", pid);
         Ok(Json(json!({
@@ -217,7 +218,10 @@ pub async fn kill_process(
             "pid": pid
         })))
     } else {
-        Err(crate::error::AgentError::CommandError(format!("Failed to kill process {}", pid)))
+        Err(crate::error::AgentError::CommandError(format!(
+            "Failed to kill process {}",
+            pid
+        )))
     }
 }
 
@@ -228,8 +232,9 @@ pub async fn update_alert_config(
 ) -> Result<Json<serde_json::Value>> {
     let mut alert_manager = state.alert_manager.lock().await;
     alert_manager.update_thresholds(new_thresholds.clone());
-    
-    tracing::info!("🔔 Alert thresholds updated: CPU={}%, RAM={}%, Disk={}%", 
+
+    tracing::info!(
+        "🔔 Alert thresholds updated: CPU={}%, RAM={}%, Disk={}%",
         new_thresholds.cpu_threshold_percent,
         new_thresholds.memory_threshold_percent,
         new_thresholds.disk_threshold_percent
@@ -252,7 +257,7 @@ pub async fn block_ip(
     })?;
 
     let success = crate::telemetry::SecurityMetrics::block_ip(ip)?;
-    
+
     if success {
         tracing::warn!("🛡️ IP Blocked by remote user: {}", ip);
         Ok(Json(json!({
@@ -261,7 +266,10 @@ pub async fn block_ip(
             "ip": ip
         })))
     } else {
-        Err(crate::error::AgentError::CommandError(format!("Failed to block IP {}", ip)))
+        Err(crate::error::AgentError::CommandError(format!(
+            "Failed to block IP {}",
+            ip
+        )))
     }
 }
 
@@ -280,7 +288,10 @@ pub async fn get_watchdog_events(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>> {
-    let limit  = params.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(50);
+    let limit = params
+        .get("limit")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(50);
     let server = params.get("server").map(|s| s.as_str());
     let status = params.get("status").map(|s| s.as_str());
 
@@ -295,7 +306,8 @@ pub async fn get_watchdog_events(
         store.recent(limit)
     };
 
-    let events_json: Vec<_> = events.iter()
+    let events_json: Vec<_> = events
+        .iter()
         .take(limit)
         .map(|e| serde_json::to_value(e).unwrap_or_default())
         .collect();
@@ -312,13 +324,11 @@ pub async fn get_watchdog_events(
 }
 
 /// DELETE /watchdog/events - Limpa o histórico de eventos (logs) do Watchdog
-pub async fn clear_watchdog_events(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn clear_watchdog_events(State(state): State<AppState>) -> impl IntoResponse {
     let mut store = state.watchdog_event_store.lock().await;
     store.clear();
     tracing::info!("🧹 Histórico do Watchdog limpo pelo usuário remoto.");
-    
+
     (
         StatusCode::OK,
         Json(json!({
@@ -329,12 +339,10 @@ pub async fn clear_watchdog_events(
 }
 
 /// POST /watchdog/reset - Reseta todos os Circuit Breakers do Watchdog no servidor
-pub async fn reset_watchdog(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn reset_watchdog(State(state): State<AppState>) -> impl IntoResponse {
     let mut remediation = state.remediation_engine.lock().await;
     remediation.reset_all();
-    
+
     (
         StatusCode::OK,
         Json(json!({
@@ -345,12 +353,10 @@ pub async fn reset_watchdog(
 }
 
 /// GET /watchdog/breakers - Diagnóstico detalhado dos Circuit Breakers ativos
-pub async fn get_watchdog_breakers(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_watchdog_breakers(State(state): State<AppState>) -> impl IntoResponse {
     let remediation = state.remediation_engine.lock().await;
     let states = remediation.circuit_states();
-    
+
     (
         StatusCode::OK,
         Json(json!({
@@ -370,13 +376,20 @@ pub async fn get_audit_logs(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
-    let limit = params.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(100);
+    let limit = params
+        .get("limit")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(100);
     let action = params.get("action").map(|s| s.as_str());
 
     let log = state.audit_log.lock().await;
 
     let entries: Vec<_> = if let Some(act) = action {
-        log.by_action(act).into_iter().take(limit).cloned().collect()
+        log.by_action(act)
+            .into_iter()
+            .take(limit)
+            .cloned()
+            .collect()
     } else {
         log.recent(limit).into_iter().cloned().collect()
     };
@@ -392,9 +405,7 @@ pub async fn get_audit_logs(
 }
 
 /// DELETE /audit/logs
-pub async fn clear_audit_logs(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn clear_audit_logs(State(state): State<AppState>) -> impl IntoResponse {
     let mut log = state.audit_log.lock().await;
     log.clear();
     tracing::info!("🧹 Audit log cleared by remote user");
@@ -505,14 +516,23 @@ pub async fn get_config() -> impl IntoResponse {
         .map(|v| v != "false" && v != "0")
         .unwrap_or(true);
     let watchdog_interval = std::env::var("WATCHDOG_INTERVAL_SECS")
-        .ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(30);
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(30);
     let max_failures = std::env::var("WATCHDOG_MAX_FAILURES")
-        .ok().and_then(|v| v.parse::<u32>().ok()).unwrap_or(3);
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(3);
     let cooldown = std::env::var("WATCHDOG_COOLDOWN_SECS")
-        .ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(300);
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(300);
     let rate_limit = std::env::var("RATE_LIMIT_PER_MINUTE")
-        .ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(60);
-    let tls_enabled = std::env::var("TLS_CERT_PATH").is_ok() && std::env::var("TLS_KEY_PATH").is_ok();
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
+    let tls_enabled =
+        std::env::var("TLS_CERT_PATH").is_ok() && std::env::var("TLS_KEY_PATH").is_ok();
 
     (
         StatusCode::OK,
@@ -537,14 +557,32 @@ pub async fn receive_security_webhook(
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let source = payload.get("source").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let severity = payload.get("severity").and_then(|v| v.as_str()).unwrap_or("info");
-    let event = payload.get("event").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let ip = payload.get("ip").and_then(|v| v.as_str()).unwrap_or("0.0.0.0");
+    let source = payload
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let severity = payload
+        .get("severity")
+        .and_then(|v| v.as_str())
+        .unwrap_or("info");
+    let event = payload
+        .get("event")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let ip = payload
+        .get("ip")
+        .and_then(|v| v.as_str())
+        .unwrap_or("0.0.0.0");
     let details = payload.get("details");
 
-    let country = details.and_then(|d| d.get("country")).and_then(|v| v.as_str()).map(String::from);
-    let isp = details.and_then(|d| d.get("isp")).and_then(|v| v.as_str()).map(String::from);
+    let country = details
+        .and_then(|d| d.get("country"))
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let isp = details
+        .and_then(|d| d.get("isp"))
+        .and_then(|v| v.as_str())
+        .map(String::from);
     let detail_str = details.map(|d| d.to_string());
 
     tracing::warn!(
@@ -564,7 +602,10 @@ pub async fn receive_security_webhook(
             event_type: event.to_string(),
             attacker_ip: ip.to_string(),
             country,
-            city: details.and_then(|d| d.get("city")).and_then(|v| v.as_str()).map(String::from),
+            city: details
+                .and_then(|d| d.get("city"))
+                .and_then(|v| v.as_str())
+                .map(String::from),
             isp,
             details: detail_str,
             from_webhook: true,
@@ -574,10 +615,19 @@ pub async fn receive_security_webhook(
     // Registra tambem no audit log
     {
         let mut log = state.audit_log.lock().await;
-        log.record("WEBHOOK", &format!("/webhook/security/{}", event), ip, 200, Some(format!("[{}] {}", severity, event)));
+        log.record(
+            "WEBHOOK",
+            &format!("/webhook/security/{}", event),
+            ip,
+            200,
+            Some(format!("[{}] {}", severity, event)),
+        );
     }
 
-    (StatusCode::OK, Json(json!({ "status": "received", "event": event })))
+    (
+        StatusCode::OK,
+        Json(json!({ "status": "received", "event": event })),
+    )
 }
 
 /// GET /security/incidents?limit=50&severity=CRITICAL
@@ -586,30 +636,39 @@ pub async fn get_security_incidents(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
-    let limit = params.get("limit").and_then(|v| v.parse::<usize>().ok()).unwrap_or(50);
+    let limit = params
+        .get("limit")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(50);
     let severity = params.get("severity").map(|s| s.as_str());
 
     let store = state.incident_store.lock().await;
 
     let incidents: Vec<_> = if let Some(sev) = severity {
-        store.by_severity(sev).into_iter().take(limit).cloned().collect()
+        store
+            .by_severity(sev)
+            .into_iter()
+            .take(limit)
+            .cloned()
+            .collect()
     } else {
         store.recent(limit).into_iter().cloned().collect()
     };
 
-    (StatusCode::OK, Json(json!({
-        "incidents": incidents,
-        "count": incidents.len(),
-        "total": store.len(),
-        "critical_count": store.count_critical(),
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    })))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "incidents": incidents,
+            "count": incidents.len(),
+            "total": store.len(),
+            "critical_count": store.count_critical(),
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
 }
 
 /// POST /config — Atualiza configuração mutável em runtime
-pub async fn update_config(
-    Json(payload): Json<serde_json::Value>,
-) -> impl IntoResponse {
+pub async fn update_config(Json(payload): Json<serde_json::Value>) -> impl IntoResponse {
     // Nota: Em produção, implementei para atualizar variáveis de ambiente ou arquivo de config.
     // Aqui registro as mudanças solicitadas para a administradora aplicar.
     tracing::info!("📝 Config update requested: {}", payload);

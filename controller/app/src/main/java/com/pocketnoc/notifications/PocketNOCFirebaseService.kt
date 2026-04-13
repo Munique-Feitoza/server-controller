@@ -54,7 +54,7 @@ object PocketNOCNotificationHelper {
             val securityChannel = NotificationChannel(
                 CHANNEL_SECURITY,
                 "Security Alerts",
-                NotificationManager.IMPORTANCE_MAX
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Ameacas de seguranca e tentativas de intrusao"
                 enableVibration(true)
@@ -65,6 +65,7 @@ object PocketNOCNotificationHelper {
         }
     }
 
+    @android.annotation.SuppressLint("MissingPermission")
     fun showNotification(
         context: Context,
         title: String,

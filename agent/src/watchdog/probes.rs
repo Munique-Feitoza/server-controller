@@ -16,9 +16,9 @@ pub enum ProbeStatus {
 impl std::fmt::Display for ProbeStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ProbeStatus::Healthy   => write!(f, "Healthy"),
-            ProbeStatus::Degraded  => write!(f, "Degraded"),
-            ProbeStatus::Down      => write!(f, "Down"),
+            ProbeStatus::Healthy => write!(f, "Healthy"),
+            ProbeStatus::Degraded => write!(f, "Degraded"),
+            ProbeStatus::Down => write!(f, "Down"),
         }
     }
 }
@@ -26,10 +26,10 @@ impl std::fmt::Display for ProbeStatus {
 /// Resultado estruturado de uma probe — contém status, latência e mensagem legível
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProbeResult {
-    pub status:      ProbeStatus,
-    pub latency_ms:  Option<u64>,
-    pub message:     String,
-    pub service:     String,
+    pub status: ProbeStatus,
+    pub latency_ms: Option<u64>,
+    pub message: String,
+    pub service: String,
 }
 
 impl ProbeResult {
@@ -51,13 +51,13 @@ impl ProbeResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpProbeConfig {
     /// Nome lógico do serviço (ex: "erp-python", "nextjs-frontend", "wordpress-site1")
-    pub service:             String,
+    pub service: String,
     /// URL para testar (ex: "http://127.0.0.1:8000/health")
-    pub url:                 String,
+    pub url: String,
     /// Timeout em segundos (padrão: 5)
-    pub timeout_secs:        u64,
+    pub timeout_secs: u64,
     /// Código HTTP esperado (padrão: 200)
-    pub expected_status:     u16,
+    pub expected_status: u16,
     /// Latência máxima tolerada em ms antes de marcar como Degraded (padrão: 2000)
     pub degraded_latency_ms: u64,
 }
@@ -65,10 +65,10 @@ pub struct HttpProbeConfig {
 impl Default for HttpProbeConfig {
     fn default() -> Self {
         Self {
-            service:             "http-service".to_string(),
-            url:                 "http://127.0.0.1".to_string(),
-            timeout_secs:        5,
-            expected_status:     200,
+            service: "http-service".to_string(),
+            url: "http://127.0.0.1".to_string(),
+            timeout_secs: 5,
+            expected_status: 200,
             degraded_latency_ms: 2000,
         }
     }
@@ -87,10 +87,10 @@ pub async fn run_http_probe(config: &HttpProbeConfig) -> ProbeResult {
         Ok(c) => c,
         Err(e) => {
             return ProbeResult {
-                status:     ProbeStatus::Down,
+                status: ProbeStatus::Down,
                 latency_ms: None,
-                message:    format!("Falha ao criar HTTP client: {e}"),
-                service:    config.service.clone(),
+                message: format!("Falha ao criar HTTP client: {e}"),
+                service: config.service.clone(),
             }
         }
     };
@@ -104,9 +104,9 @@ pub async fn run_http_probe(config: &HttpProbeConfig) -> ProbeResult {
             // Verifica código HTTP esperado
             if http_status != config.expected_status {
                 return ProbeResult {
-                    status:     ProbeStatus::Down,
+                    status: ProbeStatus::Down,
                     latency_ms: Some(elapsed_ms),
-                    message:    format!(
+                    message: format!(
                         "HTTP {} inesperado em {} (esperado: {})",
                         http_status, config.url, config.expected_status
                     ),
@@ -136,16 +136,19 @@ pub async fn run_http_probe(config: &HttpProbeConfig) -> ProbeResult {
             let msg = if e.is_timeout() {
                 format!("Timeout após {}s em {}", config.timeout_secs, config.url)
             } else if e.is_connect() {
-                format!("Conexão recusada em {} — serviço possivelmente down", config.url)
+                format!(
+                    "Conexão recusada em {} — serviço possivelmente down",
+                    config.url
+                )
             } else {
                 format!("Erro HTTP em {}: {e}", config.url)
             };
 
             ProbeResult {
-                status:     ProbeStatus::Down,
+                status: ProbeStatus::Down,
                 latency_ms: Some(elapsed_ms),
-                message:    msg,
-                service:    config.service.clone(),
+                message: msg,
+                service: config.service.clone(),
             }
         }
     }
@@ -181,21 +184,24 @@ pub fn run_service_probe(config: &ServiceProbeConfig) -> ProbeResult {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
             let status = match stdout.as_str() {
-                "active"       => ProbeStatus::Healthy,
-                "activating"   => ProbeStatus::Degraded,
+                "active" => ProbeStatus::Healthy,
+                "activating" => ProbeStatus::Degraded,
                 "deactivating" => ProbeStatus::Degraded,
-                _              => ProbeStatus::Down,  // "inactive", "failed", "unknown"
+                _ => ProbeStatus::Down, // "inactive", "failed", "unknown"
             };
-            let message = format!(
-                "systemctl {service}: {stdout}"
-            );
-            ProbeResult { status, latency_ms: None, message, service: service.clone() }
+            let message = format!("systemctl {service}: {stdout}");
+            ProbeResult {
+                status,
+                latency_ms: None,
+                message,
+                service: service.clone(),
+            }
         }
         Err(e) => ProbeResult {
-            status:     ProbeStatus::Down,
+            status: ProbeStatus::Down,
             latency_ms: None,
-            message:    format!("Falha ao executar systemctl is-active {service}: {e}"),
-            service:    service.clone(),
+            message: format!("Falha ao executar systemctl is-active {service}: {e}"),
+            service: service.clone(),
         },
     }
 }
@@ -210,11 +216,11 @@ pub fn run_service_probe(config: &ServiceProbeConfig) -> ProbeResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TcpProbeConfig {
     /// Nome lógico do serviço (ex: "mysql-db", "postgres-erp")
-    pub service:      String,
+    pub service: String,
     /// Host do servidor (ex: "127.0.0.1" ou "10.0.0.5")
-    pub host:         String,
+    pub host: String,
     /// Porta TCP (ex: 3306 para MySQL, 5432 para PostgreSQL)
-    pub port:         u16,
+    pub port: u16,
     /// Timeout em segundos (padrão: 3)
     pub timeout_secs: u64,
 }
@@ -224,25 +230,22 @@ pub struct TcpProbeConfig {
 /// Essa abordagem é a mais leve possível: abre o socket e fecha imediatamente.
 /// Não autentica, não envia dados — apenas confirma que o serviço está escutando.
 pub fn run_tcp_probe(config: &TcpProbeConfig) -> ProbeResult {
-    use std::net::{TcpStream, SocketAddr, ToSocketAddrs};
+    use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 
     let addr_str = format!("{}:{}", config.host, config.port);
-    let service  = config.service.clone();
-    let timeout  = Duration::from_secs(config.timeout_secs);
+    let service = config.service.clone();
+    let timeout = Duration::from_secs(config.timeout_secs);
 
     let start = Instant::now();
 
     // Resolve o endereço (pode falhar se o host não existir)
-    let addr: SocketAddr = match addr_str.to_socket_addrs()
-        .ok()
-        .and_then(|mut a| a.next())
-    {
+    let addr: SocketAddr = match addr_str.to_socket_addrs().ok().and_then(|mut a| a.next()) {
         Some(a) => a,
         None => {
             return ProbeResult {
-                status:     ProbeStatus::Down,
+                status: ProbeStatus::Down,
                 latency_ms: None,
-                message:    format!("Não foi possível resolver o endereço {addr_str}"),
+                message: format!("Não foi possível resolver o endereço {addr_str}"),
                 service,
             }
         }
@@ -252,18 +255,18 @@ pub fn run_tcp_probe(config: &TcpProbeConfig) -> ProbeResult {
         Ok(_) => {
             let elapsed_ms = start.elapsed().as_millis() as u64;
             ProbeResult {
-                status:     ProbeStatus::Healthy,
+                status: ProbeStatus::Healthy,
                 latency_ms: Some(elapsed_ms),
-                message:    format!("Porta TCP {addr_str} acessível ({}ms)", elapsed_ms),
+                message: format!("Porta TCP {addr_str} acessível ({}ms)", elapsed_ms),
                 service,
             }
         }
         Err(e) => {
             let elapsed_ms = start.elapsed().as_millis() as u64;
             ProbeResult {
-                status:     ProbeStatus::Down,
+                status: ProbeStatus::Down,
                 latency_ms: Some(elapsed_ms),
-                message:    format!("Porta TCP {addr_str} inacessível: {e}"),
+                message: format!("Porta TCP {addr_str} inacessível: {e}"),
                 service,
             }
         }
@@ -288,128 +291,167 @@ pub enum AnyProbeConfig {
 pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
     let mut probes: Vec<AnyProbeConfig> = match role {
         "wordpress" => vec![
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "nginx".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "apache2".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mariadb".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "php81-fpm".to_string() }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "nginx".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "apache2".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "mariadb".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "php81-fpm".to_string(),
+            }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "mariadb-tcp".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         3306,
+                service: "mariadb-tcp".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 3306,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "nginx-tcp-80".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         80,
+                service: "nginx-tcp-80".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 80,
                 timeout_secs: 3,
             }),
         ],
 
         "wordpress-python" => vec![
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "nginx".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "apache2".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mariadb".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "php81-fpm".to_string() }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "nginx".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "apache2".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "mariadb".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "php81-fpm".to_string(),
+            }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "mariadb-tcp".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         3306,
+                service: "mariadb-tcp".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 3306,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "nginx-tcp-80".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         80,
+                service: "nginx-tcp-80".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 80,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Http(HttpProbeConfig {
-                service:             "python-api".to_string(),
-                url:                 "http://127.0.0.1:8000/health".to_string(),
-                timeout_secs:        5,
-                expected_status:     200,
+                service: "python-api".to_string(),
+                url: "http://127.0.0.1:8000/health".to_string(),
+                timeout_secs: 5,
+                expected_status: 200,
                 degraded_latency_ms: 2000,
             }),
         ],
 
         "erp" => vec![
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "gunicorn".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "postgresql".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "nginx".to_string() }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "gunicorn".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "postgresql".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "nginx".to_string(),
+            }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "postgresql-tcp".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         5432,
+                service: "postgresql-tcp".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 5432,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Http(HttpProbeConfig {
-                service:             "erp-python-api".to_string(),
-                url:                 "http://127.0.0.1:8000/health".to_string(),
-                timeout_secs:        5,
-                expected_status:     200,
+                service: "erp-python-api".to_string(),
+                url: "http://127.0.0.1:8000/health".to_string(),
+                timeout_secs: 5,
+                expected_status: 200,
                 degraded_latency_ms: 2000,
             }),
             AnyProbeConfig::Http(HttpProbeConfig {
-                service:             "nextjs-frontend".to_string(),
-                url:                 "http://127.0.0.1:3000".to_string(),
-                timeout_secs:        5,
-                expected_status:     200,
+                service: "nextjs-frontend".to_string(),
+                url: "http://127.0.0.1:3000".to_string(),
+                timeout_secs: 5,
+                expected_status: 200,
                 degraded_latency_ms: 2000,
             }),
         ],
 
         "python-nextjs" => vec![
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "nginx".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "apache2".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mariadb".to_string() }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "postgresql@14-main".to_string() }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "nginx".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "apache2".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "mariadb".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "postgresql@14-main".to_string(),
+            }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "python-tcp-8000".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         8000,
+                service: "python-tcp-8000".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 8000,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "nextjs-tcp-3000".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         3000,
+                service: "nextjs-tcp-3000".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 3000,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "nginx-tcp-80".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         80,
+                service: "nginx-tcp-80".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 80,
                 timeout_secs: 3,
             }),
         ],
 
         "database" => vec![
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mysql".to_string()      }),
-            AnyProbeConfig::Service(ServiceProbeConfig { service_name: "postgresql".to_string() }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "mysql".to_string(),
+            }),
+            AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: "postgresql".to_string(),
+            }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "mysql-tcp".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         3306,
+                service: "mysql-tcp".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 3306,
                 timeout_secs: 3,
             }),
             AnyProbeConfig::Tcp(TcpProbeConfig {
-                service:      "postgresql-tcp".to_string(),
-                host:         "127.0.0.1".to_string(),
-                port:         5432,
+                service: "postgresql-tcp".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: 5432,
                 timeout_secs: 3,
             }),
         ],
 
         // "generic" — detecta automaticamente stack Hosting ou padrao
         _ => {
-            let nginx_active = is_service_active("nginx")
-                || is_service_active("nginx");
-            let nginx_name = if is_service_active("nginx") { "nginx" } else { "nginx" };
+            let nginx_active = is_service_active("nginx") || is_service_active("nginx");
+            let nginx_name = if is_service_active("nginx") {
+                "nginx"
+            } else {
+                "nginx"
+            };
 
             let mut probes: Vec<AnyProbeConfig> = Vec::new();
 
             if nginx_active {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: nginx_name.to_string() }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: nginx_name.to_string(),
+                }));
                 probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
                     service: "nginx-tcp-80".to_string(),
                     host: "127.0.0.1".to_string(),
@@ -426,16 +468,22 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
 
             // php-fpm: detecta todas as versoes ativas (php81-fpm, php82rc-fpm, etc)
             for fpm in detect_active_php_fpm() {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: fpm }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: fpm,
+                }));
             }
 
             // Bancos: mariadb vence sobre mysql (mysql.service geralmente eh alias no Hosting)
             let mariadb_active = is_service_active("mariadb");
             let mysql_active = is_service_active("mysql");
             if mariadb_active {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mariadb".to_string() }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: "mariadb".to_string(),
+                }));
             } else if mysql_active {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "mysql".to_string() }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: "mysql".to_string(),
+                }));
             }
             if mariadb_active || mysql_active {
                 probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
@@ -449,7 +497,9 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
             // PostgreSQL: detecta tanto "postgresql" quanto variantes tipo "postgresql@14-main"
             let pg_units = detect_active_postgresql();
             for unit in &pg_units {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: unit.clone() }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: unit.clone(),
+                }));
             }
             if !pg_units.is_empty() {
                 probes.push(AnyProbeConfig::Tcp(TcpProbeConfig {
@@ -461,14 +511,18 @@ pub fn default_probes_for_role(role: &str) -> Vec<AnyProbeConfig> {
             }
 
             if is_service_active("docker") {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "docker".to_string() }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: "docker".to_string(),
+                }));
             }
             if is_service_active("redis-server") {
-                probes.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: "redis-server".to_string() }));
+                probes.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                    service_name: "redis-server".to_string(),
+                }));
             }
 
             probes
-        },
+        }
     };
 
     // Adiciona probes extras configurados via env vars (aplicavel a todos os roles)
@@ -488,21 +542,25 @@ fn is_service_active(name: &str) -> bool {
 /// Detecta todas as versoes de php-fpm ativas (Hosting: phpXX-fpm, padrao: phpX.Y-fpm)
 fn detect_active_php_fpm() -> Vec<String> {
     let output = std::process::Command::new("systemctl")
-        .args(["list-units", "--type=service", "--state=running", "--no-legend", "--plain"])
+        .args([
+            "list-units",
+            "--type=service",
+            "--state=running",
+            "--no-legend",
+            "--plain",
+        ])
         .output();
 
     match output {
-        Ok(o) if o.status.success() => {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .filter_map(|line| line.split_whitespace().next())
-                .filter(|name| {
-                    let n = name.to_lowercase();
-                    n.starts_with("php") && n.contains("fpm")
-                })
-                .map(|name| name.trim_end_matches(".service").to_string())
-                .collect()
-        }
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .filter_map(|line| line.split_whitespace().next())
+            .filter(|name| {
+                let n = name.to_lowercase();
+                n.starts_with("php") && n.contains("fpm")
+            })
+            .map(|name| name.trim_end_matches(".service").to_string())
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -510,18 +568,22 @@ fn detect_active_php_fpm() -> Vec<String> {
 /// Detecta unidades postgresql ativas (postgresql, postgresql@14-main, postgresql-16, etc)
 fn detect_active_postgresql() -> Vec<String> {
     let output = std::process::Command::new("systemctl")
-        .args(["list-units", "--type=service", "--state=running", "--no-legend", "--plain"])
+        .args([
+            "list-units",
+            "--type=service",
+            "--state=running",
+            "--no-legend",
+            "--plain",
+        ])
         .output();
 
     match output {
-        Ok(o) if o.status.success() => {
-            String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .filter_map(|line| line.split_whitespace().next())
-                .filter(|name| name.to_lowercase().starts_with("postgresql"))
-                .map(|name| name.trim_end_matches(".service").to_string())
-                .collect()
-        }
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .filter_map(|line| line.split_whitespace().next())
+            .filter(|name| name.to_lowercase().starts_with("postgresql"))
+            .map(|name| name.trim_end_matches(".service").to_string())
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -537,7 +599,9 @@ fn load_extra_probes() -> Vec<AnyProbeConfig> {
 
     if let Ok(val) = std::env::var("EXTRA_SERVICE_PROBES") {
         for name in val.split(';').map(|s| s.trim()).filter(|s| !s.is_empty()) {
-            out.push(AnyProbeConfig::Service(ServiceProbeConfig { service_name: name.to_string() }));
+            out.push(AnyProbeConfig::Service(ServiceProbeConfig {
+                service_name: name.to_string(),
+            }));
         }
     }
 
@@ -600,9 +664,9 @@ mod tests {
     fn test_tcp_probe_refused_connection() {
         // Porta 19999 quase certamente fechada — deve retornar Down
         let result = run_tcp_probe(&TcpProbeConfig {
-            service:      "test-closed-port".to_string(),
-            host:         "127.0.0.1".to_string(),
-            port:         19999,
+            service: "test-closed-port".to_string(),
+            host: "127.0.0.1".to_string(),
+            port: 19999,
             timeout_secs: 1,
         });
         assert_eq!(result.status, ProbeStatus::Down);
@@ -612,18 +676,28 @@ mod tests {
     fn test_default_probes_wordpress_role() {
         let probes = default_probes_for_role("wordpress");
         assert!(!probes.is_empty());
-        // Deve conter pelo menos o probe HTTP
-        let has_http = probes.iter().any(|p| matches!(p, AnyProbeConfig::Http(_)));
-        assert!(has_http, "WordPress role deve ter pelo menos 1 HTTP probe");
+        let has_service = probes
+            .iter()
+            .any(|p| matches!(p, AnyProbeConfig::Service(_)));
+        let has_tcp = probes.iter().any(|p| matches!(p, AnyProbeConfig::Tcp(_)));
+        assert!(
+            has_service && has_tcp,
+            "WordPress role deve ter probes de service e tcp"
+        );
     }
 
     #[test]
     fn test_default_probes_erp_role() {
         let probes = default_probes_for_role("erp");
         // Deve testar o ERP Python E o Next.js
-        let http_probes: Vec<_> = probes.iter()
+        let http_probes: Vec<_> = probes
+            .iter()
             .filter(|p| matches!(p, AnyProbeConfig::Http(_)))
             .collect();
-        assert_eq!(http_probes.len(), 2, "ERP role deve ter 2 HTTP probes (ERP + Next.js)");
+        assert_eq!(
+            http_probes.len(),
+            2,
+            "ERP role deve ter 2 HTTP probes (ERP + Next.js)"
+        );
     }
 }

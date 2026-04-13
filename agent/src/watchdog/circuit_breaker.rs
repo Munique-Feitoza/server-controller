@@ -1,5 +1,5 @@
-use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
 
 /// Estado interno da máquina de estados do Circuit Breaker
 ///
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// HalfOpen → Closed (após 1 sucesso) | Open (após 1 nova falha)
 ///
 /// - **Complexidade Algorítmica:** As transições de estado operam em tempo `O(1)` constante stricto sensu, sem iterações de laço.
-/// - **Gestão de Memória:** Implementado com *Zero-cost abstractions*. Enumeradores em Rust não alocam 
+/// - **Gestão de Memória:** Implementado com *Zero-cost abstractions*. Enumeradores em Rust não alocam
 ///   no Heap (são guardados na Stack), prevenindo completamente cenários de *Memory Leak* ou latência de Garbage Collection.
 ///
 /// Isso é um dos padrões de resiliência mais importantes em sistemas distribuídos.
@@ -27,8 +27,8 @@ pub enum CircuitState {
 impl std::fmt::Display for CircuitState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CircuitState::Closed   => write!(f, "Closed"),
-            CircuitState::Open     => write!(f, "Open"),
+            CircuitState::Closed => write!(f, "Closed"),
+            CircuitState::Open => write!(f, "Open"),
             CircuitState::HalfOpen => write!(f, "HalfOpen"),
         }
     }
@@ -42,15 +42,15 @@ impl std::fmt::Display for CircuitState {
 #[derive(Debug)]
 pub struct CircuitBreaker {
     /// Máximo de falhas consecutivas antes de abrir o circuito
-    pub max_failures:   u32,
+    pub max_failures: u32,
     /// Quanto tempo esperar antes de tentar novamente (HalfOpen) após abrir
-    pub cooldown:       Duration,
+    pub cooldown: Duration,
     /// Falhas consecutivas acumuladas (zerado no sucesso)
-    failure_count:      u32,
+    failure_count: u32,
     /// Estado atual da máquina de estados
-    state:              CircuitState,
+    state: CircuitState,
     /// Quando o circuito foi aberto pela última vez
-    last_opened_at:     Option<Instant>,
+    last_opened_at: Option<Instant>,
 }
 
 impl CircuitBreaker {
@@ -75,8 +75,8 @@ impl CircuitBreaker {
     /// Também faz a transição Open → HalfOpen automaticamente após o cooldown.
     pub fn can_attempt(&mut self) -> bool {
         match self.state {
-            CircuitState::Closed   => true,
-            CircuitState::HalfOpen => true,  // Permite 1 tentativa de sondagem
+            CircuitState::Closed => true,
+            CircuitState::HalfOpen => true, // Permite 1 tentativa de sondagem
             CircuitState::Open => {
                 // Verifica se o cooldown expirou
                 if let Some(opened_at) = self.last_opened_at {
@@ -89,7 +89,7 @@ impl CircuitBreaker {
                         return true;
                     }
                 }
-                false  // Cooldown ainda em andamento
+                false // Cooldown ainda em andamento
             }
         }
     }
@@ -189,8 +189,15 @@ mod tests {
         assert_eq!(cb.state(), &CircuitState::Closed, "2 falhas não abre ainda");
 
         cb.record_failure(); // 3ª falha — deve abrir!
-        assert_eq!(cb.state(), &CircuitState::Open, "3 falhas devem abrir o circuito");
-        assert!(!cb.can_attempt(), "Circuito aberto — não deve permitir tentativa");
+        assert_eq!(
+            cb.state(),
+            &CircuitState::Open,
+            "3 falhas devem abrir o circuito"
+        );
+        assert!(
+            !cb.can_attempt(),
+            "Circuito aberto — não deve permitir tentativa"
+        );
     }
 
     #[test]
@@ -201,7 +208,10 @@ mod tests {
         assert_eq!(cb.state(), &CircuitState::Open);
 
         // Com cooldown=0, a próxima chamada a can_attempt() deve transitar para HalfOpen
-        assert!(cb.can_attempt(), "Cooldown=0 deve permitir HalfOpen imediatamente");
+        assert!(
+            cb.can_attempt(),
+            "Cooldown=0 deve permitir HalfOpen imediatamente"
+        );
         assert_eq!(cb.state(), &CircuitState::HalfOpen);
     }
 
@@ -219,7 +229,11 @@ mod tests {
         // Sucesso na tentativa HalfOpen deve fechar o circuito
         cb.record_success();
         assert_eq!(cb.state(), &CircuitState::Closed);
-        assert_eq!(cb.failure_count(), 0, "Contador de falhas deve zerar após sucesso");
+        assert_eq!(
+            cb.failure_count(),
+            0,
+            "Contador de falhas deve zerar após sucesso"
+        );
     }
 
     #[test]
@@ -227,6 +241,9 @@ mod tests {
         let mut cb = CircuitBreaker::new(1, 999); // 999s de cooldown
         cb.record_failure();
         assert_eq!(cb.state(), &CircuitState::Open);
-        assert!(!cb.can_attempt(), "Deve bloquear — cooldown ainda em andamento");
+        assert!(
+            !cb.can_attempt(),
+            "Deve bloquear — cooldown ainda em andamento"
+        );
     }
 }

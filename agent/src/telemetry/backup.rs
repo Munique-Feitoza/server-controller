@@ -29,9 +29,8 @@ const BACKUP_PATHS: &[&str] = &[
 
 /// Extensões de arquivo que identificam backups.
 const BACKUP_EXTENSIONS: &[&str] = &[
-    ".sql.gz", ".sql.bz2", ".sql.xz", ".sql",
-    ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz",
-    ".zip", ".bak", ".dump",
+    ".sql.gz", ".sql.bz2", ".sql.xz", ".sql", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip",
+    ".bak", ".dump",
 ];
 
 /// Limiar de horas para considerar um backup como "stale" (obsoleto).
@@ -81,12 +80,13 @@ pub fn collect_backup_status() -> BackupStatus {
     }
 
     // Ordena pelo mais recente primeiro
-    backups.sort_by(|a, b| a.age_hours.partial_cmp(&b.age_hours).unwrap_or(std::cmp::Ordering::Equal));
+    backups.sort_by(|a, b| {
+        a.age_hours
+            .partial_cmp(&b.age_hours)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let any_stale = backups.iter().any(|b| b.is_stale);
 
-    BackupStatus {
-        backups,
-        any_stale,
-    }
+    BackupStatus { backups, any_stale }
 }

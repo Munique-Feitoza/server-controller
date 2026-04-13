@@ -1,22 +1,23 @@
 use axum::{
     middleware,
-    routing::{get, post, delete},
+    routing::{delete, get, post},
     Router,
 };
 use pocket_noc_agent::{
-    api::{handlers::*, RateLimiter},
     api::middleware::SecurityState,
+    api::{handlers::*, RateLimiter},
     audit::AuditLog,
     auth::JwtConfig,
     commands::default_emergency_commands,
-    security::ThreatTracker,
-    telemetry::{TelemetryCollector, AlertManager, AlertType},
     notifications::NtfyClient,
-    watchdog::{WatchdogEngine, WatchdogConfig, event::WatchdogEventStore, remediation::RemediationEngine},
+    security::ThreatTracker,
+    telemetry::{AlertManager, AlertType, TelemetryCollector},
+    watchdog::{
+        event::WatchdogEventStore, remediation::RemediationEngine, WatchdogConfig, WatchdogEngine,
+    },
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing_subscriber;
 use tower_http::cors::CorsLayer;
 
 /// O motor principal do Agente.
@@ -37,20 +38,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let jwt_secret = std::env::var("POCKET_NOC_SECRET")
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|_| {
-            tracing::error!("❌ POCKET_NOC_SECRET nao definido! Defina em /etc/pocket-noc-agent.env");
+            tracing::error!(
+                "❌ POCKET_NOC_SECRET nao definido! Defina em /etc/pocket-noc-agent.env"
+            );
             tracing::error!("   Gere com: openssl rand -base64 32");
             std::process::exit(1);
         });
 
-    let jwt_config = Arc::new(JwtConfig::new(jwt_secret.clone(), 3600)
-        .expect("Failed to create JWT config"));
+    let jwt_config =
+        Arc::new(JwtConfig::new(jwt_secret.clone(), 3600).expect("Failed to create JWT config"));
 
     let masked_secret = if jwt_secret.len() >= 4 {
         format!("{}****", &jwt_secret[..4])
     } else {
         "****".to_string()
     };
-    tracing::info!("✅ JWT configured - secret loaded (mask: {})", masked_secret);
+    tracing::info!(
+        "✅ JWT configured - secret loaded (mask: {})",
+        masked_secret
+    );
 
     let collector = Arc::new(Mutex::new(TelemetryCollector::new()));
     let command_executor = Arc::new(pocket_noc_agent::commands::CommandExecutor::new(
@@ -75,7 +81,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Rate Limiter (configuravel via env)
     let rate_limiter = RateLimiter::from_env();
-    tracing::info!("⚡ Rate limiter: {} req/min per IP", rate_limiter.max_requests);
+    tracing::info!(
+        "⚡ Rate limiter: {} req/min per IP",
+        rate_limiter.max_requests
+    );
 
     // Rastreador de ameacas (zip bomb + auto-ban apos 5 falhas)
     let threat_tracker = Arc::new(Mutex::new(ThreatTracker::new()));
@@ -88,23 +97,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Configuracao do ntfy
-    let ntfy_topic = std::env::var("NTFY_TOPIC")
-        .unwrap_or_else(|_| format!("pocket_noc_{}", &jwt_secret[..8]));
+    let ntfy_topic =
+        std::env::var("NTFY_TOPIC").unwrap_or_else(|_| format!("pocket_noc_{}", &jwt_secret[..8]));
     let ntfy_client = Arc::new(NtfyClient::new(&ntfy_topic));
 
     tracing::info!("🔔 Ntfy notifications active on topic: {}", ntfy_topic);
 
     // Store de incidentes de seguranca (webhook do dashboard + deteccoes locais)
-    let incident_store = Arc::new(Mutex::new(pocket_noc_agent::security::incidents::IncidentStore::new()));
+    let incident_store = Arc::new(Mutex::new(
+        pocket_noc_agent::security::incidents::IncidentStore::new(),
+    ));
 
     let state = AppState {
-        telemetry_collector:  collector.clone(),
+        telemetry_collector: collector.clone(),
         command_executor,
-        alert_manager:        alert_manager.clone(),
+        alert_manager: alert_manager.clone(),
         watchdog_event_store: watchdog_store.clone(),
-        remediation_engine:   remediation_engine.clone(),
-        audit_log:            audit_log.clone(),
-        incident_store:       incident_store.clone(),
+        remediation_engine: remediation_engine.clone(),
+        audit_log: audit_log.clone(),
+        incident_store: incident_store.clone(),
     };
 
     // ========== MONTAGEM FINAL ==========
@@ -153,16 +164,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             pocket_noc_agent::api::middleware::security_middleware,
         ))
         .with_state(state)
-        .layer(CorsLayer::new()
-            .allow_origin(["http://localhost".parse().unwrap(), "http://127.0.0.1".parse().unwrap()])
-            .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::DELETE])
-            .allow_headers(tower_http::cors::Any)
+        .layer(
+            CorsLayer::new()
+                .allow_origin([
+                    "http://localhost".parse().unwrap(),
+                    "http://127.0.0.1".parse().unwrap(),
+                ])
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::DELETE,
+                ])
+                .allow_headers(tower_http::cors::Any),
         )
-        .layer(middleware::from_fn(pocket_noc_agent::api::middleware::logging_middleware));
+        .layer(middleware::from_fn(
+            pocket_noc_agent::api::middleware::logging_middleware,
+        ));
 
     // Configuração da porta
-    let port = std::env::var("POCKET_NOC_PORT")
-        .unwrap_or_else(|_| "9443".to_string());
+    let port = std::env::var("POCKET_NOC_PORT").unwrap_or_else(|_| "9443".to_string());
 
     // Seguranca: bind em 127.0.0.1 para forcar acesso via tunel SSH
     let addr = format!("127.0.0.1:{}", port);
@@ -176,7 +196,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("📋 Rotas protegidas por JWT + rate limiting + threat tracking");
 
     // Inicializa tarefas em background
-    spawn_background_tasks(collector, alert_manager, ntfy_client.clone(), watchdog_store, remediation_engine);
+    spawn_background_tasks(
+        collector,
+        alert_manager,
+        ntfy_client.clone(),
+        watchdog_store,
+        remediation_engine,
+    );
 
     axum::serve(listener, app)
         .await
@@ -197,7 +223,8 @@ fn spawn_background_tasks(
     let ntfy_client_task = ntfy_client.clone();
 
     tokio::spawn(async move {
-        let mut last_notified_alerts: std::collections::HashMap<(AlertType, Option<String>), i64> = std::collections::HashMap::new();
+        let mut last_notified_alerts: std::collections::HashMap<(AlertType, Option<String>), i64> =
+            std::collections::HashMap::new();
 
         loop {
             let telemetry_result = {
@@ -214,7 +241,8 @@ fn spawn_background_tasks(
                 if let Ok(alerts) = alerts_result {
                     let now = chrono::Utc::now().timestamp();
 
-                    let active_keys: Vec<(AlertType, Option<String>)> = alerts.iter()
+                    let active_keys: Vec<(AlertType, Option<String>)> = alerts
+                        .iter()
                         .map(|a| (a.alert_type.clone(), a.component.clone()))
                         .collect();
                     last_notified_alerts.retain(|k, _| active_keys.contains(k));
@@ -228,12 +256,14 @@ fn spawn_background_tasks(
                             }
                         }
 
-                        let _ = ntfy_client_task.send_alert(
-                            alert.alert_type.label(),
-                            &alert.message,
-                            alert.alert_type.ntfy_priority(),
-                            alert.alert_type.ntfy_tags()
-                        ).await;
+                        let _ = ntfy_client_task
+                            .send_alert(
+                                alert.alert_type.label(),
+                                &alert.message,
+                                alert.alert_type.ntfy_priority(),
+                                alert.alert_type.ntfy_tags(),
+                            )
+                            .await;
 
                         last_notified_alerts.insert(key, now);
                     }
@@ -246,10 +276,7 @@ fn spawn_background_tasks(
 
     // ─── Inicializa tarefa em background — WatchdogEngine ───────────────────
     {
-        let watchdog_engine = WatchdogEngine::from_env(
-            watchdog_store.clone(),
-            ntfy_client.clone(),
-        );
+        let watchdog_engine = WatchdogEngine::from_env(watchdog_store.clone(), ntfy_client.clone());
         let rem_clone = remediation_engine.clone();
         tokio::spawn(async move {
             watchdog_engine.run(rem_clone).await;
@@ -270,45 +297,81 @@ fn spawn_background_tasks(
                 for cert in &result.certs {
                     match cert.status.as_str() {
                         "expired" => {
-                            tracing::error!("🔴 SSL EXPIRADO: {} (expirou ha {} dias)", cert.domain, cert.days_remaining.abs());
-                            let _ = ntfy_ssl.send_alert(
-                                "SSL Expirado",
-                                &format!("O certificado de {} expirou ha {} dias!", cert.domain, cert.days_remaining.abs()),
-                                5, // prioridade maxima
-                                "rotating_light,lock"
-                            ).await;
+                            tracing::error!(
+                                "🔴 SSL EXPIRADO: {} (expirou ha {} dias)",
+                                cert.domain,
+                                cert.days_remaining.abs()
+                            );
+                            let _ = ntfy_ssl
+                                .send_alert(
+                                    "SSL Expirado",
+                                    &format!(
+                                        "O certificado de {} expirou ha {} dias!",
+                                        cert.domain,
+                                        cert.days_remaining.abs()
+                                    ),
+                                    5, // prioridade maxima
+                                    "rotating_light,lock",
+                                )
+                                .await;
                         }
                         "expiring" => {
-                            tracing::warn!("🟡 SSL EXPIRANDO: {} ({} dias restantes)", cert.domain, cert.days_remaining);
-                            let _ = ntfy_ssl.send_alert(
-                                "SSL Expirando",
-                                &format!("O certificado de {} expira em {} dias. Renove agora!", cert.domain, cert.days_remaining),
-                                4, // prioridade alta
-                                "warning,lock"
-                            ).await;
+                            tracing::warn!(
+                                "🟡 SSL EXPIRANDO: {} ({} dias restantes)",
+                                cert.domain,
+                                cert.days_remaining
+                            );
+                            let _ = ntfy_ssl
+                                .send_alert(
+                                    "SSL Expirando",
+                                    &format!(
+                                        "O certificado de {} expira em {} dias. Renove agora!",
+                                        cert.domain, cert.days_remaining
+                                    ),
+                                    4, // prioridade alta
+                                    "warning,lock",
+                                )
+                                .await;
                         }
                         "wrong_cert" => {
-                            tracing::error!("🔴 SSL ERRADO: {} (servindo cert de {})", cert.domain, cert.subject);
-                            let _ = ntfy_ssl.send_alert(
-                                "SSL Certificado Errado",
-                                &format!("{} esta servindo o certificado de outro dominio: {}", cert.domain, cert.subject),
-                                4,
-                                "warning,lock"
-                            ).await;
+                            tracing::error!(
+                                "🔴 SSL ERRADO: {} (servindo cert de {})",
+                                cert.domain,
+                                cert.subject
+                            );
+                            let _ = ntfy_ssl
+                                .send_alert(
+                                    "SSL Certificado Errado",
+                                    &format!(
+                                        "{} esta servindo o certificado de outro dominio: {}",
+                                        cert.domain, cert.subject
+                                    ),
+                                    4,
+                                    "warning,lock",
+                                )
+                                .await;
                         }
                         "no_cert" | "error" => {
-                            tracing::warn!("🟠 SSL ERRO: {} (sem certificado ou inacessivel)", cert.domain);
+                            tracing::warn!(
+                                "🟠 SSL ERRO: {} (sem certificado ou inacessivel)",
+                                cert.domain
+                            );
                             let motivo = if cert.status == "no_cert" {
                                 "nao tem certificado instalado"
                             } else {
                                 "esta inacessivel na porta 443"
                             };
-                            let _ = ntfy_ssl.send_alert(
-                                "SSL Falhou",
-                                &format!("{} {} — a emissao/renovacao provavelmente falhou", cert.domain, motivo),
-                                4,
-                                "warning,lock"
-                            ).await;
+                            let _ = ntfy_ssl
+                                .send_alert(
+                                    "SSL Falhou",
+                                    &format!(
+                                        "{} {} — a emissao/renovacao provavelmente falhou",
+                                        cert.domain, motivo
+                                    ),
+                                    4,
+                                    "warning,lock",
+                                )
+                                .await;
                         }
                         _ => {}
                     }
@@ -317,8 +380,11 @@ fn spawn_background_tasks(
                 if result.expired_count > 0 || result.expiring_count > 0 {
                     tracing::warn!(
                         "🔒 SSL Check: {}/{} OK | {} expirando | {} expirados | {} erros",
-                        result.ok_count, result.total_domains,
-                        result.expiring_count, result.expired_count, result.error_count
+                        result.ok_count,
+                        result.total_domains,
+                        result.expiring_count,
+                        result.expired_count,
+                        result.error_count
                     );
                 }
 

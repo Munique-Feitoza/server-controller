@@ -46,20 +46,17 @@ impl AlertType {
 
     pub fn color(&self) -> &str {
         match self {
-            Self::HighCpu | Self::HighDisk => "#FF9800",      // Orange
-            Self::HighMemory => "#FF5722",                     // Red-Orange
+            Self::HighCpu | Self::HighDisk => "#FF9800", // Orange
+            Self::HighMemory => "#FF5722",               // Red-Orange
             Self::HighTemperature | Self::SecurityThreat => "#F44336", // Red
-            Self::RecentReboot => "#2196F3",                   // Blue
+            Self::RecentReboot => "#2196F3",             // Blue
         }
     }
 
     /// Retorna a prioridade para o ntfy (1-5)
     pub fn ntfy_priority(&self) -> u8 {
         match self {
-            Self::HighCpu | 
-            Self::HighDisk |
-            Self::HighTemperature |
-            Self::SecurityThreat => 4, // High
+            Self::HighCpu | Self::HighDisk | Self::HighTemperature | Self::SecurityThreat => 4, // High
             _ => 3, // Default
         }
     }
@@ -173,7 +170,9 @@ impl AlertManager {
                 alert_type: AlertType::HighMemory,
                 message: format!(
                     "Memória em alta utilização: {:.1}% ({} MB / {} MB)",
-                    telemetry.memory.usage_percent, telemetry.memory.used_mb, telemetry.memory.total_mb
+                    telemetry.memory.usage_percent,
+                    telemetry.memory.used_mb,
+                    telemetry.memory.total_mb
                 ),
                 current_value: telemetry.memory.usage_percent,
                 threshold: self.thresholds.memory_threshold_percent,
@@ -201,7 +200,12 @@ impl AlertManager {
 
         // Verificar Temperatura
         if let Some(temp_metrics) = &telemetry.temperature {
-            if let Some(max_temp) = temp_metrics.sensors.iter().map(|r| r.celsius).max_by(|a: &f32, b: &f32| a.partial_cmp(b).unwrap()) {
+            if let Some(max_temp) = temp_metrics
+                .sensors
+                .iter()
+                .map(|r| r.celsius)
+                .max_by(|a: &f32, b: &f32| a.partial_cmp(b).unwrap())
+            {
                 if max_temp > self.thresholds.temperature_threshold_celsius {
                     alerts.push(Alert {
                         alert_type: AlertType::HighTemperature,
@@ -236,7 +240,12 @@ impl AlertManager {
 
         // Verificar ameaças de segurança — Filtrado por IP individual (Munux Security)
         // Só dispara se um ÚNICO IP atingir o threshold configurado
-        if let Some(offender) = telemetry.security.failed_logins.iter().find(|f| f.count >= self.thresholds.security_threat_threshold) {
+        if let Some(offender) = telemetry
+            .security
+            .failed_logins
+            .iter()
+            .find(|f| f.count >= self.thresholds.security_threat_threshold)
+        {
             alerts.push(Alert {
                 alert_type: AlertType::SecurityThreat,
                 message: format!(

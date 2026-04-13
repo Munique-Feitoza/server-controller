@@ -1,9 +1,9 @@
-use std::collections::VecDeque;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use chrono::Utc;
 use crate::watchdog::probes::ProbeStatus;
 use crate::watchdog::remediation::{RemediationAction, RemediationStatus};
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+use uuid::Uuid;
 
 /// Evento estruturado gerado pelo Watchdog para cada probe falha + ação tomada.
 ///
@@ -69,31 +69,31 @@ impl WatchdogEvent {
     /// Cria um novo evento com todos os campos obrigatórios
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        server_id:       &str,
-        server_role:     &str,
+        server_id: &str,
+        server_role: &str,
         server_hostname: &str,
-        service:         &str,
-        probe_status:    &ProbeStatus,
-        probe_latency:   Option<u64>,
-        action:          &RemediationAction,
-        rem_status:      &RemediationStatus,
-        attempts:        u32,
-        circuit_open:    bool,
-        message:         String,
+        service: &str,
+        probe_status: &ProbeStatus,
+        probe_latency: Option<u64>,
+        action: &RemediationAction,
+        rem_status: &RemediationStatus,
+        attempts: u32,
+        circuit_open: bool,
+        message: String,
     ) -> Self {
         let now = Utc::now();
         Self {
-            id:              Uuid::new_v4().to_string(),
-            timestamp:       now.timestamp(),
-            timestamp_iso:   now.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
-            server_id:       server_id.to_string(),
-            server_role:     server_role.to_string(),
+            id: Uuid::new_v4().to_string(),
+            timestamp: now.timestamp(),
+            timestamp_iso: now.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            server_id: server_id.to_string(),
+            server_role: server_role.to_string(),
             server_hostname: server_hostname.to_string(),
-            service:         service.to_string(),
-            probe_result:    probe_status.to_string(),
+            service: service.to_string(),
+            probe_result: probe_status.to_string(),
             probe_latency_ms: probe_latency,
-            action_taken:    action.to_string(),
-            final_status:    rem_status.to_string(),
+            action_taken: action.to_string(),
+            final_status: rem_status.to_string(),
             attempts,
             circuit_open,
             message,
@@ -112,7 +112,7 @@ impl WatchdogEvent {
 
 /// Store em memória para os eventos do Watchdog (ring buffer)
 pub struct WatchdogEventStore {
-    events:   VecDeque<WatchdogEvent>,
+    events: VecDeque<WatchdogEvent>,
     capacity: usize,
 }
 
@@ -120,7 +120,7 @@ impl WatchdogEventStore {
     /// Cria um store com capacidade máxima de `capacity` eventos
     pub fn new(capacity: usize) -> Self {
         Self {
-            events:   VecDeque::with_capacity(capacity),
+            events: VecDeque::with_capacity(capacity),
             capacity,
         }
     }
@@ -195,20 +195,20 @@ mod tests {
 
     fn make_event(server_id: &str, status: &str) -> WatchdogEvent {
         WatchdogEvent {
-            id:               Uuid::new_v4().to_string(),
-            timestamp:        0,
-            timestamp_iso:    "2026-03-21T00:00:00Z".to_string(),
-            server_id:        server_id.to_string(),
-            server_role:      "wordpress".to_string(),
-            server_hostname:  "test-host".to_string(),
-            service:          "nginx".to_string(),
-            probe_result:     "Down".to_string(),
+            id: Uuid::new_v4().to_string(),
+            timestamp: 0,
+            timestamp_iso: "2026-03-21T00:00:00Z".to_string(),
+            server_id: server_id.to_string(),
+            server_role: "wordpress".to_string(),
+            server_hostname: "test-host".to_string(),
+            service: "nginx".to_string(),
+            probe_result: "Down".to_string(),
             probe_latency_ms: None,
-            action_taken:     "RestartService(nginx)".to_string(),
-            final_status:     status.to_string(),
-            attempts:         1,
-            circuit_open:     false,
-            message:          format!("[{}] test event", server_id),
+            action_taken: "RestartService(nginx)".to_string(),
+            final_status: status.to_string(),
+            attempts: 1,
+            circuit_open: false,
+            message: format!("[{}] test event", server_id),
         }
     }
 
