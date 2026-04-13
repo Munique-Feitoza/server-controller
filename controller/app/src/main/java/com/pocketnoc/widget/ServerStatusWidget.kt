@@ -49,12 +49,17 @@ class ServerStatusWidget : AppWidgetProvider() {
             val serverCount = prefs.getInt("server_count", 0)
             val healthyCount = prefs.getInt("healthy_count", 0)
             val alertCount = prefs.getInt("alert_count", 0)
+            val recentAlerts = prefs.getString("recent_alerts", "") ?: ""
             val lastUpdate = prefs.getLong("last_update", 0L)
 
             views.setTextViewText(R.id.widget_title, "POCKET NOC")
             views.setTextViewText(R.id.widget_server_count, "$serverCount")
             views.setTextViewText(R.id.widget_healthy_count, "$healthyCount")
             views.setTextViewText(R.id.widget_alert_count, "$alertCount")
+            views.setTextViewText(
+                R.id.widget_recent_alerts,
+                if (recentAlerts.isEmpty()) "sem alertas ativos" else recentAlerts
+            )
 
             val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
             val timeText = if (lastUpdate > 0) timeFormat.format(Date(lastUpdate)) else "--:--"
