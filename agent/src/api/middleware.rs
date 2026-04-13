@@ -100,8 +100,8 @@ pub async fn security_middleware(
         };
     }
 
-    // ─── 3. Rota /health nao precisa de auth ────────────────────
-    if path == "/health" {
+    // ─── 3. Rotas publicas (sem auth) ─────────────────────────
+    if path == "/health" || path == "/webhook/security" {
         return Ok(next.run(request).await);
     }
 
