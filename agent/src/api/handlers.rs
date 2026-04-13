@@ -475,6 +475,24 @@ pub async fn get_phpfpm_pools() -> impl IntoResponse {
     )
 }
 
+/// GET /ssl/check — Verifica SSL de todos os dominios configurados no nginx
+pub async fn check_ssl() -> impl IntoResponse {
+    let result = crate::telemetry::ssl::check_all_ssl();
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "total_domains": result.total_domains,
+            "ok": result.ok_count,
+            "expiring": result.expiring_count,
+            "expired": result.expired_count,
+            "errors": result.error_count,
+            "certs": result.certs,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+}
+
 /// GET /config — Retorna configuração atual do agente (sem segredos)
 pub async fn get_config() -> impl IntoResponse {
     let server_id = std::env::var("SERVER_ID").unwrap_or_else(|_| {
