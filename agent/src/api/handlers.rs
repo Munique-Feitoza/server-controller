@@ -13,9 +13,10 @@ use crate::{
     audit::AuditLog,
     commands::CommandExecutor,
     error::Result,
+    notifications::NtfyClient,
     security::incidents::{IncidentStore, SecurityIncident},
     services::ServiceMonitor,
-    telemetry::{AlertManager, TelemetryCollector},
+    telemetry::{Alert, AlertManager, AlertType, TelemetryCollector},
     watchdog::{event::WatchdogEventStore, remediation::RemediationEngine},
 };
 
@@ -33,6 +34,13 @@ pub struct AppState {
     pub audit_log: Arc<Mutex<AuditLog>>,
     /// Incidentes de seguranca (webhook do dashboard + deteccoes locais)
     pub incident_store: Arc<Mutex<IncidentStore>>,
+    /// Cliente ntfy.sh — usado pra push em tempo real ao receber webhook crítico
+    pub ntfy_client: Arc<NtfyClient>,
+    /// Tópico ntfy publicado em /config pra o app subscrever
+    pub ntfy_topic: Arc<String>,
+    /// Secret HMAC opcional pro /webhook/security. Se setado, exige header
+    /// `X-Webhook-Signature: <hex hmac-sha256(body)>`. Se None, aceita qualquer payload.
+    pub webhook_hmac_secret: Arc<Option<String>>,
 }
 
 /// GET /health - Verificação de saúde do agente
@@ -177,16 +185,61 @@ pub async fn get_service_logs(
     })))
 }
 
-/// GET /alerts - Retorna uma lista de alertas atuais
-pub async fn get_alerts(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
+/// GET /alerts - Retorna alertas de telemetria + incidentes recentes (webhooks).
+///
+/// Query opcional: `since=<unix_ts>` filtra webhooks com timestamp posterior.
+/// O app usa isso pra processar só incidentes novos a cada poll.
+pub async fn get_alerts(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>> {
+    let since = params
+        .get("since")
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(0);
+
     let mut collector = state.telemetry_collector.lock().await;
     let telemetry = collector.collect()?;
     let alert_manager = state.alert_manager.lock().await;
     let alerts = alert_manager.analyze(&telemetry)?;
 
+    // Converte incidentes recentes (após `since`) em Alerts pra o app processar igual
+    let webhook_alerts: Vec<Alert> = {
+        let store = state.incident_store.lock().await;
+        store
+            .recent(100)
+            .iter()
+            .filter_map(|i| {
+                let ts_unix = chrono::DateTime::parse_from_rfc3339(&i.timestamp)
+                    .map(|d| d.timestamp())
+                    .unwrap_or(0);
+                if ts_unix <= since {
+                    return None;
+                }
+                let message = format!(
+                    "[{}] {}: {} (origem: {})",
+                    i.severity,
+                    i.event_type,
+                    i.details.as_deref().unwrap_or("-"),
+                    i.source
+                );
+                Some(Alert {
+                    alert_type: AlertType::SecurityThreat,
+                    message,
+                    current_value: 0.0,
+                    threshold: 0.0,
+                    timestamp: ts_unix,
+                    component: Some(i.attacker_ip.clone()),
+                })
+            })
+            .collect()
+    };
+
+    let total = alerts.len() + webhook_alerts.len();
     Ok(Json(json!({
         "alerts": alerts,
-        "count": alerts.len(),
+        "webhook_alerts": webhook_alerts,
+        "count": total,
         "timestamp": chrono::Utc::now().to_rfc3339(),
     })))
 }
@@ -505,7 +558,7 @@ pub async fn check_ssl() -> impl IntoResponse {
 }
 
 /// GET /config — Retorna configuração atual do agente (sem segredos)
-pub async fn get_config() -> impl IntoResponse {
+pub async fn get_config(State(state): State<AppState>) -> impl IntoResponse {
     let server_id = std::env::var("SERVER_ID").unwrap_or_else(|_| {
         hostname::get()
             .map(|h| h.to_string_lossy().to_string())
@@ -544,7 +597,9 @@ pub async fn get_config() -> impl IntoResponse {
             "watchdog_max_failures": max_failures,
             "watchdog_cooldown_secs": cooldown,
             "rate_limit_per_minute": rate_limit,
-            "tls_enabled": tls_enabled
+            "tls_enabled": tls_enabled,
+            "ntfy_topic": state.ntfy_topic.as_str(),
+            "ntfy_url": format!("https://ntfy.sh/{}", state.ntfy_topic.as_str()),
         })),
     )
 }
@@ -553,10 +608,69 @@ pub async fn get_config() -> impl IntoResponse {
 ///
 /// Payload: { source, severity, event, ip, timestamp, details }
 /// Detalhes opcionais: { count, country, isp, machine_signature, last_incident }
+///
+/// Se a env `WEBHOOK_HMAC_SECRET` estiver setada, exige header
+/// `X-Webhook-Signature: <hex hmac-sha256(body)>` — protege contra processo local
+/// hostil injetando webhook (SSRF, php-fpm comprometido, etc).
 pub async fn receive_security_webhook(
     State(state): State<AppState>,
-    Json(payload): Json<serde_json::Value>,
-) -> impl IntoResponse {
+    headers: axum::http::HeaderMap,
+    body: axum::body::Bytes,
+) -> axum::response::Response {
+    // Valida HMAC se configurado (opt-in via env)
+    if let Some(secret) = state.webhook_hmac_secret.as_ref() {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        let signature_hex = headers
+            .get("X-Webhook-Signature")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+
+        let provided = match hex::decode(signature_hex) {
+            Ok(b) => b,
+            Err(_) => {
+                tracing::warn!("⚠️ webhook rejeitado: assinatura ausente ou mal formatada");
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({ "status": "rejected", "reason": "missing or invalid signature" })),
+                )
+                    .into_response();
+            }
+        };
+
+        let mut mac = match Hmac::<Sha256>::new_from_slice(secret.as_bytes()) {
+            Ok(m) => m,
+            Err(_) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "status": "error", "reason": "hmac config invalid" })),
+                )
+                    .into_response();
+            }
+        };
+        mac.update(&body);
+        if mac.verify_slice(&provided).is_err() {
+            tracing::warn!("⚠️ webhook rejeitado: assinatura HMAC nao confere");
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "status": "rejected", "reason": "signature mismatch" })),
+            )
+                .into_response();
+        }
+    }
+
+    let payload: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "status": "error", "reason": format!("invalid json: {}", e) })),
+            )
+                .into_response();
+        }
+    };
+
     let source = payload
         .get("source")
         .and_then(|v| v.as_str())
@@ -624,10 +738,28 @@ pub async fn receive_security_webhook(
         );
     }
 
+    // Push real-time via ntfy.sh pra severity != info.
+    // Spawn assíncrono pra não bloquear a resposta HTTP.
+    let sev_upper = severity.to_uppercase();
+    if matches!(sev_upper.as_str(), "CRITICAL" | "HIGH" | "WARNING") {
+        let ntfy = state.ntfy_client.clone();
+        let title = format!("🛡️ {} — {}", sev_upper, event);
+        let body = match details.and_then(|d| d.get("message")).and_then(|v| v.as_str()) {
+            Some(msg) => msg.to_string(),
+            None => format!("Evento {} de {}", event, source),
+        };
+        let priority = if sev_upper == "CRITICAL" { 5 } else { 4 };
+        let tags = if sev_upper == "CRITICAL" { "rotating_light,skull" } else { "warning" };
+        tokio::spawn(async move {
+            let _ = ntfy.send_alert(&title, &body, priority, tags).await;
+        });
+    }
+
     (
         StatusCode::OK,
         Json(json!({ "status": "received", "event": event })),
     )
+        .into_response()
 }
 
 /// GET /security/incidents?limit=50&severity=CRITICAL
@@ -669,9 +801,13 @@ pub async fn get_security_incidents(
 
 /// POST /config — Atualiza configuração mutável em runtime
 pub async fn update_config(Json(payload): Json<serde_json::Value>) -> impl IntoResponse {
-    // Nota: Em produção, implementei para atualizar variáveis de ambiente ou arquivo de config.
-    // Aqui registro as mudanças solicitadas para a administradora aplicar.
-    tracing::info!("📝 Config update requested: {}", payload);
+    // Loga apenas as chaves alteradas, nunca os valores — payload pode conter
+    // tokens/segredos no futuro. Quem precisar do valor completo lê o request real.
+    let keys: Vec<String> = payload
+        .as_object()
+        .map(|m| m.keys().cloned().collect())
+        .unwrap_or_default();
+    tracing::info!("📝 Config update requested (keys): {:?}", keys);
 
     (
         StatusCode::OK,

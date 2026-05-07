@@ -63,6 +63,12 @@ flate2 = "1.0"
 # Hostname do servidor
 hostname = "0.3"
 
+# Hash + HMAC para topic ntfy e validacao de webhook
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+subtle = "2.5"
+
 [profile.release]
 opt-level = 3
 lto = true

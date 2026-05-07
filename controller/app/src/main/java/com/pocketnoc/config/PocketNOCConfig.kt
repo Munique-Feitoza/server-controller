@@ -18,16 +18,7 @@ object PocketNOCConfig {
     val server2: String get() = BuildConfig.POCKET_NOC_SERVER_2
     val server3: String get() = BuildConfig.POCKET_NOC_SERVER_3
     val server4: String get() = BuildConfig.POCKET_NOC_SERVER_4
-    
-    /**
-     * Segredo para geração de tokens JWT
-     */
-    val secret: String
-        get() = BuildConfig.POCKET_NOC_SECRET
-    
-    /**
-     * Usar HTTPS (recomendado em produção)
-     */
+
     /** Token para acessar a API de seguranca do dashboard ERP */
     val dashboardNocToken: String get() = BuildConfig.DASHBOARD_NOC_TOKEN
 
@@ -35,11 +26,6 @@ object PocketNOCConfig {
     val dashboardApiUrl: String get() = BuildConfig.DASHBOARD_API_URL
 
     val useHttps: Boolean = BuildConfig.USE_HTTPS
-
-    /**
-     * MODO DE EMERGÊNCIA: Permite ignorar falhas de SSL/Segurança (CUIDADO)
-     */
-    val emergencyMode: Boolean = BuildConfig.EMERGENCY_MODE
 
     /**
      * Verificação estrita de hosts SSH

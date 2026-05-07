@@ -32,6 +32,7 @@ fun PhpFpmScreen(
     totalMemory: Float,
     serverName: String,
     isLoading: Boolean,
+    errorMessage: String? = null,
     onRefresh: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -54,6 +55,26 @@ fun PhpFpmScreen(
             if (isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = ext.cyan)
+                }
+            } else if (errorMessage != null) {
+                Box(Modifier.fillMaxSize().padding(Dimens.Space3xl), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
+                    ) {
+                        Text("⚠", style = MaterialTheme.typography.displayLarge, color = StatusColors.critical)
+                        Text("Falha ao carregar pools", style = MaterialTheme.typography.titleMedium, color = StatusColors.critical, fontWeight = FontWeight.Bold)
+                        Text(errorMessage, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                        Button(
+                            onClick = onRefresh,
+                            colors = ButtonDefaults.buttonColors(containerColor = ext.cyan.copy(alpha = 0.15f)),
+                            shape = AppShapes.medium
+                        ) {
+                            Icon(Icons.Default.Refresh, null, tint = ext.cyan, modifier = Modifier.size(Dimens.IconSm))
+                            Spacer(Modifier.width(Dimens.SpaceXs))
+                            Text("Tentar novamente", color = ext.cyan, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(

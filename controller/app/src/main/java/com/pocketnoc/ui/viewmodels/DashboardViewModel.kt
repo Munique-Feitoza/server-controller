@@ -95,7 +95,9 @@ class DashboardViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.pocketnoc.data.local.AlertThresholdConfig())
 
     init {
-        syncDefaultServers()
+        // syncDefaultServers removida: o BuildConfig nao carrega mais POCKET_NOC_SECRET
+        // (era vetor de extracao via APK). Cada servidor agora vem 100% do LoginScreen
+        // e fica em EncryptedSharedPreferences.
     }
 
     private fun normalizeUrl(url: String): String {
@@ -104,75 +106,8 @@ class DashboardViewModel @Inject constructor(
         return normalized.replace("(?<!:)/{2,}".toRegex(), "/")
     }
 
-    private fun syncDefaultServers() {
-        viewModelScope.launch {
-            val secret = PocketNOCConfig.secret
-            if (secret.isNotEmpty()) {
-                val currentServers = repository.getAllServers().first()
-                for (i in 1..4) {
-                    val name = PocketNOCConfig.getServerName(i)
-                    val ip = when(i) {
-                        1 -> PocketNOCConfig.server1
-                        2 -> PocketNOCConfig.server2
-                        3 -> PocketNOCConfig.server3
-                        4 -> PocketNOCConfig.server4
-                        else -> ""
-                    }
-                    
-                    if (ip.isNotEmpty()) {
-                        val sshUser = PocketNOCConfig.getSshUser(i)
-                        val sshHost = PocketNOCConfig.getSshHost(i)
-                        val sshPort = PocketNOCConfig.getSshPort(i)
-                        val remoteAgentPort = PocketNOCConfig.getRemotePort(i)
-                        val sshKeyContent = PocketNOCConfig.sshKeyContent
-                        val localPort = PocketNOCConfig.getLocalPort(i)
-                        
-                        // A URL final sera o localhost se houver tunel configurado
-                        val url = if (localPort != 0) "http://localhost:$localPort/" else normalizeUrl("$ip:9443/")
-
-                        // Tenta encontrar por nome atual ou nome legado
-                        val existing = currentServers.find { it.name == name || it.name == "Acme $i" }
-                        
-                        if (existing == null) {
-                            val token = JwtUtils.generateToken(secret)
-                            repository.addServer(ServerEntity(
-                                name = name,
-                                url = url,
-                                token = token,
-                                secret = secret,
-                                sshUser = sshUser,
-                                sshHost = sshHost,
-                                sshKeyPath = sshKeyContent, // Reusando campo para conteúdo
-                                sshPort = sshPort,
-                                remotePort = remoteAgentPort,
-                                localPort = localPort,
-                                osInfo = "Ubuntu 22.04",
-                                stackInfo = "Nginx",
-                                locationInfo = "Canada"
-                            ))
-                        } else {
-                            // Atualiza configuracoes se mudarem no local.properties
-                            // Critico: atualizamos o segredo para garantir que o Dynamic Token Refresh funcione com a nova chave
-                            repository.updateServer(existing.copy(
-                                url = url,
-                                secret = secret, // Sincroniza o segredo atualizado
-                                sshUser = sshUser,
-                                sshHost = sshHost,
-                                sshKeyPath = sshKeyContent,
-                                sshPort = sshPort,
-                                remotePort = remoteAgentPort,
-                                localPort = localPort,
-                                name = name,
-                                osInfo = "Ubuntu 22.04",
-                                stackInfo = "Nginx",
-                                locationInfo = "Canada"
-                            ))
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // syncDefaultServers removida em 2026-05-07 — auto-popular usava
+    // BuildConfig.POCKET_NOC_SECRET, vetor de extracao via APK reverso.
 
     fun deleteServer(server: ServerEntity) {
         viewModelScope.launch {
@@ -214,7 +149,6 @@ class DashboardViewModel @Inject constructor(
                 // Atualiza status de seguranca com base no erro
                 val newStatus = when {
                     errorMsg.contains("ALERTA DE SEGURANÇA", ignoreCase = true) -> 2 // Threat
-                    PocketNOCConfig.emergencyMode -> 1 // Warning/Bypass
                     else -> server.securityStatus
                 }
                 

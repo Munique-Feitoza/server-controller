@@ -82,19 +82,6 @@ fun AppNavHost(
             )
         }
 
-        // Tela de Lista de Servidores
-        composable(AppRoute.ServerList.route) {
-            ServerListScreen(
-                viewModel = dashboardViewModel,
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onNavigateToDetails = { serverId ->
-                    navController.navigate(AppRoute.ServerDetails.createRoute(serverId))
-                }
-            )
-        }
-
         // Tela de Detalhes do Servidor
         composable(
             route = AppRoute.ServerDetails.route,
@@ -332,14 +319,21 @@ fun AppNavHost(
                     try {
                         sslData = dashboardViewModel.fetchSslCheck(server)
                     } catch (e: Exception) {
-                        error = e.message
+                        error = e.message ?: "Erro desconhecido"
                         android.util.Log.e("SslCheck", "Erro: ${e.message}", e)
                     }
                     isLoading = false
                 }
             }
             LaunchedEffect(server) { load() }
-            SslCheckScreen(sslData = sslData, serverName = server.name, isLoading = isLoading, onRefresh = { load() }, onNavigateBack = { navController.popBackStack() })
+            SslCheckScreen(
+                sslData = sslData,
+                serverName = server.name,
+                isLoading = isLoading,
+                errorMessage = error,
+                onRefresh = { load() },
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // PHP-FPM Pools por servidor
@@ -349,9 +343,11 @@ fun AppNavHost(
             var totalCpu by remember { mutableFloatStateOf(0f) }
             var totalMemory by remember { mutableFloatStateOf(0f) }
             var isLoading by remember { mutableStateOf(true) }
+            var error by remember { mutableStateOf<String?>(null) }
             val scope = rememberCoroutineScope()
             fun load() {
                 isLoading = true
+                error = null
                 scope.launch {
                     try {
                         val r = dashboardViewModel.fetchPhpFpmPools(server)
@@ -360,13 +356,24 @@ fun AppNavHost(
                         totalCpu = r.totalCpuPercent
                         totalMemory = r.totalMemoryMb
                     } catch (e: Exception) {
+                        error = e.message ?: "Erro desconhecido"
                         android.util.Log.e("PhpFpm", "Erro: ${e.message}", e)
                     }
                     isLoading = false
                 }
             }
             LaunchedEffect(server) { load() }
-            PhpFpmScreen(pools = pools, totalWorkers = totalWorkers, totalCpu = totalCpu, totalMemory = totalMemory, serverName = server.name, isLoading = isLoading, onRefresh = { load() }, onNavigateBack = { navController.popBackStack() })
+            PhpFpmScreen(
+                pools = pools,
+                totalWorkers = totalWorkers,
+                totalCpu = totalCpu,
+                totalMemory = totalMemory,
+                serverName = server.name,
+                isLoading = isLoading,
+                errorMessage = error,
+                onRefresh = { load() },
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

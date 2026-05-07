@@ -97,9 +97,11 @@ class ServerRepository @Inject constructor(
         }
         
         val url = if (server.localPort != null) "http://localhost:${server.localPort}" else server.url
-        
-        // Geracao dinamica de token para garantir sincronia com local.properties e mitigar expiracao
-        val currentSecret = server.secret ?: PocketNOCConfig.secret
+
+        // Cada servidor mantem seu proprio secret em EncryptedSharedPreferences.
+        // Sem secret cadastrado, nao geramos token automaticamente — forca user a configurar.
+        val currentSecret = server.secret
+            ?: throw IllegalStateException("Servidor '${server.name}' sem secret cadastrado. Re-adicione pelo Login.")
         val dynamicToken = com.pocketnoc.utils.JwtUtils.generateToken(currentSecret)
         
         return apiCache.getOrPut(server.id) {

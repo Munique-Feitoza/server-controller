@@ -258,6 +258,8 @@ data class Alert(
 
 data class AlertsResponse(
     val alerts: List<Alert>,
+    @SerializedName("webhook_alerts")
+    val webhookAlerts: List<Alert> = emptyList(),
     val count: Int,
     val timestamp: String
 )
@@ -502,7 +504,11 @@ data class AgentRuntimeConfig(
     @SerializedName("rate_limit_per_minute")
     val rateLimitPerMinute: Int,
     @SerializedName("tls_enabled")
-    val tlsEnabled: Boolean
+    val tlsEnabled: Boolean,
+    @SerializedName("ntfy_topic")
+    val ntfyTopic: String? = null,
+    @SerializedName("ntfy_url")
+    val ntfyUrl: String? = null
 )
 
 // ==================== Watchdog / Auto-Remediação ====================

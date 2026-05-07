@@ -37,16 +37,17 @@ android {
         val serverName2 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_2") ?: "Acme 2"
         val serverName3 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_3") ?: "Acme 3"
         val serverName4 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_4") ?: "Acme 4"
-        val secret = localProperties.getProperty("POCKET_NOC_SECRET") ?: ""
         val useHttps = localProperties.getProperty("USE_HTTPS")?.toBoolean() ?: true
 
+        // SSH key fica em BuildConfig por enquanto pra preservar fluxo de tunel global.
+        // TODO seguranca: mover pra prompt de import .pem no LoginScreen e armazenar em
+        // EncryptedSharedPreferences. Hoje o conteudo da chave esta extraivel do APK.
         val sshKeyRaw = localProperties.getProperty("SSH_KEY_CONTENT_GLOBAL") ?: ""
         val escapedSshKey = sshKeyRaw.replace("\n", "\\n").replace("\r", "\\r")
         buildConfigField("String", "SSH_KEY_CONTENT_GLOBAL", "\"$escapedSshKey\"")
 
         // Configuracoes Globais
         buildConfigField("boolean", "USE_HTTPS", localProperties.getProperty("USE_HTTPS") ?: "false")
-        buildConfigField("boolean", "EMERGENCY_MODE", localProperties.getProperty("EMERGENCY_MODE") ?: "false")
         buildConfigField("boolean", "SSH_STRICT_HOST_CHECKING", localProperties.getProperty("SSH_STRICT_HOST_CHECKING") ?: "true")
         buildConfigField("int", "MAX_AUTH_FAILURES", localProperties.getProperty("MAX_AUTH_FAILURES") ?: "3")
         buildConfigField("String", "DASHBOARD_NOC_TOKEN", "\"${localProperties.getProperty("DASHBOARD_NOC_TOKEN") ?: ""}\"")
@@ -90,9 +91,10 @@ android {
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_2", "\"$serverName2\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_3", "\"$serverName3\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_4", "\"$serverName4\"")
-        
-        buildConfigField("String", "POCKET_NOC_SECRET", "\"$secret\"")
-        buildConfigField("Boolean", "USE_HTTPS", useHttps.toString())
+
+        // POCKET_NOC_SECRET removido do BuildConfig pra nao vazar via APK extraido.
+        // Cada servidor cadastrado armazena seu proprio secret em EncryptedSharedPreferences,
+        // capturado pelo LoginScreen e nunca presente no binario.
     }
 
     compileOptions {

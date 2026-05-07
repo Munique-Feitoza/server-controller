@@ -23,7 +23,9 @@ class PocketNOCApplication : Application(), Configuration.Provider {
         super.onCreate()
         // Cria canais de notificacao (FCM + alertas locais)
         com.pocketnoc.notifications.PocketNOCNotificationHelper.createNotificationChannels(this)
-        // Inicia o monitoramento periodico de alertas
+        // Inicia o monitoramento periodico de alertas (fallback de polling 15min)
         AlertMonitoringManager.startMonitoring(this)
+        // Inicia subscriber ntfy.sh em foreground (push real-time)
+        com.pocketnoc.notifications.NtfySubscriberService.start(this)
     }
 }

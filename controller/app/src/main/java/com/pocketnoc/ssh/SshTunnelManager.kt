@@ -74,14 +74,9 @@ object SshTunnelManager {
                 val session = localJsch.getSession(user, host, sshPort)
 
                 val config = Properties()
-                // Se o modo de emergência estiver ativo, ele força "no" para não travar o usuário
-                val strictChecking = if (PocketNOCConfig.emergencyMode) {
-                    "no"
-                } else {
-                    if (PocketNOCConfig.sshStrictHostChecking) "yes" else "no"
-                }
-                
-                config["StrictHostKeyChecking"] = strictChecking
+                // StrictHostKeyChecking sempre habilitado por seguranca.
+                // Se desativar, abre porta pra MITM no tunel SSH.
+                config["StrictHostKeyChecking"] = if (PocketNOCConfig.sshStrictHostChecking) "yes" else "no"
                 config["PreferredAuthentications"] = "publickey" // Força o uso da chave
                 
                 // Suporte para algoritmos modernos (Ubuntu 22.04+ desabilita ssh-rsa por padrão)

@@ -97,9 +97,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Configuracao do ntfy
-    let ntfy_topic =
-        std::env::var("NTFY_TOPIC").unwrap_or_else(|_| format!("pocket_noc_{}", &jwt_secret[..8]));
+    // Topic unico por host: usa NTFY_TOPIC se setado, senao deriva de SERVER_ID + sha256(secret)
+    // sha256 evita vazar prefixo cru do JWT secret no nome do canal publico.
+    let ntfy_topic = std::env::var("NTFY_TOPIC").unwrap_or_else(|_| {
+        use sha2::{Digest, Sha256};
+        let server_id = std::env::var("SERVER_ID")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .or_else(|| hostname::get().ok().map(|h| h.to_string_lossy().to_string()))
+            .unwrap_or_else(|| "host".to_string())
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .collect::<String>();
+        let mut hasher = Sha256::new();
+        hasher.update(b"ntfy-topic-v1:");
+        hasher.update(jwt_secret.as_bytes());
+        hasher.update(server_id.as_bytes());
+        let digest_hex = hex::encode(hasher.finalize());
+        format!("pocket_noc_{}_{}", server_id, &digest_hex[..16])
+    });
     let ntfy_client = Arc::new(NtfyClient::new(&ntfy_topic));
+    let ntfy_topic_arc = Arc::new(ntfy_topic.clone());
 
     tracing::info!("🔔 Ntfy notifications active on topic: {}", ntfy_topic);
 
@@ -107,6 +126,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let incident_store = Arc::new(Mutex::new(
         pocket_noc_agent::security::incidents::IncidentStore::new(),
     ));
+
+    // Secret HMAC opcional pro webhook /webhook/security.
+    // Se setado, exige header X-Webhook-Signature em todo POST.
+    let webhook_hmac_secret = Arc::new(
+        std::env::var("WEBHOOK_HMAC_SECRET")
+            .ok()
+            .filter(|s| !s.is_empty()),
+    );
+    if webhook_hmac_secret.is_some() {
+        tracing::info!("🔐 /webhook/security exigindo assinatura HMAC (WEBHOOK_HMAC_SECRET ativo)");
+    } else {
+        tracing::warn!("⚠️ /webhook/security sem HMAC — defina WEBHOOK_HMAC_SECRET pra exigir assinatura");
+    }
 
     let state = AppState {
         telemetry_collector: collector.clone(),
@@ -116,6 +148,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         remediation_engine: remediation_engine.clone(),
         audit_log: audit_log.clone(),
         incident_store: incident_store.clone(),
+        ntfy_client: ntfy_client.clone(),
+        ntfy_topic: ntfy_topic_arc.clone(),
+        webhook_hmac_secret: webhook_hmac_secret.clone(),
     };
 
     // ========== MONTAGEM FINAL ==========

@@ -41,7 +41,10 @@ class AlertMonitoringWorker @AssistedInject constructor(
                 if (alerts != null) {
                     onlineCount++
                     totalAlerts += alerts.count
-                    for (alert in alerts.alerts) {
+                    // Telemetria viva (CPU/RAM/Disco/Temp/Reboot/Security) +
+                    // webhooks recebidos pelo agent (incidentes do dashboard, watchdog, etc).
+                    val combined = alerts.alerts + alerts.webhookAlerts
+                    for (alert in combined) {
                         notificationManager.sendAlert(server.name, alert)
                         recentAlerts += alert.timestamp to "${server.name.uppercase()}: ${alert.message}"
                     }

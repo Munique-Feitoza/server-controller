@@ -6,10 +6,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-import java.security.cert.X509Certificate
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 object RetrofitClient {
     private var instance: Retrofit? = null
@@ -25,7 +21,8 @@ object RetrofitClient {
         currentToken = token
 
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // BODY logaria token JWT no header. HEADERS so loga keys.
+            level = HttpLoggingInterceptor.Level.BASIC
         }
 
         val authInterceptor = Interceptor { chain ->
@@ -36,21 +33,12 @@ object RetrofitClient {
             chain.proceed(request.build())
         }
 
-        // Configuração de TrustAll para desenvolvimento (Mudar para produção depois)
-        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
-            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
-            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-        })
-
-        val sslContext = SSLContext.getInstance("SSL")
-        sslContext.init(null, trustAllCerts, java.security.SecureRandom())
-
+        // TLS validacao padrao do sistema. App fala HTTP localhost (tunel SSH),
+        // entao TLS so eh exercitado se algum dia o baseUrl for HTTPS — e nesse caso,
+        // queremos validacao de cert real, nao trustAll que abre MITM.
         val httpClient = OkHttpClient.Builder()
             .addInterceptor(logging)
             .addInterceptor(authInterceptor)
-            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
-            .hostnameVerifier { _, _ -> true } // CUIDADO: Apenas para Dev/Test
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

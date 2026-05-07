@@ -31,6 +31,7 @@ fun SslCheckScreen(
     sslData: SslCheckResponse?,
     serverName: String,
     isLoading: Boolean,
+    errorMessage: String? = null,
     onRefresh: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -55,8 +56,28 @@ fun SslCheckScreen(
                     CircularProgressIndicator(color = ext.green)
                 }
             } else if (sslData == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Erro ao carregar dados SSL", color = StatusColors.critical)
+                Box(Modifier.fillMaxSize().padding(Dimens.Space3xl), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceLg)
+                    ) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = StatusColors.critical, modifier = Modifier.size(Dimens.Icon2xl))
+                        Text("Falha ao carregar SSL", style = MaterialTheme.typography.titleMedium, color = StatusColors.critical, fontWeight = FontWeight.Bold)
+                        Text(
+                            errorMessage ?: "Verifique se o agente está acessível e tente novamente.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = onRefresh,
+                            colors = ButtonDefaults.buttonColors(containerColor = ext.green.copy(alpha = 0.15f)),
+                            shape = AppShapes.medium
+                        ) {
+                            Icon(Icons.Default.Refresh, null, tint = ext.green, modifier = Modifier.size(Dimens.IconSm))
+                            Spacer(Modifier.width(Dimens.SpaceXs))
+                            Text("Tentar novamente", color = ext.green, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(

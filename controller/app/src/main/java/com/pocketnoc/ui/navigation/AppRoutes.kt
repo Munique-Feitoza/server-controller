@@ -7,7 +7,6 @@ sealed class AppRoute(val route: String) {
     data object Splash : AppRoute("splash")
     data object Login : AppRoute("login")
     data object Dashboard : AppRoute("dashboard")
-    data object ServerList : AppRoute("server_list")
     data object ServerDetails : AppRoute("server_details/{serverId}") {
         fun createRoute(serverId: Int) = "server_details/$serverId"
     }

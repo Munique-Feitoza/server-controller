@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -235,7 +236,7 @@ fun DashboardScreen(
                                         menuExpanded = false
                                         navController.navigate(AppRoute.ServerDetails.createRoute(s.id))
                                     },
-                                    leadingIcon = { Icon(Icons.Default.ShowChart, null, tint = ext.magenta) }
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.ShowChart, null, tint = ext.magenta) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Explorador de Processos", color = colors.onSurface) },
