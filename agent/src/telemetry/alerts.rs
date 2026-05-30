@@ -238,26 +238,9 @@ impl AlertManager {
             });
         }
 
-        // Verificar ameaças de segurança — Filtrado por IP individual (Munux Security)
-        // Só dispara se um ÚNICO IP atingir o threshold configurado
-        if let Some(offender) = telemetry
-            .security
-            .failed_logins
-            .iter()
-            .find(|f| f.count >= self.thresholds.security_threat_threshold)
-        {
-            alerts.push(Alert {
-                alert_type: AlertType::SecurityThreat,
-                message: format!(
-                    "Detectado ataque massivo: IP {} com {} tentativas de acesso",
-                    offender.ip, offender.count
-                ),
-                current_value: offender.count as f32,
-                threshold: self.thresholds.security_threat_threshold as f32,
-                timestamp: now,
-                component: Some(offender.ip.clone()),
-            });
-        }
+        // SecurityThreat push desativado: fail2ban + ipset auto-block ja contem
+        // tentativas SSH (maxretry=3/120s) e o alerta gerava flood nao-acionavel.
+        // Os dados de failed_logins continuam expostos em /telemetry para o dashboard.
 
         Ok(alerts)
     }

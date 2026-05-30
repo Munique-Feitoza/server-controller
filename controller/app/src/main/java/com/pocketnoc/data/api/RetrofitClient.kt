@@ -7,55 +7,40 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
+/**
+ * Fábrica de Retrofit. SEM estado mutável compartilhado — cada chamada constrói um cliente
+ * independente e thread-safe.
+ *
+ * O singleton anterior (`instance`/`currentUrl`/`currentToken` em campos mutáveis estáticos
+ * sem sincronização) abria uma race com os 4 servidores em polling concorrente e prendia o
+ * token de auth no momento da criação. O cache de "1 service por servidor" é responsabilidade
+ * do ServerRepository.apiCache; auth dinâmica é responsabilidade do interceptor.
+ */
 object RetrofitClient {
-    private var instance: Retrofit? = null
-    private var currentUrl: String? = null
-    private var currentToken: String? = null
 
-    fun getInstance(baseUrl: String, token: String? = null): Retrofit {
-        if (instance != null && currentUrl == baseUrl && currentToken == token) {
-            return instance!!
-        }
-
-        currentUrl = baseUrl
-        currentToken = token
-
+    /**
+     * @param baseUrl         URL base (já normalizada, terminando em '/').
+     * @param authInterceptor interceptor de autenticação opcional. `null` = sem header
+     *                        Authorization (ex.: a API do dashboard autentica via query param).
+     */
+    fun create(baseUrl: String, authInterceptor: Interceptor? = null): Retrofit {
         val logging = HttpLoggingInterceptor().apply {
-            // BODY logaria token JWT no header. HEADERS so loga keys.
+            // BASIC não loga headers — evita vazar o JWT no logcat. BODY vazaria.
             level = HttpLoggingInterceptor.Level.BASIC
         }
 
-        val authInterceptor = Interceptor { chain ->
-            val request = chain.request().newBuilder()
-            token?.let {
-                request.addHeader("Authorization", "Bearer $it")
-            }
-            chain.proceed(request.build())
-        }
-
-        // TLS validacao padrao do sistema. App fala HTTP localhost (tunel SSH),
-        // entao TLS so eh exercitado se algum dia o baseUrl for HTTPS — e nesse caso,
-        // queremos validacao de cert real, nao trustAll que abre MITM.
-        val httpClient = OkHttpClient.Builder()
+        val clientBuilder = OkHttpClient.Builder()
             .addInterceptor(logging)
-            .addInterceptor(authInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            .build()
+        authInterceptor?.let { clientBuilder.addInterceptor(it) }
 
         return Retrofit.Builder()
             .baseUrl(baseUrl)
-            .client(httpClient)
+            .client(clientBuilder.build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .also { instance = it }
-    }
-
-    fun resetInstance() {
-        instance = null
-        currentUrl = null
-        currentToken = null
     }
 }

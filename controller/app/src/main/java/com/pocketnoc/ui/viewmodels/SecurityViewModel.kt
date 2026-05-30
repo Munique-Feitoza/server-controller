@@ -3,9 +3,8 @@ package com.pocketnoc.ui.viewmodels
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pocketnoc.data.api.DashboardApiService
-import com.pocketnoc.data.api.RetrofitClient
 import com.pocketnoc.data.models.*
+import com.pocketnoc.data.repository.DashboardRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,19 +12,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class SecurityViewModel @Inject constructor() : ViewModel() {
+class SecurityViewModel @Inject constructor(
+    private val repository: DashboardRepository
+) : ViewModel() {
 
     companion object {
         private const val TAG = "SecurityVM"
-        private const val DASHBOARD_BASE_URL = "https://api.example.com/api/v1/pocketnoc/"
-    }
-
-    private val nocToken = com.pocketnoc.config.PocketNOCConfig.dashboardNocToken
-    private val baseUrl = com.pocketnoc.config.PocketNOCConfig.dashboardApiUrl
-
-    private val dashboardApi: DashboardApiService by lazy {
-        RetrofitClient.getInstance(baseUrl, "")
-            .create(DashboardApiService::class.java)
     }
 
     private val _incidents = MutableStateFlow<List<DashboardIncident>>(emptyList())
@@ -45,19 +37,9 @@ class SecurityViewModel @Inject constructor() : ViewModel() {
             _isLoading.value = true
             _errorMsg.value = null
             try {
-                val incidentsResp = dashboardApi.getIncidents(
-                    token = nocToken,
-                    limit = 200,
-                    days = days
-                )
+                val incidentsResp = repository.getIncidents(days = days)
                 _incidents.value = incidentsResp.incidents
-
-                val statsResp = dashboardApi.getIncidentStats(
-                    token = nocToken,
-                    days = days
-                )
-                _stats.value = statsResp
-
+                _stats.value = repository.getStats(days = days)
                 Log.d(TAG, "Carregados ${incidentsResp.total} incidentes e stats")
             } catch (e: Exception) {
                 Log.e(TAG, "Erro ao carregar dados de seguranca: ${e.message}")

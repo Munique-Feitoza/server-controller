@@ -13,6 +13,11 @@ certs/
 secrets/
 private/
 
+# Credenciais de Service Account do GCP (NUNCA commitar)
+credentials.json
+**/credentials.json
+service-account*.json
+
 # Rust
 target/
 Cargo.lock
@@ -67,3 +72,12 @@ Thumbs.db
 config.toml
 config.local.toml
 .claude/
+
+# ====================================
+# Ops/infra específicos do ambiente — NÃO versionar (repo público)
+# Contêm IPs reais de servidores, tópicos ntfy (URL-capacidade) e detalhes de incidente.
+# ====================================
+harden/
+wp-bruteforce-alert.py
+INCIDENT-*.md
+docs/PROTECTION-STACK.md

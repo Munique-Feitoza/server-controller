@@ -74,4 +74,12 @@ impl IncidentStore {
     pub fn clear(&mut self) {
         self.incidents.clear();
     }
+
+    /// Remove um incidente pelo id. Retorna `true` se algo foi removido.
+    /// Usado após revogar um admin para o evento sumir da tela do app.
+    pub fn remove(&mut self, id: &str) -> bool {
+        let before = self.incidents.len();
+        self.incidents.retain(|i| i.id != id);
+        self.incidents.len() != before
+    }
 }

@@ -271,6 +271,14 @@ fun DashboardScreen(
                                     leadingIcon = { Icon(Icons.Default.History, null, tint = colors.onSurfaceVariant) }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Acessos Admin", color = colors.onSurface) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        navController.navigate(AppRoute.AdminAccess.createRoute(s.id))
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Security, null, tint = StatusColors.critical) }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Configuracao do Agente", color = colors.onSurface) },
                                     onClick = {
                                         menuExpanded = false

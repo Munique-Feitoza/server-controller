@@ -6,6 +6,7 @@ package com.pocketnoc.ui.navigation
 sealed class AppRoute(val route: String) {
     data object Splash : AppRoute("splash")
     data object Login : AppRoute("login")
+    data object BiometricGate : AppRoute("biometric_gate")
     data object Dashboard : AppRoute("dashboard")
     data object ServerDetails : AppRoute("server_details/{serverId}") {
         fun createRoute(serverId: Int) = "server_details/$serverId"
@@ -37,5 +38,8 @@ sealed class AppRoute(val route: String) {
     }
     data object PhpFpm : AppRoute("phpfpm/{serverId}") {
         fun createRoute(serverId: Int) = "phpfpm/$serverId"
+    }
+    data object AdminAccess : AppRoute("admin_access/{serverId}") {
+        fun createRoute(serverId: Int) = "admin_access/$serverId"
     }
 }

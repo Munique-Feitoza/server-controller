@@ -73,6 +73,9 @@ object PocketNOCConfig {
 
     val sshKeyContent: String = BuildConfig.SSH_KEY_CONTENT_GLOBAL
 
+    /** Secret JWT compartilhado entre os 4 agentes (mesmo POCKET_NOC_SECRET no .env de cada host) */
+    val sharedSecret: String = BuildConfig.POCKET_NOC_SECRET
+
     fun getLocalPort(index: Int): Int = when(index) {
         1 -> BuildConfig.LOCAL_FORWARD_PORT_1.toIntOrNull() ?: 9443
         2 -> BuildConfig.LOCAL_FORWARD_PORT_2.toIntOrNull() ?: 9444

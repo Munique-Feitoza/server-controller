@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.local.entities.AlertEntity
 import com.pocketnoc.data.local.entities.TelemetryHistoryEntity
+import com.pocketnoc.data.AgentError
 import com.pocketnoc.data.models.*
 import com.pocketnoc.data.repository.ServerRepository
 import com.pocketnoc.utils.JwtUtils
@@ -13,6 +14,7 @@ import com.pocketnoc.utils.HealthStatusCalculator
 import com.pocketnoc.utils.NetworkConnectivityObserver
 import com.pocketnoc.utils.ConnectivityStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,24 +30,6 @@ sealed class TelemetryUiState {
     data class Error(val message: String) : TelemetryUiState()
 }
 
-sealed class CommandsUiState {
-    object Loading : CommandsUiState()
-    data class Success(val commands: List<CommandInfo>) : CommandsUiState()
-    data class Error(val message: String) : CommandsUiState()
-}
-
-sealed class ProcessesUiState {
-    object Loading : ProcessesUiState()
-    data class Success(val processes: List<ProcessInfo>) : ProcessesUiState()
-    data class Error(val message: String) : ProcessesUiState()
-}
-
-sealed class LogsUiState {
-    object Loading : LogsUiState()
-    data class Success(val logs: String) : LogsUiState()
-    data class Error(val message: String) : LogsUiState()
-}
-
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val repository: ServerRepository,
@@ -57,11 +41,14 @@ class DashboardViewModel @Inject constructor(
     // Utilizei StateFlow para garantir que a UI reflita sempre a unica fonte de verdade.
     // O ViewModel encapsula a logica de negocio e expoe apenas estados imutaveis para as Screens.
 
+    // Rede de segurança: um launch sem try/catch que estoure derrubaria o app inteiro
+    // (não há handler global). Anexado aos launches de I/O sem tratamento próprio.
+    private val safe = CoroutineExceptionHandler { _, e ->
+        Log.e("DashboardViewModel", "Coroutine não tratada", e)
+    }
+
     private val _telemetryState = MutableStateFlow<TelemetryUiState>(TelemetryUiState.Loading)
     val telemetryState: StateFlow<TelemetryUiState> = _telemetryState
-
-    private val _commandsState = MutableStateFlow<CommandsUiState>(CommandsUiState.Loading)
-    val commandsState: StateFlow<CommandsUiState> = _commandsState
 
     // Estado reativo da conectividade de rede do dispositivo
     val networkStatus: StateFlow<ConnectivityStatus> = networkObserver.observe()
@@ -73,12 +60,6 @@ class DashboardViewModel @Inject constructor(
 
     private val _serverHealthMap = MutableStateFlow<Map<Int, ServerHealth>>(emptyMap())
     val serverHealthMap: StateFlow<Map<Int, ServerHealth>> = _serverHealthMap.asStateFlow()
-
-    private val _processesState = MutableStateFlow<ProcessesUiState>(ProcessesUiState.Loading)
-    val processesState: StateFlow<ProcessesUiState> = _processesState
-
-    private val _logsState = MutableStateFlow<LogsUiState>(LogsUiState.Loading)
-    val logsState: StateFlow<LogsUiState> = _logsState
 
     // Historico de telemetria por servidor (mais antigo -> mais recente para renderizar o grafico)
     private val _telemetryHistory = MutableStateFlow<List<TelemetryHistoryEntity>>(emptyList())
@@ -110,7 +91,7 @@ class DashboardViewModel @Inject constructor(
     // BuildConfig.POCKET_NOC_SECRET, vetor de extracao via APK reverso.
 
     fun deleteServer(server: ServerEntity) {
-        viewModelScope.launch {
+        viewModelScope.launch(safe) {
             repository.deleteServer(server)
         }
     }
@@ -128,8 +109,10 @@ class DashboardViewModel @Inject constructor(
                 val result = repository.getTelemetry(server)
                 _telemetryState.value = TelemetryUiState.Success(result)
 
-                // Persiste snapshot e atualiza o historico para os graficos
-                viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                // Persiste snapshot e atualiza o historico para os graficos.
+                // Coroutine SEPARADA do try/catch externo — precisa do próprio handler,
+                // senão um erro do Room (disco cheio etc.) seria fatal.
+                viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO + safe) {
                     repository.saveTelemetrySnapshot(server.id, result)
                     val history = repository.getTelemetryHistory(server.id, limit = 2880) // 24h a cada 30s
                     _telemetryHistory.value = history.reversed() // mais antigo primeiro para o grafico
@@ -144,32 +127,28 @@ class DashboardViewModel @Inject constructor(
                     repository.updateServer(server.copy(securityStatus = targetStatus))
                 }
             } catch (e: Exception) {
-                val errorMsg = e.localizedMessage ?: e.message ?: "Unknown error"
-                
-                // Atualiza status de seguranca com base no erro
-                val newStatus = when {
-                    errorMsg.contains("ALERTA DE SEGURANÇA", ignoreCase = true) -> 2 // Threat
-                    else -> server.securityStatus
-                }
-                
+                val errorMsg = e.localizedMessage ?: e.message ?: "Erro desconhecido"
+
+                // Ameaça (intrusão SSH) detectada pelo tipo, não por casamento de string.
+                val newStatus = if (e is AgentError.SecurityThreat) 2 else server.securityStatus
                 if (newStatus != server.securityStatus) {
                     repository.updateServer(server.copy(securityStatus = newStatus))
                 }
 
-                _telemetryState.value = TelemetryUiState.Error("ERROR [${server.name}]: $errorMsg")
-                e.printStackTrace()
+                _telemetryState.value = TelemetryUiState.Error("ERRO [${server.name}]: $errorMsg")
+                Log.e("DashboardViewModel", "fetchTelemetry falhou", e)
             }
         }
     }
 
     fun addServer(name: String, url: String, secret: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(safe) {
             val normalizedUrl = normalizeUrl(url)
             val token = JwtUtils.generateToken(secret)
             repository.addServer(ServerEntity(
-                name = name, 
-                url = normalizedUrl, 
-                token = token, 
+                name = name,
+                url = normalizedUrl,
+                token = token,
                 secret = secret
             ))
         }
@@ -187,20 +166,13 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private val _commandResult = MutableStateFlow<CommandResult?>(null)
-    val commandResult: StateFlow<CommandResult?> = _commandResult
-
-    private val _availableCommands = MutableStateFlow<List<EmergencyCommand>>(emptyList())
-    val availableCommands: StateFlow<List<EmergencyCommand>> = _availableCommands
-
     private val _eventFlow = MutableSharedFlow<String>()
     val eventFlow: SharedFlow<String> = _eventFlow.asSharedFlow()
 
     fun performServiceAction(server: ServerEntity, serviceName: String, action: String) {
         viewModelScope.launch {
             try {
-                val result = repository.performServiceAction(server, serviceName, action)
-                _commandResult.value = result
+                repository.performServiceAction(server, serviceName, action)
                 _eventFlow.emit("Action '$action' on $serviceName sent!")
                 // Ao alterar um servico, atualizamos a telemetria para refletir o novo status
                 fetchTelemetry(server)
@@ -211,125 +183,45 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun executeCommand(server: ServerEntity, commandId: String) {
-        viewModelScope.launch {
-            try {
-                _eventFlow.emit("Executing $commandId...")
-                val result = repository.executeCommand(server, commandId)
-                _commandResult.value = result
-                _eventFlow.emit("Command $commandId completed!")
-            } catch (e: Exception) {
-                _eventFlow.emit("Protocol failed: ${e.localizedMessage}")
-                e.printStackTrace()
-            }
-        }
-    }
+    // Roda inline na coroutine de fetchTelemetry (estruturado), tudo em IO. Antes fazia
+    // withContext(Default) + launch(IO) aninhado fire-and-forget, com o ServerHealth montado
+    // em DOIS lugares (try/catch). Agora: 1 dispatcher, 1 construção, falha de alertas vira 0.
+    private suspend fun updateServerHealth(server: ServerEntity, telemetry: SystemTelemetry) = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val health = HealthStatusCalculator.calculateStatus(telemetry)
 
-    fun fetchCommands(server: ServerEntity) {
-        viewModelScope.launch {
-            _commandsState.value = CommandsUiState.Loading
-            try {
-                val commands = repository.listCommands(server).map { cmd ->
-                    CommandInfo(
-                        id = cmd.id,
-                        description = cmd.description,
-                        command = cmd.command,
-                        args = cmd.args
-                    )
-                }
-                _commandsState.value = CommandsUiState.Success(commands)
-            } catch (e: Exception) {
-                val errorMsg = e.localizedMessage ?: "Failed to load commands"
-                _commandsState.value = CommandsUiState.Error(errorMsg)
-            }
-        }
-    }
-
-    fun loadCommands(server: ServerEntity) {
-        viewModelScope.launch {
-            try {
-                _eventFlow.emit("Syncing Action Center protocols...")
-                val commands = repository.listCommands(server)
-                _availableCommands.value = commands
-                if (commands.isEmpty()) {
-                    _eventFlow.emit("Action Center: No protocols found.")
-                } else {
-                    _eventFlow.emit("Action Center synchronized.")
-                }
-            } catch (e: Exception) {
-                _eventFlow.emit("Sync Error: ${e.localizedMessage}")
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private suspend fun updateServerHealth(server: ServerEntity, telemetry: SystemTelemetry) = withContext(kotlinx.coroutines.Dispatchers.Default) {
-        try {
-            val health = HealthStatusCalculator.calculateStatus(telemetry)
-            
-            // Operacoes de I/O (Alertas e DB) movidas para o dispatcher correto
-            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val alerts = repository.getAlerts(server)
-
-                    if (alerts.alerts.isNotEmpty()) {
-                        alerts.alerts.forEach { alert ->
-                            repository.saveAlert(
-                                com.pocketnoc.data.local.entities.AlertEntity(
-                                    serverId = server.id,
-                                    serverName = server.name,
-                                    type = alert.alertType.name,
-                                    message = alert.message,
-                                    value = alert.currentValue,
-                                    threshold = alert.threshold
-                                )
-                            )
-                        }
-                    }
-
-                    val serverHealth = ServerHealth(
+        val activeAlerts = try {
+            val alerts = repository.getAlerts(server)
+            alerts.alerts.forEach { alert ->
+                repository.saveAlert(
+                    AlertEntity(
                         serverId = server.id,
                         serverName = server.name,
-                        status = health,
-                        cpuUsage = telemetry.cpu.usagePercent,
-                        memoryUsage = telemetry.memory.usagePercent,
-                        diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
-                        temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
-                        activeAlerts = alerts.count,
-                        lastUpdate = System.currentTimeMillis()
+                        type = alert.alertType.name,
+                        message = alert.message,
+                        value = alert.currentValue,
+                        threshold = alert.threshold
                     )
-
-                    // Atualizacao atomica do mapa de saude
-                    _serverHealthMap.update { currentMap ->
-                        currentMap.toMutableMap().apply {
-                            this[server.id] = serverHealth
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("DashboardViewModel", "Failed to fetch alerts during health update: ${e.message}")
-                    
-                    // Fallback para exibir saude sem alertas se falhar
-                    val serverHealth = ServerHealth(
-                        serverId = server.id,
-                        serverName = server.name,
-                        status = health,
-                        cpuUsage = telemetry.cpu.usagePercent,
-                        memoryUsage = telemetry.memory.usagePercent,
-                        diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
-                        temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
-                        activeAlerts = 0,
-                        lastUpdate = System.currentTimeMillis()
-                    )
-                    
-                    _serverHealthMap.update { currentMap ->
-                        currentMap.toMutableMap().apply {
-                            this[server.id] = serverHealth
-                        }
-                    }
-                }
+                )
             }
+            alerts.count
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("DashboardViewModel", "Falha ao buscar alertas no health update: ${e.message}")
+            0
+        }
+
+        val serverHealth = ServerHealth(
+            serverId = server.id,
+            serverName = server.name,
+            status = health,
+            cpuUsage = telemetry.cpu.usagePercent,
+            memoryUsage = telemetry.memory.usagePercent,
+            diskUsage = telemetry.disk.disks.maxOfOrNull { it.usagePercent } ?: 0f,
+            temperature = telemetry.temperature?.sensors?.maxOfOrNull { it.celsius },
+            activeAlerts = activeAlerts,
+            lastUpdate = System.currentTimeMillis()
+        )
+        _serverHealthMap.update { currentMap ->
+            currentMap.toMutableMap().apply { this[server.id] = serverHealth }
         }
     }
 
@@ -364,64 +256,18 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }
-    fun fetchProcesses(server: ServerEntity) {
-        viewModelScope.launch {
-            _processesState.value = ProcessesUiState.Loading
-            try {
-                val processes = repository.listProcesses(server)
-                _processesState.value = ProcessesUiState.Success(processes)
-            } catch (e: Exception) {
-                _processesState.value = ProcessesUiState.Error(e.localizedMessage ?: "Failed to fetch processes")
-            }
-        }
-    }
-
-    fun killProcess(server: ServerEntity, pid: Long) {
-        viewModelScope.launch {
-            try {
-                _eventFlow.emit("Signaling termination for PID $pid...")
-                repository.killProcess(server, pid)
-                _eventFlow.emit("Process $pid terminated.")
-                // Atualiza a lista de processos
-                fetchProcesses(server)
-            } catch (e: Exception) {
-                _eventFlow.emit("Kill failed: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    fun fetchLogs(server: ServerEntity, service: String = "pocket-noc-agent") {
-        viewModelScope.launch {
-            _logsState.value = LogsUiState.Loading
-            try {
-                val response = repository.fetchLogs(server, service)
-                _logsState.value = LogsUiState.Success(response.logs)
-            } catch (e: Exception) {
-                _logsState.value = LogsUiState.Error(e.localizedMessage ?: "Failed to fetch logs")
-            }
-        }
-    }
-
     fun loadTelemetryHistory(serverId: Int) {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO + safe) {
             val history = repository.getTelemetryHistory(serverId, limit = 2880) // 24h
             _telemetryHistory.value = history.reversed()
         }
     }
 
     fun clearAlertHistory() {
-        viewModelScope.launch {
+        viewModelScope.launch(safe) {
             repository.clearAlertHistory()
             _eventFlow.emit("Alert audit history cleared.")
         }
-    }
-
-    suspend fun fetchAuditLogs(server: ServerEntity): List<com.pocketnoc.data.models.AuditEntry> {
-        return repository.getAuditLogs(server)
-    }
-
-    suspend fun fetchDockerContainers(server: ServerEntity): com.pocketnoc.data.models.DockerMetrics {
-        return repository.getDockerContainers(server)
     }
 
     suspend fun fetchPhpFpmPools(server: ServerEntity): com.pocketnoc.data.models.PhpFpmResponse {
@@ -444,25 +290,6 @@ class DashboardViewModel @Inject constructor(
 
     suspend fun fetchSslCheck(server: ServerEntity): com.pocketnoc.data.models.SslCheckResponse {
         return repository.checkSsl(server)
-    }
-
-    suspend fun fetchBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus {
-        return repository.getBackupStatus(server)
-    }
-
-    suspend fun fetchAgentConfig(server: ServerEntity): com.pocketnoc.data.models.AgentRuntimeConfig {
-        return repository.getAgentConfig(server)
-    }
-
-    fun updateAgentConfig(server: ServerEntity, config: Map<String, Any>) {
-        viewModelScope.launch {
-            try {
-                repository.updateAgentConfig(server, config)
-                _eventFlow.emit("Agent config updated on ${server.name}")
-            } catch (e: Exception) {
-                _eventFlow.emit("Config update failed: ${e.message}")
-            }
-        }
     }
 
     fun blockIp(server: ServerEntity, ip: String) {

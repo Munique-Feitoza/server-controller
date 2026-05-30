@@ -20,9 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.models.AuditEntry
 import com.pocketnoc.ui.theme.*
-import com.pocketnoc.ui.viewmodels.DashboardViewModel
+import com.pocketnoc.ui.viewmodels.AgentViewModel
 
 @Composable
 private fun methodColor(method: String): Color {
@@ -53,31 +55,27 @@ private fun statusColor(code: Int): Color {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuditLogScreen(
-    viewModel: DashboardViewModel,
-    serverId: Int,
-    onNavigateBack: () -> Unit
+    server: ServerEntity,
+    onNavigateBack: () -> Unit,
+    viewModel: AgentViewModel = hiltViewModel()
 ) {
     val colors = MaterialTheme.colorScheme
     val ext = LocalExtendedColors.current
 
-    val servers by viewModel.allServers.collectAsState()
-    val server = servers.find { it.id == serverId }
     var auditEntries by remember { mutableStateOf<List<AuditEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
+    var refreshTick by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(server) {
-        server?.let {
-            isLoading = true
-            try {
-                val response = viewModel.fetchAuditLogs(it)
-                auditEntries = response
-                errorMsg = null
-            } catch (e: Exception) {
-                errorMsg = e.message
-            }
-            isLoading = false
+    LaunchedEffect(server, refreshTick) {
+        isLoading = true
+        try {
+            auditEntries = viewModel.fetchAuditLogs(server)
+            errorMsg = null
+        } catch (e: Exception) {
+            errorMsg = e.message
         }
+        isLoading = false
     }
 
     Scaffold(
@@ -116,7 +114,7 @@ fun AuditLogScreen(
                             letterSpacing = 3.sp
                         )
                         Text(
-                            server?.name ?: "Servidor",
+                            server.name,
                             style = MaterialTheme.typography.labelSmall,
                             color = colors.outlineVariant,
                             fontFamily = FontFamily.Monospace
@@ -128,12 +126,7 @@ fun AuditLogScreen(
                             .clip(AppShapes.medium)
                             .background(colors.primary.copy(alpha = 0.10f))
                             .border(Dimens.BorderThin, colors.primary.copy(alpha = 0.35f), AppShapes.medium)
-                            .clickable {
-                                server?.let {
-                                    isLoading = true
-                                    // Sera re-disparado pelo LaunchedEffect
-                                }
-                            },
+                            .clickable { refreshTick++ },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.primary, modifier = Modifier.size(17.dp))

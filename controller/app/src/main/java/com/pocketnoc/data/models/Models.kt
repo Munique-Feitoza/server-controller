@@ -564,3 +564,51 @@ data class WatchdogEventsResponse(
     val serversSummary: Map<String, Int>,
     val timestamp: String
 )
+
+// ==================== Incidentes de Seguranca / Acessos Admin ====================
+
+/** Incidente de seguranca do agente (webhook do mu-plugin ou deteccao local). */
+data class SecurityIncident(
+    val id: String,
+    val timestamp: String,
+    val source: String,
+    val severity: String,
+    @SerializedName("event_type")
+    val eventType: String,
+    @SerializedName("attacker_ip")
+    val attackerIp: String,
+    val country: String? = null,
+    val city: String? = null,
+    val isp: String? = null,
+    /** JSON serializado com os detalhes (site, path, user_id, etc). */
+    val details: String? = null,
+    @SerializedName("from_webhook")
+    val fromWebhook: Boolean = false
+)
+
+/** Resposta do endpoint `GET /security/incidents`. */
+data class SecurityIncidentsResponse(
+    val incidents: List<SecurityIncident>,
+    val count: Int,
+    val total: Int,
+    @SerializedName("critical_count")
+    val criticalCount: Int = 0,
+    val timestamp: String
+)
+
+/** Corpo do `POST /security/revoke-admin` — apaga um admin WordPress. */
+data class RevokeAdminRequest(
+    val path: String,
+    @SerializedName("user_id")
+    val userId: Long,
+    /** id do incidente — o agente o remove do store ao apagar, some da tela. */
+    @SerializedName("incident_id")
+    val incidentId: String
+)
+
+data class RevokeAdminResult(
+    val ok: Boolean,
+    val msg: String? = null,
+    @SerializedName("user_id")
+    val userId: Long? = null
+)

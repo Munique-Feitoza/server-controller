@@ -20,30 +20,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.models.CommandInfo
 import com.pocketnoc.ui.components.ShimmerBox
 import com.pocketnoc.ui.theme.*
 import com.pocketnoc.ui.viewmodels.CommandsUiState
-import com.pocketnoc.ui.viewmodels.DashboardViewModel
+import com.pocketnoc.ui.viewmodels.CommandsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionCenterScreen(
-    viewModel: DashboardViewModel,
-    serverId: Int,
-    onNavigateBack: () -> Unit
+    server: ServerEntity,
+    onNavigateBack: () -> Unit,
+    viewModel: CommandsViewModel = hiltViewModel()
 ) {
     val colors = MaterialTheme.colorScheme
-    val ext = LocalExtendedColors.current
 
-    val servers by viewModel.allServers.collectAsState()
-    val selectedServer = servers.find { it.id == serverId }
     val commandsState by viewModel.commandsState.collectAsState()
     var selectedCommand by remember { mutableStateOf<CommandInfo?>(null) }
     var showConfirmDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedServer) {
-        selectedServer?.let { viewModel.fetchCommands(it) }
+    LaunchedEffect(server) {
+        viewModel.fetchCommands(server)
     }
 
     Scaffold(
@@ -52,9 +51,7 @@ fun ActionCenterScreen(
                 title = {
                     Column {
                         Text("ACTION CENTER", style = MaterialTheme.typography.titleLarge, color = colors.tertiary, fontWeight = FontWeight.Bold)
-                        selectedServer?.let {
-                            Text(it.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
-                        }
+                        Text(server.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 },
                 navigationIcon = {
@@ -126,7 +123,7 @@ fun ActionCenterScreen(
                             Text("⚠", style = MaterialTheme.typography.displayLarge, color = StatusColors.critical)
                             Text(state.message, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             Button(
-                                onClick = { selectedServer?.let { viewModel.fetchCommands(it) } },
+                                onClick = { viewModel.fetchCommands(server) },
                                 colors = ButtonDefaults.buttonColors(containerColor = colors.tertiary.copy(alpha = 0.15f)),
                                 shape = AppShapes.medium
                             ) { Text("Tentar novamente", color = colors.tertiary) }
@@ -159,7 +156,7 @@ fun ActionCenterScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        selectedServer?.let { server -> viewModel.executeCommand(server, cmd.id) }
+                        viewModel.executeCommand(server, cmd.id)
                         showConfirmDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = colors.tertiary),

@@ -799,6 +799,140 @@ pub async fn get_security_incidents(
     )
 }
 
+/// POST /security/revoke-admin
+/// Body: {"path": "/home/runcloud/webapps/<site>", "user_id": <id>}
+///
+/// Apaga um administrador WordPress via wp-cli. Consumido pela tela
+/// "Acessos Admin" do app PocketNOC. Protegido por JWT (middleware padrão).
+///
+/// # Segurança
+/// Zero Trust no `path`: tem que começar em `/home/runcloud/webapps/`, não pode
+/// conter `..` e precisa apontar pra um `wp-config.php` real — bloqueia path
+/// traversal. `user_id` é numérico e os args do `wp` vão separados (sem shell),
+/// eliminando qualquer vetor de command injection.
+pub async fn revoke_admin(
+    State(state): State<AppState>,
+    Json(payload): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    use std::process::Command;
+
+    let path = payload
+        .get("path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let user_id = payload.get("user_id").and_then(|v| v.as_u64()).unwrap_or(0);
+    // id do incidente — pra remover o evento do store após apagar (some da tela do app)
+    let incident_id = payload
+        .get("incident_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let path_ok = path.starts_with("/home/runcloud/webapps/")
+        && !path.contains("..")
+        && std::path::Path::new(&path).join("wp-config.php").is_file();
+    if user_id == 0 || !path_ok {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "msg": "path ou user_id inválido" })),
+        );
+    }
+
+    let path_arg = format!("--path={}", path);
+    let uid = user_id.to_string();
+
+    // Roda `wp` como o usuário `runcloud` (dono dos webapps no RunCloud).
+    let wp = |args: &[&str]| -> std::io::Result<std::process::Output> {
+        Command::new("sudo")
+            .args(["-u", "runcloud", "/usr/local/bin/wp", path_arg.as_str()])
+            .args(args)
+            .output()
+    };
+
+    // 1. Acha outro admin pra herdar os posts do removido.
+    let reassign = wp(&[
+        "user",
+        "list",
+        "--role=administrator",
+        &format!("--exclude={}", uid),
+        "--field=ID",
+        "--orderby=ID",
+        "--number=1",
+    ])
+    .ok()
+    .filter(|o| o.status.success())
+    .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    .unwrap_or_default();
+
+    // 2. Apaga o usuário (reatribuindo o conteúdo, se houver outro admin).
+    let mut del: Vec<String> =
+        vec!["user".into(), "delete".into(), uid.clone(), "--yes".into()];
+    if !reassign.is_empty() {
+        del.push(format!("--reassign={}", reassign));
+    }
+    let del_refs: Vec<&str> = del.iter().map(String::as_str).collect();
+
+    let (ok, msg) = match wp(&del_refs) {
+        Ok(o) if o.status.success() => {
+            (true, String::from_utf8_lossy(&o.stdout).trim().to_string())
+        }
+        Ok(o) => (false, String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => (false, e.to_string()),
+    };
+
+    // Se o wp falhou porque o usuário já não existe, o objetivo (admin fora)
+    // já está cumprido — tratamos como sucesso para limpar o evento da tela.
+    let user_gone = !ok && msg.contains("Invalid user");
+    let effective_ok = ok || user_gone;
+
+    // Sucesso → remove o incidente do store pra sumir da tela do app.
+    if effective_ok && !incident_id.is_empty() {
+        let mut store = state.incident_store.lock().await;
+        store.remove(&incident_id);
+    }
+
+    {
+        let mut log = state.audit_log.lock().await;
+        log.record(
+            "POST",
+            "/security/revoke-admin",
+            "app",
+            if effective_ok { 200 } else { 500 },
+            Some(format!(
+                "path={} user_id={} ok={} user_gone={}",
+                path, user_id, ok, user_gone
+            )),
+        );
+    }
+
+    if effective_ok {
+        tracing::warn!(
+            "🗑️ Admin WP {} removido em {} via app PocketNOC{}",
+            user_id,
+            path,
+            if user_gone { " (já não existia)" } else { "" }
+        );
+    } else {
+        tracing::error!("Falha ao remover admin {} em {}: {}", user_id, path, msg);
+    }
+
+    let resp_msg = if user_gone {
+        "admin já não existia".to_string()
+    } else {
+        msg
+    };
+
+    (
+        if effective_ok {
+            StatusCode::OK
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR
+        },
+        Json(json!({ "ok": effective_ok, "msg": resp_msg, "user_id": user_id })),
+    )
+}
+
 /// POST /config — Atualiza configuração mutável em runtime
 pub async fn update_config(Json(payload): Json<serde_json::Value>) -> impl IntoResponse {
     // Loga apenas as chaves alteradas, nunca os valores — payload pode conter

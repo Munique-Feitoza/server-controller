@@ -20,10 +20,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.ui.components.ShimmerBox
 import com.pocketnoc.ui.theme.*
-import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.LogsUiState
+import com.pocketnoc.ui.viewmodels.LogsViewModel
 import kotlinx.coroutines.launch
 
 // Serviços disponíveis para visualização de logs
@@ -32,24 +34,21 @@ private val logServices = listOf("pocket-noc-agent", "nginx", "docker", "mysql",
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogViewerScreen(
-    viewModel: DashboardViewModel,
-    serverId: Int,
+    server: ServerEntity,
     serviceName: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: LogsViewModel = hiltViewModel()
 ) {
     val colors = MaterialTheme.colorScheme
-    val ext = LocalExtendedColors.current
 
-    val servers by viewModel.allServers.collectAsState()
-    val selectedServer = servers.find { it.id == serverId }
     val logsState by viewModel.logsState.collectAsState()
 
     var currentService by remember { mutableStateOf(serviceName) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(selectedServer, currentService) {
-        selectedServer?.let { viewModel.fetchLogs(it, currentService) }
+    LaunchedEffect(server, currentService) {
+        viewModel.fetchLogs(server, currentService)
     }
 
     // Auto-scroll para o final quando novos logs chegam
@@ -76,7 +75,7 @@ fun LogViewerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { selectedServer?.let { viewModel.fetchLogs(it, currentService) } }) {
+                    IconButton(onClick = { viewModel.fetchLogs(server, currentService) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.tertiary)
                     }
                 },
@@ -229,7 +228,6 @@ fun LogViewerScreen(
 @Composable
 private fun LogLine(index: Int, line: String) {
     val colors = MaterialTheme.colorScheme
-    val ext = LocalExtendedColors.current
 
     // Coloração semântica de linhas de log
     val (lineColor, _) = when {

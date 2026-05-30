@@ -21,22 +21,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.models.AgentRuntimeConfig
 import com.pocketnoc.ui.theme.*
-import com.pocketnoc.ui.viewmodels.DashboardViewModel
+import com.pocketnoc.ui.viewmodels.AgentViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentConfigScreen(
-    viewModel: DashboardViewModel,
-    serverId: Int,
-    onNavigateBack: () -> Unit
+    server: ServerEntity,
+    onNavigateBack: () -> Unit,
+    viewModel: AgentViewModel = hiltViewModel()
 ) {
     val colors = MaterialTheme.colorScheme
     val ext = LocalExtendedColors.current
-
-    val servers by viewModel.allServers.collectAsState()
-    val server = servers.find { it.id == serverId }
 
     var config by remember { mutableStateOf<AgentRuntimeConfig?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -50,20 +49,18 @@ fun AgentConfigScreen(
     var rateLimitPerMin by remember { mutableStateOf("") }
 
     LaunchedEffect(server) {
-        server?.let {
-            try {
-                val cfg = viewModel.fetchAgentConfig(it)
-                config = cfg
-                watchdogInterval = cfg.watchdogIntervalSecs.toString()
-                maxFailures = cfg.watchdogMaxFailures.toString()
-                cooldownSecs = cfg.watchdogCooldownSecs.toString()
-                rateLimitPerMin = cfg.rateLimitPerMinute.toString()
-                errorMsg = null
-            } catch (e: Exception) {
-                errorMsg = e.message
-            }
-            isLoading = false
+        try {
+            val cfg = viewModel.fetchAgentConfig(server)
+            config = cfg
+            watchdogInterval = cfg.watchdogIntervalSecs.toString()
+            maxFailures = cfg.watchdogMaxFailures.toString()
+            cooldownSecs = cfg.watchdogCooldownSecs.toString()
+            rateLimitPerMin = cfg.rateLimitPerMinute.toString()
+            errorMsg = null
+        } catch (e: Exception) {
+            errorMsg = e.message
         }
+        isLoading = false
     }
 
     Scaffold(
@@ -101,7 +98,7 @@ fun AgentConfigScreen(
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 3.sp
                         )
-                        Text(server?.name ?: "Servidor", style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
+                        Text(server.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 }
                 Box(
@@ -174,16 +171,14 @@ fun AgentConfigScreen(
                         item {
                             Button(
                                 onClick = {
-                                    server?.let { srv ->
-                                        isSaving = true
-                                        val updates = mutableMapOf<String, Any>()
-                                        watchdogInterval.toLongOrNull()?.let { updates["watchdog_interval_secs"] = it }
-                                        maxFailures.toIntOrNull()?.let { updates["watchdog_max_failures"] = it }
-                                        cooldownSecs.toLongOrNull()?.let { updates["watchdog_cooldown_secs"] = it }
-                                        rateLimitPerMin.toIntOrNull()?.let { updates["rate_limit_per_minute"] = it }
-                                        viewModel.updateAgentConfig(srv, updates)
-                                        isSaving = false
-                                    }
+                                    isSaving = true
+                                    val updates = mutableMapOf<String, Any>()
+                                    watchdogInterval.toLongOrNull()?.let { updates["watchdog_interval_secs"] = it }
+                                    maxFailures.toIntOrNull()?.let { updates["watchdog_max_failures"] = it }
+                                    cooldownSecs.toLongOrNull()?.let { updates["watchdog_cooldown_secs"] = it }
+                                    rateLimitPerMin.toIntOrNull()?.let { updates["rate_limit_per_minute"] = it }
+                                    viewModel.updateAgentConfig(server, updates)
+                                    isSaving = false
                                 },
                                 enabled = !isSaving,
                                 modifier = Modifier.fillMaxWidth().height(Dimens.ButtonHeight),

@@ -14,6 +14,7 @@ import com.google.gson.JsonParser
 import com.pocketnoc.R
 import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.repository.ServerRepository
+import com.pocketnoc.utils.AlertDedup
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -35,8 +36,18 @@ class NtfySubscriberService : Service() {
     @Inject lateinit var repository: ServerRepository
 
     private val supervisor = SupervisorJob()
-    private val scope = CoroutineScope(Dispatchers.IO + supervisor)
+    private val scope = CoroutineScope(
+        Dispatchers.IO + supervisor +
+            CoroutineExceptionHandler { _, e -> Log.e(TAG, "Falha não tratada no scope do serviço", e) }
+    )
     private val activeSubs = mutableMapOf<Int, Job>()
+
+    /**
+     * Dedup de alertas: evita N notifications quando o agent dispara N alertas idênticos
+     * (caso real: pool de IPs do atacante gera 15 "Brute-force bloqueado" no mesmo site
+     * em segundos). Chave = hash(title+message+serverName), TTL 10 min.
+     */
+    private val dedup = AlertDedup()
 
     /** Cliente compartilhado com timeouts longos pra long-polling do ntfy. */
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
@@ -53,7 +64,10 @@ class NtfySubscriberService : Service() {
         observeServers()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    // START_NOT_STICKY de propósito: se o SO matar o serviço, NÃO queremos que ele recrie
+    // o processo em background e tente startForegroundService() de novo (crash no Android 12+).
+    // A MainActivity reinicia o serviço no próximo onStart.
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -151,9 +165,17 @@ class NtfySubscriberService : Service() {
             val title = obj.get("title")?.asString ?: "Alerta $serverName"
             val message = obj.get("message")?.asString ?: ""
             val priority = obj.get("priority")?.asInt ?: 3
-            val id = obj.get("id")?.asString?.hashCode() ?: System.currentTimeMillis().toInt()
 
-            showAlertNotification(id, "$title — $serverName", message, priority)
+            // Dedup: chave estável por conteúdo (NÃO por ntfy id, que é único por msg).
+            // Reutiliza o mesmo notification id dentro da janela → o sistema atualiza
+            // a notificação existente em vez de empilhar uma nova.
+            val dedupKey = (title + "" + message + "" + serverName).hashCode()
+            if (dedup.isDuplicate(dedupKey)) {
+                Log.d(TAG, "dedup: ignorando alerta repetido ($title)")
+                return
+            }
+
+            showAlertNotification(dedupKey, "$title — $serverName", message, priority)
         } catch (e: Exception) {
             Log.w(TAG, "Mensagem ntfy invalida: ${e.message}")
         }
@@ -231,10 +253,17 @@ class NtfySubscriberService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, NtfySubscriberService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            // Blindagem: mesmo chamado só de foreground, um startForegroundService() em
+            // background lança ForegroundServiceStartNotAllowedException (API 31+). Engolimos
+            // e logamos — perder o push é aceitável; derrubar o app não é.
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Não foi possível iniciar o serviço de alertas: ${e.message}")
             }
         }
 

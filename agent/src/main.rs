@@ -97,19 +97,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Configuracao do ntfy
-    // Topic unico por host: usa NTFY_TOPIC se setado, senao deriva de SERVER_ID + sha256(secret)
+    // ID do host: SERVER_ID env > hostname > "host". Saneado pra apenas chars de ntfy topic.
+    let server_id: String = std::env::var("SERVER_ID")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .or_else(|| hostname::get().ok().map(|h| h.to_string_lossy().to_string()))
+        .unwrap_or_else(|| "host".to_string())
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+
+    // Topic unico por host: usa NTFY_TOPIC se setado, senao deriva de server_id + sha256(secret)
     // sha256 evita vazar prefixo cru do JWT secret no nome do canal publico.
     let ntfy_topic = std::env::var("NTFY_TOPIC").unwrap_or_else(|_| {
         use sha2::{Digest, Sha256};
-        let server_id = std::env::var("SERVER_ID")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .or_else(|| hostname::get().ok().map(|h| h.to_string_lossy().to_string()))
-            .unwrap_or_else(|| "host".to_string())
-            .to_lowercase()
-            .chars()
-            .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-            .collect::<String>();
         let mut hasher = Sha256::new();
         hasher.update(b"ntfy-topic-v1:");
         hasher.update(jwt_secret.as_bytes());
@@ -189,6 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ─── Seguranca: webhook do dashboard + consulta de incidentes ────
         .route("/webhook/security", post(receive_security_webhook))
         .route("/security/incidents", get(get_security_incidents))
+        .route("/security/revoke-admin", post(revoke_admin))
         // ─── Pilha de Middleware ──────────────────────────────────────────────
         .layer(middleware::from_fn_with_state(
             rate_limiter.clone(),
@@ -238,6 +241,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         watchdog_store,
         remediation_engine,
     );
+
+    // ─── Audit SQL-level de admins WP (cobre o gap dos hooks PHP) ──────────
+    let audit_server_id = Arc::new(server_id.clone());
+    tokio::spawn(pocket_noc_agent::security::wp_admin_audit::run(
+        incident_store.clone(),
+        ntfy_client.clone(),
+        audit_server_id,
+    ));
 
     axum::serve(listener, app)
         .await

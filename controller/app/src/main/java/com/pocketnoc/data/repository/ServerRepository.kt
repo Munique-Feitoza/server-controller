@@ -1,6 +1,9 @@
 package com.pocketnoc.data.repository
 
+import com.pocketnoc.data.AgentError
+import com.pocketnoc.data.toAgentError
 import com.pocketnoc.data.api.AgentApiService
+import com.pocketnoc.data.api.AgentAuthInterceptor
 import com.pocketnoc.data.api.RetrofitClient
 import com.pocketnoc.data.local.dao.ServerDao
 import com.pocketnoc.data.local.dao.TelemetryHistoryDao
@@ -35,15 +38,16 @@ class ServerRepository @Inject constructor(
 
     suspend fun getServerById(id: Int): ServerEntity? = serverDao.getServerById(id)
 
-    suspend fun addServer(server: ServerEntity) = serverDao.insertServer(server).also {
-        // Salva credenciais de forma segura no armazenamento criptografado
-        secureTokenManager.saveToken(server.id, server.token)
-        server.secret?.let { secret ->
-            secureTokenManager.saveSecret(server.id, secret)
-        }
-        server.sshKeyPath?.let { keyContent ->
-            secureTokenManager.saveSshKey(server.id, keyContent)
-        }
+    suspend fun addServer(server: ServerEntity): Long {
+        val newId = serverDao.insertServer(server)
+        val id = newId.toInt()
+        // Salva credenciais sob o ID REAL gerado pelo Room (server.id no objeto vem 0
+        // quando autoGenerate; antes do fix, todas as creds caiam no slot id=0 e umas
+        // sobrescreviam as outras, derrubando SSH/JWT/secret de todos exceto o último).
+        secureTokenManager.saveToken(id, server.token)
+        server.secret?.let { secureTokenManager.saveSecret(id, it) }
+        server.sshKeyPath?.let { secureTokenManager.saveSshKey(id, it) }
+        return newId
     }
 
     suspend fun updateServer(server: ServerEntity) = serverDao.updateServer(server).also {
@@ -67,10 +71,25 @@ class ServerRepository @Inject constructor(
         apiCache.remove(server.id)
     }
 
+    /**
+     * Centraliza I/O + tratamento de erro de toda chamada ao agent. Roda em Dispatchers.IO
+     * (getApiService sobe o túnel SSH e lê EncryptedSharedPreferences — ambos bloqueantes) e
+     * converte qualquer falha em [AgentError] tipado. Elimina o try/catch + withContext
+     * repetido em ~20 métodos.
+     */
+    private suspend fun <T> agentCall(block: suspend () -> T): T =
+        withContext(Dispatchers.IO) {
+            try {
+                block()
+            } catch (e: Exception) {
+                throw e.toAgentError()
+            }
+        }
+
     private suspend fun getApiService(server: ServerEntity): AgentApiService {
         // Recupera a chave SSH do gerenciador de credenciais seguro
         val sshKeyContent = secureTokenManager.getSshKey(server.id)
-        
+
         // Garante que o tunel SSH esta ativo se tivermos dados configurados
         if (server.sshHost != null && server.sshUser != null && sshKeyContent != null && server.localPort != null) {
             val tunnelResult = SshTunnelManager.startTunnel(
@@ -82,128 +101,88 @@ class ServerRepository @Inject constructor(
                 sshPort = server.sshPort ?: 22,
                 remotePort = server.remotePort ?: 9443
             )
-            
+
             if (tunnelResult.isFailure) {
                 val errorMsg = tunnelResult.exceptionOrNull()?.message ?: "Unknown SSH Error"
-                
-                // Trata alertas de seguranca do SshTunnelManager
+
+                // Intrusão: o SshTunnelManager sinaliza com "ALERTA DE SEGURANÇA"
                 if (errorMsg.contains("ALERTA DE SEGURANÇA")) {
                     val failures = SshTunnelManager.getAuthFailures(server.id)
                     securityNotifications.sendIntrusionAlert(server.name, failures)
+                    throw AgentError.SecurityThreat(server.name, failures)
                 }
 
-                throw Exception("SSH Tunnel Failure: $errorMsg")
+                throw AgentError.Tunnel("Falha no túnel SSH: $errorMsg")
             }
         }
-        
+
         val url = if (server.localPort != null) "http://localhost:${server.localPort}" else server.url
 
         // Cada servidor mantem seu proprio secret em EncryptedSharedPreferences.
         // Sem secret cadastrado, nao geramos token automaticamente — forca user a configurar.
         val currentSecret = server.secret
-            ?: throw IllegalStateException("Servidor '${server.name}' sem secret cadastrado. Re-adicione pelo Login.")
-        val dynamicToken = com.pocketnoc.utils.JwtUtils.generateToken(currentSecret)
-        
+            ?: throw AgentError.Misconfigured("Servidor '${server.name}' sem secret cadastrado. Re-adicione pelo Login.")
+
+        // O token é gerado/renovado pelo interceptor a cada request (nunca fica preso/expirado).
         return apiCache.getOrPut(server.id) {
-            RetrofitClient.getInstance(url, dynamicToken).create(AgentApiService::class.java)
+            RetrofitClient.create(url, AgentAuthInterceptor(currentSecret)).create(AgentApiService::class.java)
         }
     }
 
-    suspend fun getTelemetry(server: ServerEntity): SystemTelemetry = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            val telemetry = apiService.getTelemetry()
-            
-            // Verifica o uso de CPU para disparar alertas de seguranca
-            if (telemetry.cpu.usagePercent > PocketNOCConfig.maxCpuThreshold) {
-                securityNotifications.sendHighCpuAlert(server.name, telemetry.cpu.usagePercent.toDouble())
-            }
-            
-            telemetry
-        } catch (e: Exception) {
-            throw Exception("Agent Connection Error: ${e.message}")
+    suspend fun getTelemetry(server: ServerEntity): SystemTelemetry = agentCall {
+        val telemetry = getApiService(server).getTelemetry()
+        // Verifica o uso de CPU para disparar alertas de seguranca
+        if (telemetry.cpu.usagePercent > PocketNOCConfig.maxCpuThreshold) {
+            securityNotifications.sendHighCpuAlert(server.name, telemetry.cpu.usagePercent.toDouble())
         }
+        telemetry
     }
 
-    suspend fun rebootServer(server: ServerEntity) {
-        val apiService = getApiService(server)
-        apiService.reboot()
+    suspend fun rebootServer(server: ServerEntity) = agentCall {
+        getApiService(server).reboot()
     }
 
-    suspend fun performServiceAction(server: ServerEntity, serviceName: String, action: String): CommandResult {
-        val apiService = getApiService(server)
-        return apiService.performServiceAction(serviceName, action)
+    suspend fun performServiceAction(server: ServerEntity, serviceName: String, action: String): CommandResult = agentCall {
+        getApiService(server).performServiceAction(serviceName, action)
     }
 
-    suspend fun executeCommand(server: ServerEntity, commandId: String): CommandResult {
-        val apiService = getApiService(server)
-        return apiService.executeCommand(commandId)
+    suspend fun executeCommand(server: ServerEntity, commandId: String): CommandResult = agentCall {
+        getApiService(server).executeCommand(commandId)
     }
 
-    suspend fun listCommands(server: ServerEntity): List<EmergencyCommand> {
-        val apiService = getApiService(server)
-        return apiService.listCommands().commands
+    suspend fun listCommands(server: ServerEntity): List<EmergencyCommand> = agentCall {
+        getApiService(server).listCommands().commands
     }
 
-    suspend fun getAlerts(server: ServerEntity): AlertsResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getAlerts()
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch alerts: ${e.message}")
-        }
+    suspend fun getAlerts(server: ServerEntity): AlertsResponse = agentCall {
+        getApiService(server).getAlerts()
     }
 
-    suspend fun updateAlertConfig(server: ServerEntity, config: com.pocketnoc.data.local.AlertThresholdConfig) = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            // Mapeia configuracao local para o modelo da API
-            val apiConfig = com.pocketnoc.data.models.AlertThresholdConfig(
-                limitCpu = config.cpuThresholdPercent,
-                limitMemory = config.memoryThresholdPercent,
-                limitDisk = config.diskThresholdPercent,
-                limitTemp = config.temperatureThresholdCelsius
-            )
-            apiService.updateAlertConfig(apiConfig)
-        } catch (e: Exception) {
-            throw Exception("Failed to sync alerts with server: ${e.message}")
-        }
+    suspend fun updateAlertConfig(server: ServerEntity, config: com.pocketnoc.data.local.AlertThresholdConfig) = agentCall {
+        // Mapeia configuracao local para o modelo da API
+        val apiConfig = com.pocketnoc.data.models.AlertThresholdConfig(
+            limitCpu = config.cpuThresholdPercent,
+            limitMemory = config.memoryThresholdPercent,
+            limitDisk = config.diskThresholdPercent,
+            limitTemp = config.temperatureThresholdCelsius
+        )
+        getApiService(server).updateAlertConfig(apiConfig)
     }
 
-    suspend fun listProcesses(server: ServerEntity): List<com.pocketnoc.data.models.ProcessInfo> = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getTopProcesses().processes
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch processes: ${e.message}")
-        }
+    suspend fun listProcesses(server: ServerEntity): List<com.pocketnoc.data.models.ProcessInfo> = agentCall {
+        getApiService(server).getTopProcesses().processes
     }
 
-    suspend fun killProcess(server: ServerEntity, pid: Long) {
-        try {
-            val apiService = getApiService(server)
-            apiService.killProcess(pid)
-        } catch (e: Exception) {
-            throw Exception("Failed to kill process $pid: ${e.message}")
-        }
+    suspend fun killProcess(server: ServerEntity, pid: Long) = agentCall {
+        getApiService(server).killProcess(pid)
     }
 
-    suspend fun fetchLogs(server: ServerEntity, service: String, lines: Int = 100): com.pocketnoc.data.models.LogResponse {
-        try {
-            val apiService = getApiService(server)
-            return apiService.getLogs(service, lines)
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch logs: ${e.message}")
-        }
+    suspend fun fetchLogs(server: ServerEntity, service: String, lines: Int = 100): com.pocketnoc.data.models.LogResponse = agentCall {
+        getApiService(server).getLogs(service, lines)
     }
 
-    suspend fun blockIp(server: ServerEntity, ip: String) {
-        try {
-            val apiService = getApiService(server)
-            apiService.blockIp(mapOf("ip" to ip))
-        } catch (e: Exception) {
-            throw Exception("Failed to block IP $ip: ${e.message}")
-        }
+    suspend fun blockIp(server: ServerEntity, ip: String) = agentCall {
+        getApiService(server).blockIp(mapOf("ip" to ip))
     }
 
     /**
@@ -218,37 +197,50 @@ class ServerRepository @Inject constructor(
         serverId: String? = null,
         status:   String? = null,
         limit:    Int     = 50
-    ): com.pocketnoc.data.models.WatchdogEventsResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getWatchdogEvents(serverId = serverId, status = status, limit = limit)
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch watchdog events: ${e.message}")
-        }
+    ): com.pocketnoc.data.models.WatchdogEventsResponse = agentCall {
+        getApiService(server).getWatchdogEvents(serverId = serverId, status = status, limit = limit)
+    }
+
+    /**
+     * Busca os incidentes de seguranca do agente (inclui eventos `admin_created`).
+     */
+    suspend fun getSecurityIncidents(
+        server: ServerEntity,
+        limit: Int = 100
+    ): com.pocketnoc.data.models.SecurityIncidentsResponse = agentCall {
+        getApiService(server).getSecurityIncidents(limit = limit)
+    }
+
+    /**
+     * Revoga (apaga) um administrador WordPress via agente.
+     */
+    suspend fun revokeAdmin(
+        server: ServerEntity,
+        path: String,
+        userId: Long,
+        incidentId: String
+    ): com.pocketnoc.data.models.RevokeAdminResult = agentCall {
+        getApiService(server).revokeAdmin(
+            com.pocketnoc.data.models.RevokeAdminRequest(
+                path = path,
+                userId = userId,
+                incidentId = incidentId
+            )
+        )
     }
 
     /**
      * Limpa remotamente o histórico de eventos no agente.
      */
-    suspend fun clearWatchdogEvents(server: ServerEntity) = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.deleteWatchdogEvents()
-        } catch (e: Exception) {
-            throw Exception("Failed to clear watchdog logs: ${e.message}")
-        }
+    suspend fun clearWatchdogEvents(server: ServerEntity) = agentCall {
+        getApiService(server).deleteWatchdogEvents()
     }
 
     /**
      * Reseta manualmente todos os Circuit Breakers no agente remoto.
      */
-    suspend fun resetWatchdogCircuits(server: ServerEntity) = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.resetWatchdog()
-        } catch (e: Exception) {
-            throw Exception("Failed to reset watchdog circuits: ${e.message}")
-        }
+    suspend fun resetWatchdogCircuits(server: ServerEntity) = agentCall {
+        getApiService(server).resetWatchdog()
     }
 
     // Historico de Telemetria
@@ -289,71 +281,36 @@ class ServerRepository @Inject constructor(
     }
 
     // Log de Auditoria
-    suspend fun getAuditLogs(server: ServerEntity, limit: Int = 100): List<com.pocketnoc.data.models.AuditEntry> = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getAuditLogs(limit = limit).entries
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch audit logs: ${e.message}")
-        }
+    suspend fun getAuditLogs(server: ServerEntity, limit: Int = 100): List<com.pocketnoc.data.models.AuditEntry> = agentCall {
+        getApiService(server).getAuditLogs(limit = limit).entries
     }
 
     // Monitoramento Docker
-    suspend fun getDockerContainers(server: ServerEntity): com.pocketnoc.data.models.DockerMetrics = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getDockerContainers()
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch Docker containers: ${e.message}")
-        }
+    suspend fun getDockerContainers(server: ServerEntity): com.pocketnoc.data.models.DockerMetrics = agentCall {
+        getApiService(server).getDockerContainers()
     }
 
     // PHP-FPM Pools
-    suspend fun getPhpFpmPools(server: ServerEntity): com.pocketnoc.data.models.PhpFpmResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getPhpFpmPools()
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch PHP-FPM pools: ${e.message}")
-        }
+    suspend fun getPhpFpmPools(server: ServerEntity): com.pocketnoc.data.models.PhpFpmResponse = agentCall {
+        getApiService(server).getPhpFpmPools()
     }
 
     // SSL Check
-    suspend fun checkSsl(server: ServerEntity): com.pocketnoc.data.models.SslCheckResponse = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.checkSsl()
-        } catch (e: Exception) {
-            throw Exception("Failed to check SSL: ${e.message}")
-        }
+    suspend fun checkSsl(server: ServerEntity): com.pocketnoc.data.models.SslCheckResponse = agentCall {
+        getApiService(server).checkSsl()
     }
 
     // Status de Backup
-    suspend fun getBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getBackupStatus()
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch backup status: ${e.message}")
-        }
+    suspend fun getBackupStatus(server: ServerEntity): com.pocketnoc.data.models.BackupStatus = agentCall {
+        getApiService(server).getBackupStatus()
     }
 
     // Configuracao do Agente
-    suspend fun getAgentConfig(server: ServerEntity): com.pocketnoc.data.models.AgentRuntimeConfig = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.getAgentConfig()
-        } catch (e: Exception) {
-            throw Exception("Failed to fetch agent config: ${e.message}")
-        }
+    suspend fun getAgentConfig(server: ServerEntity): com.pocketnoc.data.models.AgentRuntimeConfig = agentCall {
+        getApiService(server).getAgentConfig()
     }
 
-    suspend fun updateAgentConfig(server: ServerEntity, config: Map<String, Any>) = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        try {
-            val apiService = getApiService(server)
-            apiService.updateAgentConfig(config)
-        } catch (e: Exception) {
-            throw Exception("Failed to update agent config: ${e.message}")
-        }
+    suspend fun updateAgentConfig(server: ServerEntity, config: Map<String, Any>) = agentCall {
+        getApiService(server).updateAgentConfig(config)
     }
 }

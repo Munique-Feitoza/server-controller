@@ -53,6 +53,7 @@ android {
         buildConfigField("String", "DASHBOARD_NOC_TOKEN", "\"${localProperties.getProperty("DASHBOARD_NOC_TOKEN") ?: ""}\"")
         buildConfigField("String", "DASHBOARD_API_URL", "\"${localProperties.getProperty("DASHBOARD_API_URL") ?: "https://api.example.com/api/v1/pocketnoc/"}\"" )
         buildConfigField("int", "MAX_CPU_THRESHOLD", localProperties.getProperty("CPU_ALERT_THRESHOLD") ?: "80")
+        buildConfigField("String", "POCKET_NOC_SECRET", "\"${localProperties.getProperty("POCKET_NOC_SECRET") ?: ""}\"")
 
         // Servidor 1
         buildConfigField("String", "SSH_USER_1", "\"${localProperties.getProperty("SSH_USER_1") ?: ""}\"")
@@ -95,6 +96,23 @@ android {
         // POCKET_NOC_SECRET removido do BuildConfig pra nao vazar via APK extraido.
         // Cada servidor cadastrado armazena seu proprio secret em EncryptedSharedPreferences,
         // capturado pelo LoginScreen e nunca presente no binario.
+    }
+
+    signingConfigs {
+        // Pin do keystore debug DENTRO do projeto: garante a MESMA assinatura no build pelo
+        // terminal e pelo VS Code (que é Flatpak, com .android próprio). Sem isso, builds de
+        // origens diferentes geram chaves distintas e o reinstall passa a exigir wipe dos dados.
+        getByName("debug") {
+            // Condicional: o keystore é git-ignored (*.keystore). Se existir (esta máquina),
+            // pina a assinatura; se não (clone novo/CI), mantém o debug.keystore padrão do AGP.
+            val pinned = file("debug.keystore")
+            if (pinned.exists()) {
+                storeFile = pinned
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     compileOptions {

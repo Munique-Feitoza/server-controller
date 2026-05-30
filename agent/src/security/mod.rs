@@ -1,5 +1,6 @@
 pub mod incidents;
 pub mod intel;
+pub mod wp_admin_audit;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

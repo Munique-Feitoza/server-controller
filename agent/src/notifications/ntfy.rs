@@ -51,6 +51,10 @@ impl NtfyClient {
                 .header("Title", title)
                 .header("Priority", priority_str)
                 .header("Tags", tags)
+                // Cache: no impede que ntfy.sh armazene a mensagem no canal.
+                // Push real-time ao celular continua funcionando via FCM,
+                // mas nao ha replay quando o app reconectar.
+                .header("Cache", "no")
                 .body(message.to_string())
                 .send()
                 .await;

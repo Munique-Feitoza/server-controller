@@ -19,29 +19,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.data.models.ProcessInfo
 import com.pocketnoc.ui.components.ShimmerBox
 import com.pocketnoc.ui.theme.*
-import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.ProcessesUiState
+import com.pocketnoc.ui.viewmodels.ProcessesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProcessExplorerScreen(
-    viewModel: DashboardViewModel,
-    serverId: Int,
-    onNavigateBack: () -> Unit
+    server: ServerEntity,
+    onNavigateBack: () -> Unit,
+    viewModel: ProcessesViewModel = hiltViewModel()
 ) {
     val colors = MaterialTheme.colorScheme
     val ext = LocalExtendedColors.current
 
-    val servers by viewModel.allServers.collectAsState()
-    val selectedServer = servers.find { it.id == serverId }
     val processesState by viewModel.processesState.collectAsState()
     var showKillConfirmation by remember { mutableStateOf<ProcessInfo?>(null) }
 
-    LaunchedEffect(selectedServer) {
-        selectedServer?.let { viewModel.fetchProcesses(it) }
+    LaunchedEffect(server) {
+        viewModel.fetchProcesses(server)
     }
 
     Scaffold(
@@ -50,9 +50,7 @@ fun ProcessExplorerScreen(
                 title = {
                     Column {
                         Text("PROCESS EXPLORER", style = MaterialTheme.typography.titleLarge, color = ext.magenta, fontWeight = FontWeight.Bold)
-                        selectedServer?.let {
-                            Text(it.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
-                        }
+                        Text(server.name, style = MaterialTheme.typography.labelSmall, color = colors.outlineVariant)
                     }
                 },
                 navigationIcon = {
@@ -61,7 +59,7 @@ fun ProcessExplorerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { selectedServer?.let { viewModel.fetchProcesses(it) } }) {
+                    IconButton(onClick = { viewModel.fetchProcesses(server) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Atualizar", tint = colors.primary)
                     }
                 },
@@ -131,7 +129,7 @@ fun ProcessExplorerScreen(
                             Text("\u26A0", style = MaterialTheme.typography.displayLarge, color = StatusColors.critical)
                             Text(state.message, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                             Button(
-                                onClick = { selectedServer?.let { viewModel.fetchProcesses(it) } },
+                                onClick = { viewModel.fetchProcesses(server) },
                                 colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.15f)),
                                 shape = AppShapes.medium
                             ) { Text("Tentar novamente", color = colors.primary) }
@@ -174,9 +172,7 @@ fun ProcessExplorerScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        selectedServer?.let { server ->
-                            viewModel.killProcess(server, proc.pid.toLong())
-                        }
+                        viewModel.killProcess(server, proc.pid.toLong())
                         showKillConfirmation = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = StatusColors.critical),

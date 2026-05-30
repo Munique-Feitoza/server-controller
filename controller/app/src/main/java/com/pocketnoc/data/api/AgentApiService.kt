@@ -128,4 +128,14 @@ interface AgentApiService {
 
     @POST("config")
     suspend fun updateAgentConfig(@Body config: Map<String, @JvmSuppressWildcards Any>): GenericResponse
+
+    // ─── Seguranca: incidentes + revogacao de admin ───────────────────────
+    @GET("security/incidents")
+    suspend fun getSecurityIncidents(
+        @Query("limit") limit: Int = 100,
+        @Query("severity") severity: String? = null
+    ): SecurityIncidentsResponse
+
+    @POST("security/revoke-admin")
+    suspend fun revokeAdmin(@Body request: RevokeAdminRequest): RevokeAdminResult
 }

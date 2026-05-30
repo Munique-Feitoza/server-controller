@@ -121,9 +121,10 @@ graph LR
     end
 
     subgraph vm["🧩 ViewModel"]
-        VM1["DashboardViewModel"]
+        VM1["DashboardViewModel<br/><i>servidores · telemetria · alertas</i>"]
         VM2["SecurityViewModel"]
         VM3["WatchdogViewModel"]
+        VM4["VMs por feature<br/><i>Processes · Logs · Commands · Agent</i>"]
     end
 
     subgraph model["🗄️ Model"]
@@ -148,33 +149,41 @@ graph LR
 
     classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
     classDef storeNode fill:#0f766e,stroke:#5eead4,stroke-width:2px,color:#f0fdfa
-    class S1,S2,S3,VM1,VM2,VM3,R,A,D androidNode
+    class S1,S2,S3,VM1,VM2,VM3,VM4,R,A,D androidNode
     class DB storeNode
 ```
 
-### DashboardViewModel — Estado Principal
+### ViewModels — um por feature
+
+O `DashboardViewModel` já foi um god-object; hoje guarda só o núcleo genuinamente acoplado (servidores, telemetria, saúde e alertas — usados por Dashboard/ServerDetails/Export). Cada feature isolada tem o seu próprio ViewModel obtido via `hiltViewModel()`, recebendo o `ServerEntity` já resolvido pela navegação:
+
+| ViewModel | Tela(s) | Responsabilidade |
+|:---|:---|:---|
+| `DashboardViewModel` | Dashboard · ServerDetails · Export | servidores (CRUD), telemetria, histórico, saúde, alertas, php-fpm/ssl |
+| `ProcessesViewModel` | ProcessExplorer | listar e encerrar processos |
+| `LogsViewModel` | LogViewer | logs de serviços |
+| `CommandsViewModel` | ActionCenter | comandos de emergência |
+| `AgentViewModel` | AgentConfig · AuditLog | config runtime do agente + auditoria |
+| `SecurityViewModel` | SecurityDashboard | incidentes do Dashboard ERP |
+| `WatchdogViewModel` | Watchdog (aba) | eventos + circuit breakers |
+| `AdminAccessViewModel` | AdminAccess | admins WordPress + revogação |
+| `BiometricViewModel` | BiometricGate | expõe o `BiometricAuthManager` |
 
 ```mermaid
 %%{init: { "theme": "base", "themeVariables": { "fontFamily": "Inter, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#f8fafc", "primaryBorderColor": "#475569", "lineColor": "#64748b" } }}%%
 classDiagram
     class DashboardViewModel {
         -ServerRepository repository
-        -SshTunnelManager sshManager
         +telemetryState: StateFlow~TelemetryUiState~
-        +commandsState: StateFlow~CommandsUiState~
-        +processesState: StateFlow~ProcessesUiState~
-        +logsState: StateFlow~LogsUiState~
         +telemetryHistory: StateFlow~List~TelemetryHistoryEntity~~
+        +serverHealthMap: StateFlow~Map~Int, ServerHealth~~
         +alertHistory: StateFlow~List~AlertEntity~~
         +allServers: StateFlow~List~ServerEntity~~
         +alertThresholds: StateFlow~AlertThresholdConfig~
         +networkStatus: StateFlow~ConnectivityStatus~
         +fetchTelemetry(server: ServerEntity)
-        +killProcess(pid: Int)
-        +getServiceStatus(name: String)
-        +executeCommand(id: String)
-        +updateAlertConfig(config: AlertThresholdConfig)
-        +blockIp(ip: String)
+        +addServer() / deleteServer()
+        +rebootServer() / blockIp() / performServiceAction()
     }
 
     class TelemetryUiState {
@@ -350,7 +359,7 @@ graph LR
 | `LoginScreen` | `LoginScreen.kt` | Autenticação de usuário |
 | `BiometricGateScreen` | `BiometricGateScreen.kt` | Proteção por biometria |
 | `DashboardScreen` | `DashboardScreen.kt` | Visão geral com menu hamburger |
-| `ServerListScreen` | `ServerListScreen.kt` | Lista de servidores configurados |
+| `AdminAccessScreen` | `AdminAccessScreen.kt` | Admins WordPress criados + revogação |
 | `ServerDetailsScreen` | `ServerDetailsScreen.kt` | Deep dive por servidor |
 | `ActionCenterScreen` | `ActionCenterScreen.kt` | Execução de comandos whitelist |
 | `ProcessExplorerScreen` | `ProcessExplorerScreen.kt` | Top processos + kill by PID |
@@ -422,7 +431,9 @@ A partir da v1.x, o `DashboardScreen` expõe as telas principais via menu hambur
   "flowchart": { "curve": "basis", "padding": 20 }
 }}%%
 graph TD
-    SPLASH["splash"] --> LOGIN["login"]
+    SPLASH["splash"] -->|"sem servidores"| LOGIN["login"]
+    SPLASH["splash"] -->|"com servidores"| GATE["biometric_gate"]
+    GATE -->|"biometria OK"| DASH["dashboard"]
     LOGIN --> DASH["dashboard"]
 
     DASH -->|"menu: Historico"| ALERT_HIST["alert_history"]
@@ -446,11 +457,11 @@ graph TD
     DETAILS --> CONFIG
 
     classDef androidNode fill:#7c3aed,stroke:#a78bfa,stroke-width:2px,color:#f5f3ff
-    class SPLASH,LOGIN,DASH,ALERT_HIST,EXPORT,SECURITY,PHPFPM,SSL,DETAILS,PROCESSES,ACTIONS,LOGS,AUDIT,CONFIG,ALERT_SET,WATCHDOG_TAB androidNode
+    class SPLASH,LOGIN,GATE,DASH,ALERT_HIST,EXPORT,SECURITY,PHPFPM,SSL,DETAILS,PROCESSES,ACTIONS,LOGS,AUDIT,CONFIG,ALERT_SET,WATCHDOG_TAB androidNode
 ```
 
 **Notas:**
-- `ServerListScreen` e `BiometricGateScreen` existem no código mas são órfãos — sem entry point atual.
+- `BiometricGateScreen` é o gate de biometria: a partir da Splash, se há servidores cadastrados, o fluxo passa por ele (Splash → biometria → Dashboard) antes de liberar o acesso. Sem biometria/PIN no aparelho, libera direto.
 - `WatchdogScreen` está disponível apenas como aba dentro da Dashboard (removido do menu hamburger pra não duplicar).
 
 ### AppRoutes
@@ -463,7 +474,7 @@ sealed class AppRoutes(val route: String) {
     object BiometricGate : AppRoutes("biometric_gate")
     object Login : AppRoutes("login")
     object Dashboard : AppRoutes("dashboard")
-    object ServerList : AppRoutes("server_list")
+    object AdminAccess : AppRoutes("admin_access/{serverId}")
     object SecurityDashboard : AppRoutes("security_dashboard")
     object PhpFpm : AppRoutes("php_fpm")
     object SslCheck : AppRoutes("ssl_check")

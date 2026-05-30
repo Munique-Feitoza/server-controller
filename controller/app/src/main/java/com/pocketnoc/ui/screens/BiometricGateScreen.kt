@@ -1,5 +1,7 @@
 package com.pocketnoc.ui.screens
 
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,19 +35,20 @@ fun BiometricGateScreen(
     onAuthenticated: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
-    val ext = LocalExtendedColors.current
 
     val context = LocalContext.current
+    val activity = remember(context) { context.findFragmentActivity() }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        if (biometricManager.canAuthenticate()) {
+        if (activity != null && biometricManager.canAuthenticate()) {
             biometricManager.authenticate(
-                activity = context as FragmentActivity,
+                activity = activity,
                 onSuccess = onAuthenticated,
                 onError = { errorMessage = it }
             )
         } else {
+            // Sem activity host ou sem biometria/credencial no device: não trava o acesso.
             onAuthenticated()
         }
     }
@@ -113,11 +116,13 @@ fun BiometricGateScreen(
             Button(
                 onClick = {
                     errorMessage = null
-                    biometricManager.authenticate(
-                        activity = context as FragmentActivity,
-                        onSuccess = onAuthenticated,
-                        onError = { errorMessage = it }
-                    )
+                    activity?.let {
+                        biometricManager.authenticate(
+                            activity = it,
+                            onSuccess = onAuthenticated,
+                            onError = { e -> errorMessage = e }
+                        )
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = colors.primary.copy(alpha = 0.15f)),
                 border = ButtonDefaults.outlinedButtonBorder,
@@ -130,4 +135,14 @@ fun BiometricGateScreen(
             }
         }
     }
+}
+
+/** Desembrulha o ContextWrapper até achar a FragmentActivity host (robusto contra ContextThemeWrapper). */
+private fun Context.findFragmentActivity(): FragmentActivity? {
+    var ctx: Context? = this
+    while (ctx is ContextWrapper) {
+        if (ctx is FragmentActivity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }

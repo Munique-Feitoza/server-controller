@@ -78,7 +78,8 @@ fun SplashScreen(
         // Aguarda o Room emitir pelo menos uma vez (lista não nula inicialmente = Room carregou)
         // Room emite lista vazia se não há servidores, mas emite imediatamente após o load
         if (servers.isNotEmpty()) {
-            navController.navigate(AppRoute.Dashboard.route) {
+            // Há servidores cadastrados = há o que proteger → passa pelo gate biométrico.
+            navController.navigate(AppRoute.BiometricGate.route) {
                 popUpTo(AppRoute.Splash.route) { inclusive = true }
             }
         } else {

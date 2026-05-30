@@ -11,6 +11,8 @@ import com.pocketnoc.data.local.entities.ServerEntity
 import com.pocketnoc.ui.screens.*
 import com.pocketnoc.ui.viewmodels.DashboardViewModel
 import com.pocketnoc.ui.viewmodels.WatchdogViewModel
+import com.pocketnoc.ui.viewmodels.AdminAccessViewModel
+import com.pocketnoc.ui.viewmodels.BiometricViewModel
 
 /**
  * Helper para rotas que recebem serverId — elimina boilerplate repetido.
@@ -71,6 +73,19 @@ fun AppNavHost(
             )
         }
 
+        // Gate biométrico — trava o acesso quando há servidores cadastrados
+        composable(AppRoute.BiometricGate.route) {
+            val biometricViewModel: BiometricViewModel = hiltViewModel()
+            BiometricGateScreen(
+                biometricManager = biometricViewModel.biometricManager,
+                onAuthenticated = {
+                    navController.navigate(AppRoute.Dashboard.route) {
+                        popUpTo(AppRoute.BiometricGate.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         // Tela do Dashboard
         composable(AppRoute.Dashboard.route) {
             DashboardScreen(
@@ -119,27 +134,18 @@ fun AppNavHost(
                 },
                 onNavigateToPhpFpm = { id ->
                     navController.navigate(AppRoute.PhpFpm.createRoute(id))
+                },
+                onNavigateToAdminAccess = { id ->
+                    navController.navigate(AppRoute.AdminAccess.createRoute(id))
                 }
             )
         }
 
         // Tela do Centro de Acoes
-        composable(
-            route = AppRoute.ActionCenter.route,
-            arguments = listOf(
-                androidx.navigation.navArgument("serverId") {
-                    type = androidx.navigation.NavType.IntType
-                }
-            )
-        ) { backStackEntry ->
-            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-
+        serverRoute(AppRoute.ActionCenter.route, { servers }) { server ->
             ActionCenterScreen(
-                viewModel = dashboardViewModel,
-                serverId = serverId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                server = server,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -160,22 +166,10 @@ fun AppNavHost(
         }
 
         // Tela do Explorador de Processos
-        composable(
-            route = AppRoute.ProcessExplorer.route,
-            arguments = listOf(
-                androidx.navigation.navArgument("serverId") {
-                    type = androidx.navigation.NavType.IntType
-                }
-            )
-        ) { backStackEntry ->
-            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-
+        serverRoute(AppRoute.ProcessExplorer.route, { servers }) { server ->
             ProcessExplorerScreen(
-                viewModel = dashboardViewModel,
-                serverId = serverId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                server = server,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -194,15 +188,17 @@ fun AppNavHost(
         ) { backStackEntry ->
             val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
             val serviceName: String = backStackEntry.arguments?.getString("service") ?: "pocket-noc-agent"
+            val server = servers.find { it.id == serverId }
 
-            LogViewerScreen(
-                viewModel = dashboardViewModel,
-                serverId = serverId,
-                serviceName = serviceName,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
+            if (server != null) {
+                LogViewerScreen(
+                    server = server,
+                    serviceName = serviceName,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            } else {
+                androidx.compose.material3.Text("Carregando...")
+            }
         }
 
         // Tela de Historico de Alertas
@@ -236,6 +232,28 @@ fun AppNavHost(
             }
         }
 
+        // Tela de Acessos Admin (admins WordPress criados + revogacao)
+        composable(
+            route = AppRoute.AdminAccess.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("serverId") {
+                    type = androidx.navigation.NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
+            val server = servers.find { it.id == serverId }
+            val adminAccessViewModel: AdminAccessViewModel = hiltViewModel()
+
+            server?.let {
+                AdminAccessScreen(
+                    server = it,
+                    viewModel = adminAccessViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+
         // Tela de Exportacao
         composable(AppRoute.Export.route) {
             ExportScreen(
@@ -247,42 +265,18 @@ fun AppNavHost(
         }
 
         // Tela de Log de Auditoria
-        composable(
-            route = AppRoute.AuditLog.route,
-            arguments = listOf(
-                androidx.navigation.navArgument("serverId") {
-                    type = androidx.navigation.NavType.IntType
-                }
-            )
-        ) { backStackEntry ->
-            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-
+        serverRoute(AppRoute.AuditLog.route, { servers }) { server ->
             AuditLogScreen(
-                viewModel = dashboardViewModel,
-                serverId = serverId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                server = server,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
         // Tela de Configuracao do Agente
-        composable(
-            route = AppRoute.AgentConfig.route,
-            arguments = listOf(
-                androidx.navigation.navArgument("serverId") {
-                    type = androidx.navigation.NavType.IntType
-                }
-            )
-        ) { backStackEntry ->
-            val serverId: Int = backStackEntry.arguments?.getInt("serverId") ?: 0
-
+        serverRoute(AppRoute.AgentConfig.route, { servers }) { server ->
             AgentConfigScreen(
-                viewModel = dashboardViewModel,
-                serverId = serverId,
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+                server = server,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

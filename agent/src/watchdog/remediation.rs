@@ -277,15 +277,11 @@ impl RemediationEngine {
                 }
             }
 
-            // PHP dinâmico (phpX.Y-fpm)
-            s if s.starts_with("php") => {
-                let version = s.chars().filter(|c| c.is_ascii_digit()).collect::<String>();
-                if !version.is_empty() {
-                    RemediationAction::RestartService(format!("php{}-fpm", version))
-                } else {
-                    RemediationAction::RestartService("php81-fpm".to_string())
-                }
-            }
+            // PHP-FPM: reinicia exatamente a unit que falhou.
+            // Reconstruir o nome a partir dos dígitos quebrava o sufixo "rc"
+            // do RunCloud (ex: "php82rc-fpm" virava "php82-fpm", unit inexistente,
+            // e o restart falhava sempre, abrindo o Circuit Breaker à toa).
+            s if s.starts_with("php") => RemediationAction::RestartService(service.to_string()),
 
             // ERP / Python Stacks
             "gunicorn" | "uvicorn" | "python" | "python-api" => {

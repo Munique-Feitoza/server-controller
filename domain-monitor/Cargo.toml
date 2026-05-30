@@ -1,0 +1,42 @@
+[package]
+name = "domain-monitor"
+version = "0.1.0"
+edition = "2021"
+description = "Worker assíncrono: Cloudflare zones -> WHOIS -> bulk insert no Google Sheets"
+license = "GPL-2.0-only"
+
+[dependencies]
+# Runtime assíncrono
+tokio = { version = "1.38", features = ["macros", "rt-multi-thread", "time"] }
+
+# HTTP (Cloudflare + Google Sheets). rustls evita a dependência do OpenSSL.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Serialização / desserialização
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Consulta WHOIS dos domínios
+whois-rust = "1.6"
+
+# Parse de datas e cálculo de dias até a expiração
+chrono = "0.4"
+
+# OAuth2 do Google a partir do credentials.json da Service Account
+yup-oauth2 = "12"
+
+# Carrega variáveis de ambiente a partir de um arquivo .env
+dotenvy = "0.15"
+
+# Propagação de erros
+anyhow = "1.0"
+
+# Logs estruturados (stdout)
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

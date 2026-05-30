@@ -183,13 +183,28 @@ pub fn run_service_probe(config: &ServiceProbeConfig) -> ProbeResult {
     match output {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
+
+            // `inactive` numa unit desabilitada/mascarada é estado intencional, não
+            // falha — ex.: versão PHP-FPM sem web-app no RunCloud, parada de propósito.
+            // `failed` continua Down mesmo desabilitada (crash real ainda importa).
+            let intentionally_off = stdout == "inactive" && unit_is_disabled(service);
+
             let status = match stdout.as_str() {
                 "active" => ProbeStatus::Healthy,
-                "activating" => ProbeStatus::Degraded,
-                "deactivating" => ProbeStatus::Degraded,
-                _ => ProbeStatus::Down, // "inactive", "failed", "unknown"
+                // Estados de transição (re)start são momentâneos — não é incidente.
+                // Reportar Healthy evita ruído de alerta e remediação contra um
+                // serviço que já está subindo (ex.: redis reiniciado por upgrade de
+                // pacote). Se ele NÃO subir, o ciclo seguinte pega "failed"/"inactive"
+                // e aí sim alerta.
+                "activating" | "reloading" | "deactivating" => ProbeStatus::Healthy,
+                _ if intentionally_off => ProbeStatus::Healthy,
+                _ => ProbeStatus::Down, // "inactive" (habilitada), "failed", "unknown"
             };
-            let message = format!("systemctl {service}: {stdout}");
+            let message = if intentionally_off {
+                format!("systemctl {service}: inactive (desabilitada — intencional)")
+            } else {
+                format!("systemctl {service}: {stdout}")
+            };
             ProbeResult {
                 status,
                 latency_ms: None,
@@ -204,6 +219,25 @@ pub fn run_service_probe(config: &ServiceProbeConfig) -> ProbeResult {
             service: service.clone(),
         },
     }
+}
+
+/// Verifica se uma unit systemd está intencionalmente desligada.
+///
+/// Retorna `true` para `disabled`/`masked`/`masked-runtime` — estados em que
+/// o operador optou por não rodar o serviço. Usado para distinguir uma versão
+/// PHP-FPM sem web-app (parada de propósito) de um daemon que caiu.
+fn unit_is_disabled(service: &str) -> bool {
+    std::process::Command::new("systemctl")
+        .arg("is-enabled")
+        .arg(service)
+        .output()
+        .map(|out| {
+            matches!(
+                String::from_utf8_lossy(&out.stdout).trim(),
+                "disabled" | "masked" | "masked-runtime"
+            )
+        })
+        .unwrap_or(false)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

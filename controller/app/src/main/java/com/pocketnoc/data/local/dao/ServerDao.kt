@@ -12,7 +12,7 @@ interface ServerDao {
     suspend fun getServerById(id: Int): ServerEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertServer(server: ServerEntity)
+    suspend fun insertServer(server: ServerEntity): Long
 
     @Delete
     suspend fun deleteServer(server: ServerEntity)

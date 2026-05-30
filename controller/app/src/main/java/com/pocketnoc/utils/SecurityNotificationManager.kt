@@ -14,6 +14,10 @@ import com.pocketnoc.data.models.AlertType
  */
 class SecurityNotificationManager(private val context: Context) {
 
+    // @Singleton (ver SecurityModule) → uma instância, então o dedup é compartilhado entre
+    // todos os call sites, igual ao companion estático anterior.
+    private val dedup = AlertDedup()
+
     companion object {
         private const val CHANNEL_ID_SECURITY = "security_alerts"
         private const val CHANNEL_NAME_SECURITY = "Alertas de Segurança"
@@ -156,7 +160,9 @@ class SecurityNotificationManager(private val context: Context) {
      * Processa um alerta genérico e dispara a notificação apropriada
      */
     fun sendAlert(serverName: String, alert: Alert) {
-        val notificationId = (alert.timestamp % Int.MAX_VALUE).toInt()
+        // ID estável por conteúdo (NÃO timestamp): mesmo alerta reentrega = atualiza
+        // a notif existente em vez de empilhar.
+        val notificationId = (alert.alertType.name + "|" + serverName + "|" + alert.message).hashCode()
         val emoji = when(alert.alertType) {
             AlertType.HIGH_CPU -> "⚡"
             AlertType.HIGH_MEMORY -> "🧠"
@@ -180,8 +186,12 @@ class SecurityNotificationManager(private val context: Context) {
 
     @android.annotation.SuppressLint("MissingPermission")
     private fun showNotification(title: String, message: String, notificationId: Int, channelId: String) {
+        // Dedup por (title+message). Mesma chave dentro da janela = atualiza, não empilha.
+        val dedupKey = (title + "|" + message).hashCode()
+        if (dedup.isDuplicate(dedupKey)) return
+
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_security) // Assumindo que este ícone existe ou será criado
+            .setSmallIcon(R.drawable.ic_security)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

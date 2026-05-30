@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,7 +46,8 @@ fun ServerDetailsScreen(
     onNavigateToWatchdog: (Int) -> Unit = {},
     onNavigateToAuditLog: (Int) -> Unit = {},
     onNavigateToAgentConfig: (Int) -> Unit = {},
-    onNavigateToPhpFpm: (Int) -> Unit = {}
+    onNavigateToPhpFpm: (Int) -> Unit = {},
+    onNavigateToAdminAccess: (Int) -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     val ext = LocalExtendedColors.current
@@ -144,6 +146,11 @@ fun ServerDetailsScreen(
                                 text = { Text("PHP-FPM Pools") },
                                 onClick = { onNavigateToPhpFpm(serverId); menuExpanded = false },
                                 leadingIcon = { Icon(Icons.Default.Dns, null, tint = ext.blue) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Acessos Admin") },
+                                onClick = { onNavigateToAdminAccess(serverId); menuExpanded = false },
+                                leadingIcon = { Icon(Icons.Default.Security, null, tint = colors.error) }
                             )
                             DropdownMenuItem(
                                 text = { Text("Audit Log") },
