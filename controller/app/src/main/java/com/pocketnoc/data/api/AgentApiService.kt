@@ -13,9 +13,10 @@ interface AgentApiService {
     @GET("telemetry")
     suspend fun getTelemetry(): SystemTelemetry
 
-    // Alertas
+    // Alertas — `since` (Unix segundos): o agent só devolve incidentes mais novos que isso
+    // (polling incremental). Default 0 = backlog completo.
     @GET("alerts")
-    suspend fun getAlerts(): AlertsResponse
+    suspend fun getAlerts(@Query("since") since: Long = 0): AlertsResponse
 
     // Servicos
     @GET("services/{service_name}")

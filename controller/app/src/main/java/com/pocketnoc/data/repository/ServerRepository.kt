@@ -154,8 +154,8 @@ class ServerRepository @Inject constructor(
         getApiService(server).listCommands().commands
     }
 
-    suspend fun getAlerts(server: ServerEntity): AlertsResponse = agentCall {
-        getApiService(server).getAlerts()
+    suspend fun getAlerts(server: ServerEntity, since: Long = 0): AlertsResponse = agentCall {
+        getApiService(server).getAlerts(since)
     }
 
     suspend fun updateAlertConfig(server: ServerEntity, config: com.pocketnoc.data.local.AlertThresholdConfig) = agentCall {

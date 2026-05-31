@@ -32,21 +32,31 @@ class AlertMonitoringWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             val servers = repository.getAllServers().first()
+            // Polling incremental: guarda o timestamp do último incidente já visto por servidor
+            // e passa como `since`, pra o agent NÃO reenviar o backlog inteiro de incidentes
+            // (que prendia o widget em alertas antigos). Alertas de telemetria continuam vindo
+            // sempre — o `since` só filtra os incidentes/webhooks.
+            val prefs = applicationContext.getSharedPreferences("widget_data", Context.MODE_PRIVATE)
             var totalAlerts = 0
             var onlineCount = 0
             val recentAlerts = mutableListOf<Pair<Long, String>>()
 
             for (server in servers) {
-                val alerts = fetchAlertsWithRetry(server)
+                val sinceKey = "since_${server.id}"
+                val since = prefs.getLong(sinceKey, 0L)
+                val alerts = fetchAlertsWithRetry(server, since)
                 if (alerts != null) {
                     onlineCount++
                     totalAlerts += alerts.count
-                    // Telemetria viva (CPU/RAM/Disco/Temp/Reboot/Security) +
-                    // webhooks recebidos pelo agent (incidentes do dashboard, watchdog, etc).
                     val combined = alerts.alerts + alerts.webhookAlerts
                     for (alert in combined) {
                         notificationManager.sendAlert(server.name, alert)
                         recentAlerts += alert.timestamp to "${server.name.uppercase()}: ${alert.message}"
+                    }
+                    // Avança o marcador só pelos incidentes (webhook_alerts) já vistos.
+                    val maxIncidentTs = alerts.webhookAlerts.maxOfOrNull { it.timestamp } ?: since
+                    if (maxIncidentTs > since) {
+                        prefs.edit().putLong(sinceKey, maxIncidentTs).apply()
                     }
                 }
             }
@@ -68,10 +78,10 @@ class AlertMonitoringWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun fetchAlertsWithRetry(server: ServerEntity): AlertsResponse? {
+    private suspend fun fetchAlertsWithRetry(server: ServerEntity, since: Long): AlertsResponse? {
         repeat(MAX_ATTEMPTS) { attempt ->
             try {
-                return repository.getAlerts(server)
+                return repository.getAlerts(server, since)
             } catch (e: Exception) {
                 Log.w(
                     "AlertWorker",

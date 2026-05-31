@@ -52,7 +52,11 @@ class NtfySubscriberService : Service() {
     /** Cliente compartilhado com timeouts longos pra long-polling do ntfy. */
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.MILLISECONDS) // streaming infinito
+        // Finito e MAIOR que o keepalive do ntfy (~45s): se a conexão morrer em silêncio
+        // (Doze/sono, troca de rede, NAT timeout) o read estoura → SocketTimeoutException →
+        // runSubscription reconecta. Com readTimeout(0) um socket zumbi travava o stream pra
+        // sempre e só chegavam notificações antigas.
+        .readTimeout(75, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
