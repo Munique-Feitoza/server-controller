@@ -129,18 +129,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pocket_noc_agent::security::incidents::IncidentStore::new(),
     ));
 
-    // Secret HMAC opcional pro webhook /webhook/security.
-    // Se setado, exige header X-Webhook-Signature em todo POST.
-    let webhook_hmac_secret = Arc::new(
-        std::env::var("WEBHOOK_HMAC_SECRET")
-            .ok()
-            .filter(|s| !s.is_empty()),
-    );
-    if webhook_hmac_secret.is_some() {
-        tracing::info!("🔐 /webhook/security exigindo assinatura HMAC (WEBHOOK_HMAC_SECRET ativo)");
-    } else {
-        tracing::warn!("⚠️ /webhook/security sem HMAC — defina WEBHOOK_HMAC_SECRET pra exigir assinatura");
+    // Secret HMAC obrigatório pro webhook /webhook/security.
+    // Sem ele, qualquer processo local (php-fpm comprometido, webshell) pode
+    // injetar incidentes falsos sem autenticação. Gere com: openssl rand -hex 32
+    let webhook_hmac_secret_val = std::env::var("WEBHOOK_HMAC_SECRET")
+        .ok()
+        .filter(|s| !s.is_empty());
+    if webhook_hmac_secret_val.is_none() {
+        tracing::error!("❌ WEBHOOK_HMAC_SECRET não definido!");
+        tracing::error!("   /webhook/security é público (sem JWT) — sem HMAC qualquer");
+        tracing::error!("   processo local pode injetar incidentes falsos.");
+        tracing::error!("   Gere com: openssl rand -hex 32");
+        tracing::error!("   Defina em /etc/pocket-noc-agent.env e reinicie.");
+        std::process::exit(1);
     }
+    let webhook_hmac_secret = Arc::new(webhook_hmac_secret_val);
+    tracing::info!("🔐 /webhook/security exigindo assinatura HMAC (WEBHOOK_HMAC_SECRET ativo)");
 
     let state = AppState {
         telemetry_collector: collector.clone(),

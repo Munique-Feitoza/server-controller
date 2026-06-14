@@ -33,10 +33,12 @@ android {
         val server2 = localProperties.getProperty("POCKET_NOC_SERVER_2") ?: ""
         val server3 = localProperties.getProperty("POCKET_NOC_SERVER_3") ?: ""
         val server4 = localProperties.getProperty("POCKET_NOC_SERVER_4") ?: ""
+        val server5 = localProperties.getProperty("POCKET_NOC_SERVER_5") ?: ""
         val serverName1 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_1") ?: "Acme 1"
         val serverName2 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_2") ?: "Acme 2"
         val serverName3 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_3") ?: "Acme 3"
         val serverName4 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_4") ?: "Acme 4"
+        val serverName5 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_5") ?: "Acme 5"
         val useHttps = localProperties.getProperty("USE_HTTPS")?.toBoolean() ?: true
 
         // SSH key fica em BuildConfig por enquanto pra preservar fluxo de tunel global.
@@ -83,15 +85,24 @@ android {
         buildConfigField("String", "LOCAL_FORWARD_PORT_4", "\"${localProperties.getProperty("LOCAL_FORWARD_PORT_4") ?: "9446"}\"")
         buildConfigField("String", "REMOTE_AGENT_PORT_4", "\"${localProperties.getProperty("REMOTE_AGENT_PORT_4") ?: "9443"}\"")
 
+        // Servidor 5 (Hetzner — fora do RunCloud, SSH como root)
+        buildConfigField("String", "SSH_USER_5", "\"${localProperties.getProperty("SSH_USER_5") ?: ""}\"")
+        buildConfigField("String", "SSH_HOST_5", "\"${localProperties.getProperty("SSH_HOST_5") ?: server5}\"")
+        buildConfigField("String", "SSH_SERVICE_PORT_5", "\"${localProperties.getProperty("SSH_SERVICE_PORT_5") ?: "22"}\"")
+        buildConfigField("String", "LOCAL_FORWARD_PORT_5", "\"${localProperties.getProperty("LOCAL_FORWARD_PORT_5") ?: "9447"}\"")
+        buildConfigField("String", "REMOTE_AGENT_PORT_5", "\"${localProperties.getProperty("REMOTE_AGENT_PORT_5") ?: "9443"}\"")
+
         buildConfigField("String", "POCKET_NOC_SERVER_1", "\"$server1\"")
         buildConfigField("String", "POCKET_NOC_SERVER_2", "\"$server2\"")
         buildConfigField("String", "POCKET_NOC_SERVER_3", "\"$server3\"")
         buildConfigField("String", "POCKET_NOC_SERVER_4", "\"$server4\"")
-        
+        buildConfigField("String", "POCKET_NOC_SERVER_5", "\"$server5\"")
+
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_1", "\"$serverName1\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_2", "\"$serverName2\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_3", "\"$serverName3\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_4", "\"$serverName4\"")
+        buildConfigField("String", "POCKET_NOC_SERVER_NAME_5", "\"$serverName5\"")
 
         // POCKET_NOC_SECRET removido do BuildConfig pra nao vazar via APK extraido.
         // Cada servidor cadastrado armazena seu proprio secret em EncryptedSharedPreferences,

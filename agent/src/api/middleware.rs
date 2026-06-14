@@ -26,7 +26,7 @@ pub struct SecurityState {
 /// - Na 5a tentativa de honeypot: zip bomb + auto-ban via iptables
 pub async fn security_middleware(
     State(security): State<SecurityState>,
-    request: Request<Body>,
+    mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, Response> {
     let path = request.uri().path().to_string();
@@ -142,8 +142,10 @@ pub async fn security_middleware(
     };
 
     match security.jwt_config.validate_token(&token) {
-        Ok(_) => {
-            // Auth OK — prossegue normalmente
+        Ok(claims) => {
+            // Injeta claims nas extensões do request para que handlers
+            // possam verificar escopos sem re-validar o token.
+            request.extensions_mut().insert(claims);
             Ok(next.run(request).await)
         }
         Err(e) => {

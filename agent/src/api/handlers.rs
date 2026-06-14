@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Extension, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     audit::AuditLog,
+    auth::{Claims, JwtConfig},
     commands::CommandExecutor,
     error::Result,
     notifications::NtfyClient,
@@ -81,9 +82,11 @@ pub async fn list_commands(State(state): State<AppState>) -> impl IntoResponse {
 
 /// POST /commands/:command_id - Executa um comando de emergência
 pub async fn execute_command(
+    Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
     axum::extract::Path(command_id): axum::extract::Path<String>,
 ) -> Result<Json<serde_json::Value>> {
+    JwtConfig::require_scope(&claims, "write")?;
     let result = state.command_executor.execute_command(&command_id)?;
     Ok(Json(serde_json::to_value(result).unwrap()))
 }
@@ -257,9 +260,11 @@ pub async fn get_top_processes(State(state): State<AppState>) -> Result<Json<ser
 
 /// DELETE /processes/:pid - Encerra um processo
 pub async fn kill_process(
+    Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
     axum::extract::Path(pid): axum::extract::Path<u32>,
 ) -> Result<Json<serde_json::Value>> {
+    JwtConfig::require_scope(&claims, "admin")?;
     let mut collector = state.telemetry_collector.lock().await;
     let success = collector.kill_process(pid)?;
 
@@ -280,9 +285,11 @@ pub async fn kill_process(
 
 /// POST /alerts/config - Atualiza as configurações de alerta dinamicamente
 pub async fn update_alert_config(
+    Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
     Json(new_thresholds): Json<crate::telemetry::AlertThresholds>,
 ) -> Result<Json<serde_json::Value>> {
+    JwtConfig::require_scope(&claims, "write")?;
     let mut alert_manager = state.alert_manager.lock().await;
     alert_manager.update_thresholds(new_thresholds.clone());
 
@@ -302,9 +309,11 @@ pub async fn update_alert_config(
 
 /// POST /security/block-ip - Bloqueia um IP agressor
 pub async fn block_ip(
+    Extension(claims): Extension<Claims>,
     State(_state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>> {
+    JwtConfig::require_scope(&claims, "admin")?;
     let ip = payload.get("ip").and_then(|v| v.as_str()).ok_or_else(|| {
         crate::error::AgentError::CommandError("Missing IP in payload".to_string())
     })?;
@@ -377,32 +386,40 @@ pub async fn get_watchdog_events(
 }
 
 /// DELETE /watchdog/events - Limpa o histórico de eventos (logs) do Watchdog
-pub async fn clear_watchdog_events(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn clear_watchdog_events(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse> {
+    JwtConfig::require_scope(&claims, "admin")?;
     let mut store = state.watchdog_event_store.lock().await;
     store.clear();
     tracing::info!("🧹 Histórico do Watchdog limpo pelo usuário remoto.");
 
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({
             "status": "success",
             "message": "Watchdog event history cleared"
         })),
-    )
+    ))
 }
 
 /// POST /watchdog/reset - Reseta todos os Circuit Breakers do Watchdog no servidor
-pub async fn reset_watchdog(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn reset_watchdog(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse> {
+    JwtConfig::require_scope(&claims, "write")?;
     let mut remediation = state.remediation_engine.lock().await;
     remediation.reset_all();
 
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({
             "status": "success",
             "message": "All circuit breakers have been reset to CLOSED"
         })),
-    )
+    ))
 }
 
 /// GET /watchdog/breakers - Diagnóstico detalhado dos Circuit Breakers ativos
@@ -458,18 +475,22 @@ pub async fn get_audit_logs(
 }
 
 /// DELETE /audit/logs
-pub async fn clear_audit_logs(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn clear_audit_logs(
+    Extension(claims): Extension<Claims>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse> {
+    JwtConfig::require_scope(&claims, "admin")?;
     let mut log = state.audit_log.lock().await;
     log.clear();
     tracing::info!("🧹 Audit log cleared by remote user");
 
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({
             "status": "success",
             "message": "Audit log cleared"
         })),
-    )
+    ))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -811,9 +832,11 @@ pub async fn get_security_incidents(
 /// traversal. `user_id` é numérico e os args do `wp` vão separados (sem shell),
 /// eliminando qualquer vetor de command injection.
 pub async fn revoke_admin(
+    Extension(claims): Extension<Claims>,
     State(state): State<AppState>,
     Json(payload): Json<serde_json::Value>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse> {
+    JwtConfig::require_scope(&claims, "admin")?;
     use std::process::Command;
 
     let path = payload
@@ -833,10 +856,10 @@ pub async fn revoke_admin(
         && !path.contains("..")
         && std::path::Path::new(&path).join("wp-config.php").is_file();
     if user_id == 0 || !path_ok {
-        return (
+        return Ok((
             StatusCode::BAD_REQUEST,
             Json(json!({ "ok": false, "msg": "path ou user_id inválido" })),
-        );
+        ));
     }
 
     let path_arg = format!("--path={}", path);
@@ -923,18 +946,22 @@ pub async fn revoke_admin(
         msg
     };
 
-    (
+    Ok((
         if effective_ok {
             StatusCode::OK
         } else {
             StatusCode::INTERNAL_SERVER_ERROR
         },
         Json(json!({ "ok": effective_ok, "msg": resp_msg, "user_id": user_id })),
-    )
+    ))
 }
 
 /// POST /config — Atualiza configuração mutável em runtime
-pub async fn update_config(Json(payload): Json<serde_json::Value>) -> impl IntoResponse {
+pub async fn update_config(
+    Extension(claims): Extension<Claims>,
+    Json(payload): Json<serde_json::Value>,
+) -> Result<impl IntoResponse> {
+    JwtConfig::require_scope(&claims, "write")?;
     // Loga apenas as chaves alteradas, nunca os valores — payload pode conter
     // tokens/segredos no futuro. Quem precisar do valor completo lê o request real.
     let keys: Vec<String> = payload
@@ -943,12 +970,12 @@ pub async fn update_config(Json(payload): Json<serde_json::Value>) -> impl IntoR
         .unwrap_or_default();
     tracing::info!("📝 Config update requested (keys): {:?}", keys);
 
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({
             "status": "success",
             "message": "Configuration update logged. Restart agent to apply changes.",
             "requested_changes": payload
         })),
-    )
+    ))
 }

@@ -18,6 +18,7 @@ object PocketNOCConfig {
     val server2: String get() = BuildConfig.POCKET_NOC_SERVER_2
     val server3: String get() = BuildConfig.POCKET_NOC_SERVER_3
     val server4: String get() = BuildConfig.POCKET_NOC_SERVER_4
+    val server5: String get() = BuildConfig.POCKET_NOC_SERVER_5
 
     /** Token para acessar a API de seguranca do dashboard ERP */
     val dashboardNocToken: String get() = BuildConfig.DASHBOARD_NOC_TOKEN
@@ -44,6 +45,7 @@ object PocketNOCConfig {
         2 -> BuildConfig.SSH_USER_2
         3 -> BuildConfig.SSH_USER_3
         4 -> BuildConfig.SSH_USER_4
+        5 -> BuildConfig.SSH_USER_5
         else -> ""
     }
 
@@ -52,6 +54,7 @@ object PocketNOCConfig {
         2 -> BuildConfig.POCKET_NOC_SERVER_NAME_2
         3 -> BuildConfig.POCKET_NOC_SERVER_NAME_3
         4 -> BuildConfig.POCKET_NOC_SERVER_NAME_4
+        5 -> BuildConfig.POCKET_NOC_SERVER_NAME_5
         else -> "Acme $index"
     }
 
@@ -60,6 +63,7 @@ object PocketNOCConfig {
         2 -> BuildConfig.SSH_HOST_2
         3 -> BuildConfig.SSH_HOST_3
         4 -> BuildConfig.SSH_HOST_4
+        5 -> BuildConfig.SSH_HOST_5
         else -> ""
     }
 
@@ -68,6 +72,7 @@ object PocketNOCConfig {
         2 -> BuildConfig.SSH_SERVICE_PORT_2.toIntOrNull() ?: 22
         3 -> BuildConfig.SSH_SERVICE_PORT_3.toIntOrNull() ?: 2222
         4 -> BuildConfig.SSH_SERVICE_PORT_4.toIntOrNull() ?: 22
+        5 -> BuildConfig.SSH_SERVICE_PORT_5.toIntOrNull() ?: 22
         else -> 22
     }
 
@@ -81,6 +86,7 @@ object PocketNOCConfig {
         2 -> BuildConfig.LOCAL_FORWARD_PORT_2.toIntOrNull() ?: 9444
         3 -> BuildConfig.LOCAL_FORWARD_PORT_3.toIntOrNull() ?: 9445
         4 -> BuildConfig.LOCAL_FORWARD_PORT_4.toIntOrNull() ?: 9446
+        5 -> BuildConfig.LOCAL_FORWARD_PORT_5.toIntOrNull() ?: 9447
         else -> 9443
     }
 
@@ -89,6 +95,7 @@ object PocketNOCConfig {
         2 -> BuildConfig.REMOTE_AGENT_PORT_2.toIntOrNull() ?: 9443
         3 -> BuildConfig.REMOTE_AGENT_PORT_3.toIntOrNull() ?: 9443
         4 -> BuildConfig.REMOTE_AGENT_PORT_4.toIntOrNull() ?: 9443
+        5 -> BuildConfig.REMOTE_AGENT_PORT_5.toIntOrNull() ?: 9443
         else -> 9443
     }
     

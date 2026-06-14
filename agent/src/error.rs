@@ -17,6 +17,8 @@ pub enum AgentError {
     CommandError(String),
     /// Erro de autenticação
     AuthError(String),
+    /// Escopo insuficiente no JWT (403)
+    Forbidden(String),
     /// Erro de configuração
     ConfigError(String),
     /// Erro interno do servidor
@@ -32,6 +34,7 @@ impl fmt::Display for AgentError {
             Self::ServiceError(msg) => write!(f, "Service error: {}", msg),
             Self::CommandError(msg) => write!(f, "Command error: {}", msg),
             Self::AuthError(msg) => write!(f, "Auth error: {}", msg),
+            Self::Forbidden(msg) => write!(f, "Forbidden: {}", msg),
             Self::ConfigError(msg) => write!(f, "Config error: {}", msg),
             Self::InternalError(msg) => write!(f, "Internal error: {}", msg),
             Self::NotFound(msg) => write!(f, "Not found: {}", msg),
@@ -48,6 +51,7 @@ impl IntoResponse for AgentError {
             AgentError::ServiceError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             AgentError::CommandError(msg) => (StatusCode::BAD_REQUEST, msg),
             AgentError::AuthError(msg) => (StatusCode::UNAUTHORIZED, msg),
+            AgentError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
             AgentError::ConfigError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             AgentError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             AgentError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),

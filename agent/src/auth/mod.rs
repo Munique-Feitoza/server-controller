@@ -85,6 +85,21 @@ impl JwtConfig {
         .map_err(|e| AgentError::AuthError(format!("Token generation failed: {}", e)))
     }
 
+    /// Verifica se o token carrega o escopo exigido.
+    ///
+    /// Retorna `Forbidden` se o escopo estiver ausente, permitindo uso com `?`
+    /// diretamente nos handlers.
+    pub fn require_scope(claims: &Claims, scope: &str) -> crate::error::Result<()> {
+        if claims.scopes.iter().any(|s| s == scope) {
+            Ok(())
+        } else {
+            Err(crate::error::AgentError::Forbidden(format!(
+                "escopo '{}' necessário (token tem: {:?})",
+                scope, claims.scopes
+            )))
+        }
+    }
+
     /// Valida e decodifica um token JWT com validação rigorosa
     ///
     /// # Security Checks

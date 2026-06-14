@@ -17,7 +17,12 @@
 //!   WHOIS_SERVERS     (opcional)     Caminho do servers.json do whois-rust [servers.json].
 //!   WHOIS_DELAY_MS    (opcional)     Delay entre consultas WHOIS, em ms [1500].
 //!   HTTP_TIMEOUT_SECS (opcional)     Timeout das requisições HTTP, em s [30].
+//!   CALENDAR_ENABLED  (opcional)     Ativa os avisos no Google Calendar [false].
+//!   CALENDAR_ID       (cond.)        ID do calendário (obrigatório se ENABLED=true).
+//!   CALENDAR_ALERT_DAYS (opcional)   Cria o evento quando faltam <= N dias [14].
+//!   CALENDAR_NAG_DAYS (opcional)     Quantos dias seguidos avisar no fim [7].
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,9 +36,14 @@ use whois_rust::{WhoIs, WhoIsLookupOptions};
 // Constantes
 // ============================================================
 
-const GOOGLE_SCOPE: &str = "https://www.googleapis.com/auth/spreadsheets";
+const GOOGLE_SCOPE_SHEETS: &str = "https://www.googleapis.com/auth/spreadsheets";
+const GOOGLE_SCOPE_CALENDAR: &str = "https://www.googleapis.com/auth/calendar.events";
 const CLOUDFLARE_ZONES_URL: &str = "https://api.cloudflare.com/client/v4/zones";
 const SHEETS_API: &str = "https://sheets.googleapis.com/v4/spreadsheets";
+const CALENDAR_API: &str = "https://www.googleapis.com/calendar/v3/calendars";
+
+/// Marcador (extended property privada) que identifica os eventos deste worker.
+const CAL_MARCADOR: &str = "domainMonitor";
 
 const CABECALHO: [&str; 5] = [
     "Domínio",
@@ -59,12 +69,33 @@ struct Config {
     whois_servers: String,
     whois_delay: Duration,
     http_timeout: Duration,
+    // ---- Google Calendar (avisos de expiração) ----
+    calendar_enabled: bool,
+    calendar_id: String,
+    /// Cria o evento quando faltam <= N dias para expirar.
+    calendar_alert_days: i64,
+    /// Quantos dias seguidos avisar (recorrência diária) antes da expiração.
+    calendar_nag_days: i64,
 }
 
 impl Config {
     fn from_env() -> Result<Self> {
         let delay_ms: u64 = env_opcional("WHOIS_DELAY_MS", "1500").parse().unwrap_or(1500);
         let timeout_s: u64 = env_opcional("HTTP_TIMEOUT_SECS", "30").parse().unwrap_or(30);
+
+        let calendar_enabled = matches!(
+            env_opcional("CALENDAR_ENABLED", "false").trim().to_lowercase().as_str(),
+            "1" | "true" | "sim" | "yes"
+        );
+        let calendar_id = env_opcional("CALENDAR_ID", "").trim().to_string();
+        if calendar_enabled && calendar_id.is_empty() {
+            bail!("CALENDAR_ENABLED=true exige CALENDAR_ID (o calendário compartilhado com a Service Account)");
+        }
+        let calendar_alert_days: i64 = env_opcional("CALENDAR_ALERT_DAYS", "14").parse().unwrap_or(14);
+        let calendar_nag_days: i64 = env_opcional("CALENDAR_NAG_DAYS", "7")
+            .parse::<i64>()
+            .unwrap_or(7)
+            .clamp(1, 30);
 
         Ok(Self {
             cf_api_tokens: parse_tokens(&env_obrigatorio("CF_API_TOKEN")?)?,
@@ -74,6 +105,10 @@ impl Config {
             whois_servers: env_opcional("WHOIS_SERVERS", "servers.json"),
             whois_delay: Duration::from_millis(delay_ms),
             http_timeout: Duration::from_secs(timeout_s),
+            calendar_enabled,
+            calendar_id,
+            calendar_alert_days,
+            calendar_nag_days,
         })
     }
 }
@@ -110,8 +145,10 @@ struct RegistroDominio {
     status_cf: String,
     expiracao: String,
     dias_restantes: String,
-    /// Valor numérico dos dias restantes — usado só para ordenar (None = sem data).
+    /// Valor numérico dos dias restantes — usado para ordenar e para o Calendar (None = sem data).
     dias_num: Option<i64>,
+    /// Data de expiração tipada — fonte para o evento no Google Calendar.
+    data_exp: Option<NaiveDate>,
     atualizado_em: String,
 }
 
@@ -317,8 +354,8 @@ async fn processar_dominios(
     for (indice, zona) in zonas.iter().enumerate() {
         info!(dominio = %zona.name, "processando {}/{}", indice + 1, total);
 
-        let (expiracao, dias, dias_num) = resolver_expiracao(Arc::clone(&whois), &zona.name).await;
-        if dias_num.is_some() {
+        let exp = resolver_expiracao(Arc::clone(&whois), &zona.name).await;
+        if exp.dias_num.is_some() {
             com_data += 1;
         }
 
@@ -329,9 +366,10 @@ async fn processar_dominios(
             } else {
                 zona.status.clone()
             },
-            expiracao,
-            dias_restantes: dias,
-            dias_num,
+            expiracao: exp.texto,
+            dias_restantes: exp.dias_txt,
+            dias_num: exp.dias_num,
+            data_exp: exp.data,
             atualizado_em: Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string(),
         });
 
@@ -354,9 +392,29 @@ async fn processar_dominios(
     registros
 }
 
+/// Resultado da resolução de expiração de um domínio (texto p/ planilha + data tipada).
+struct Expiracao {
+    texto: String,
+    dias_txt: String,
+    dias_num: Option<i64>,
+    data: Option<NaiveDate>,
+}
+
+impl Expiracao {
+    /// Atalho para os casos de erro/sem-data (sem expiração utilizável).
+    fn indisponivel(motivo: &str) -> Self {
+        Self {
+            texto: motivo.to_string(),
+            dias_txt: "-".to_string(),
+            dias_num: None,
+            data: None,
+        }
+    }
+}
+
 /// Resolve a data de expiração de um único domínio. Nunca entra em panic:
 /// qualquer falha vira um valor textual indicativo na planilha.
-async fn resolver_expiracao(whois: Arc<WhoIs>, dominio: &str) -> (String, String, Option<i64>) {
+async fn resolver_expiracao(whois: Arc<WhoIs>, dominio: &str) -> Expiracao {
     let consulta = tokio::time::timeout(
         WHOIS_TIMEOUT,
         consultar_whois(whois, dominio.to_string()),
@@ -367,11 +425,11 @@ async fn resolver_expiracao(whois: Arc<WhoIs>, dominio: &str) -> (String, String
         Ok(Ok(texto)) => texto,
         Ok(Err(erro)) => {
             warn!(dominio, erro = %erro, "consulta WHOIS falhou");
-            return ("Erro no WHOIS".to_string(), "-".to_string(), None);
+            return Expiracao::indisponivel("Erro no WHOIS");
         }
         Err(_) => {
             warn!(dominio, "consulta WHOIS excedeu o tempo limite");
-            return ("Timeout no WHOIS".to_string(), "-".to_string(), None);
+            return Expiracao::indisponivel("Timeout no WHOIS");
         }
     };
 
@@ -383,11 +441,16 @@ async fn resolver_expiracao(whois: Arc<WhoIs>, dominio: &str) -> (String, String
             } else if dias <= 30 {
                 warn!(dominio, data = %data, dias, "domínio expira em breve");
             }
-            (data.format("%Y-%m-%d").to_string(), dias.to_string(), Some(dias))
+            Expiracao {
+                texto: data.format("%Y-%m-%d").to_string(),
+                dias_txt: dias.to_string(),
+                dias_num: Some(dias),
+                data: Some(data),
+            }
         }
         None => {
             warn!(dominio, "data de expiração não encontrada no WHOIS");
-            ("Não encontrada".to_string(), "-".to_string(), None)
+            Expiracao::indisponivel("Não encontrada")
         }
     }
 }
@@ -396,8 +459,9 @@ async fn resolver_expiracao(whois: Arc<WhoIs>, dominio: &str) -> (String, String
 // Google — autenticação via Service Account
 // ============================================================
 
-/// Lê o `credentials.json` da Service Account e devolve um token Bearer válido.
-async fn obter_token_google(caminho_credenciais: &str) -> Result<String> {
+/// Lê o `credentials.json` da Service Account e devolve um token Bearer válido
+/// para os escopos solicitados (Sheets e, opcionalmente, Calendar).
+async fn obter_token_google(caminho_credenciais: &str, escopos: &[&str]) -> Result<String> {
     let chave = yup_oauth2::read_service_account_key(caminho_credenciais)
         .await
         .with_context(|| {
@@ -410,7 +474,7 @@ async fn obter_token_google(caminho_credenciais: &str) -> Result<String> {
         .context("falha ao construir o autenticador da Service Account")?;
 
     let token = autenticador
-        .token(&[GOOGLE_SCOPE])
+        .token(escopos)
         .await
         .context("falha ao obter o token de acesso do Google")?;
 
@@ -526,6 +590,265 @@ async fn inserir_dados(
 }
 
 // ============================================================
+// Google Calendar — avisos diários de expiração
+// ============================================================
+//
+// Para cada domínio dentro da janela de alerta cria-se UM evento recorrente de
+// dia inteiro que se repete TODOS OS DIAS na última semana antes de expirar
+// (RRULE diária, COUNT = CALENDAR_NAG_DAYS). Cada ocorrência dispara a
+// notificação PADRÃO do seu calendário — por isso o evento usa `useDefault`
+// (uma Service Account não consegue setar lembretes na sua conta pessoal).
+//
+// Idempotência e "marcar como concluído":
+//   * id do evento = f(domínio, data de expiração) — determinístico.
+//   * Já existe e ativo -> não mexe (preserva edições suas).
+//   * Não existe        -> cria.
+//   * Você apaga no celular ("Todos os eventos") -> ao tentar recriar, o Google
+//     responde 409/410 (id já usado) e o worker NÃO ressuscita o evento.
+//   * Renovou o domínio -> a data muda, o id muda; o evento da data antiga sai
+//     da lista de "manter" e é removido na faxina.
+
+/// Evento já presente no calendário (resultado da listagem por marcador).
+struct EventoCal {
+    id: String,
+}
+
+/// Deriva um id de evento estável e válido para o Calendar (base32hex: `a-v`,
+/// `0-9`) a partir do domínio e da data de expiração. Mesmo par -> mesmo id.
+fn evento_id(dominio: &str, expiracao: NaiveDate) -> String {
+    const ALFA: &[u8; 32] = b"0123456789abcdefghijklmnopqrstuv";
+    let chave = format!("dm:{dominio}:{}", expiracao.format("%Y%m%d"));
+    let mut saida = String::with_capacity(2 + chave.len() * 2);
+    saida.push_str("dm");
+    let (mut buffer, mut bits): (u32, u32) = (0, 0);
+    for &byte in chave.as_bytes() {
+        buffer = (buffer << 8) | byte as u32;
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            saida.push(ALFA[((buffer >> bits) & 0x1F) as usize] as char);
+        }
+        buffer &= (1u32 << bits) - 1; // mantém só os bits que sobraram (evita overflow)
+    }
+    if bits > 0 {
+        saida.push(ALFA[((buffer << (5 - bits)) & 0x1F) as usize] as char);
+    }
+    saida
+}
+
+/// Monta o corpo JSON do evento recorrente de dia inteiro.
+fn corpo_evento(
+    registro: &RegistroDominio,
+    expiracao: NaiveDate,
+    dias_aviso: i64,
+) -> serde_json::Value {
+    let inicio = expiracao - chrono::Duration::days(dias_aviso - 1);
+    let fim = inicio + chrono::Duration::days(1); // all-day: end.date é exclusivo
+    serde_json::json!({
+        "id": evento_id(&registro.dominio, expiracao),
+        "summary": format!("⚠️ Renovar domínio: {} (expira {})", registro.dominio, expiracao.format("%d/%m")),
+        "description": format!(
+            "O domínio {} expira em {}.\nStatus na Cloudflare: {}.\n\n\
+Você será lembrado todos os dias nesta última semana. Quando renovar/resolver, \
+basta EXCLUIR este evento (escolha \"Todos os eventos\") — ele não volta.\n\n— domain-monitor",
+            registro.dominio,
+            expiracao.format("%d/%m/%Y"),
+            registro.status_cf,
+        ),
+        "start": { "date": inicio.format("%Y-%m-%d").to_string() },
+        "end": { "date": fim.format("%Y-%m-%d").to_string() },
+        "recurrence": [ format!("RRULE:FREQ=DAILY;COUNT={dias_aviso}") ],
+        "transparency": "transparent", // não marca o dia como "ocupado"
+        "reminders": { "useDefault": true },
+        "extendedProperties": { "private": { "domainMonitor": "1", "dominio": registro.dominio.clone() } }
+    })
+}
+
+/// Lista os eventos ATIVOS criados por este worker (filtrados pelo marcador).
+async fn listar_eventos_ativos(
+    http: &reqwest::Client,
+    token: &str,
+    cfg: &Config,
+) -> Result<Vec<EventoCal>> {
+    #[derive(Deserialize)]
+    struct Item {
+        id: String,
+    }
+    #[derive(Deserialize)]
+    struct Lista {
+        #[serde(default)]
+        items: Vec<Item>,
+        #[serde(rename = "nextPageToken")]
+        next_page_token: Option<String>,
+    }
+
+    let url = format!("{CALENDAR_API}/{}/events", encode_path(&cfg.calendar_id));
+    let filtro_marcador = format!("{CAL_MARCADOR}=1");
+    let mut eventos: Vec<EventoCal> = Vec::new();
+    let mut page_token: Option<String> = None;
+
+    loop {
+        let mut req = http.get(&url).bearer_auth(token).query(&[
+            ("privateExtendedProperty", filtro_marcador.as_str()),
+            ("showDeleted", "false"),
+            ("singleEvents", "false"),
+            ("maxResults", "2500"),
+        ]);
+        if let Some(ref t) = page_token {
+            req = req.query(&[("pageToken", t.as_str())]);
+        }
+
+        let resposta = req
+            .send()
+            .await
+            .context("falha de rede ao listar eventos do Calendar")?;
+        let status = resposta.status();
+        let corpo = resposta
+            .text()
+            .await
+            .context("não foi possível ler a resposta do Calendar")?;
+        if !status.is_success() {
+            bail!("listar eventos: o Google Calendar respondeu HTTP {status} — {corpo}");
+        }
+
+        let lista: Lista = serde_json::from_str(&corpo)
+            .context("JSON inesperado ao listar eventos do Calendar")?;
+        eventos.extend(lista.items.into_iter().map(|i| EventoCal { id: i.id }));
+
+        match lista.next_page_token {
+            Some(t) => page_token = Some(t),
+            None => break,
+        }
+    }
+    Ok(eventos)
+}
+
+/// Cria o evento. Devolve `true` se criou; `false` se o id já existia — ou seja,
+/// você apagou o evento no celular ("concluído") e ele NÃO deve ser ressuscitado.
+async fn criar_evento(
+    http: &reqwest::Client,
+    token: &str,
+    cfg: &Config,
+    corpo: &serde_json::Value,
+) -> Result<bool> {
+    let url = format!("{CALENDAR_API}/{}/events", encode_path(&cfg.calendar_id));
+    let resposta = http
+        .post(&url)
+        .bearer_auth(token)
+        .json(corpo)
+        .send()
+        .await
+        .context("falha de rede ao criar evento no Calendar")?;
+    let status = resposta.status();
+    if status.is_success() {
+        return Ok(true);
+    }
+    // 409 (Conflict) / 410 (Gone): o id já existe ou já foi apagado -> respeita.
+    if matches!(status.as_u16(), 409 | 410) {
+        return Ok(false);
+    }
+    let corpo_err = resposta.text().await.unwrap_or_default();
+    bail!("criar evento: o Google Calendar respondeu HTTP {status} — {corpo_err}");
+}
+
+/// Remove (cancela) um evento pelo id. Ignora 404/410 (já não existe).
+async fn remover_evento(
+    http: &reqwest::Client,
+    token: &str,
+    cfg: &Config,
+    id: &str,
+) -> Result<()> {
+    let url = format!(
+        "{CALENDAR_API}/{}/events/{}",
+        encode_path(&cfg.calendar_id),
+        encode_path(id),
+    );
+    let resposta = http
+        .delete(&url)
+        .bearer_auth(token)
+        .send()
+        .await
+        .context("falha de rede ao remover evento do Calendar")?;
+    let status = resposta.status();
+    if status.is_success() || matches!(status.as_u16(), 404 | 410) {
+        return Ok(());
+    }
+    let corpo = resposta.text().await.unwrap_or_default();
+    bail!("remover evento: o Google Calendar respondeu HTTP {status} — {corpo}");
+}
+
+/// Sincroniza os avisos de expiração no Google Calendar: cria os que faltam para
+/// domínios na janela de alerta e remove os obsoletos (renovados/saíram da CF).
+/// Falhas pontuais são registradas e não abortam o pipeline.
+async fn sincronizar_calendario(
+    http: &reqwest::Client,
+    token: &str,
+    cfg: &Config,
+    registros: &[RegistroDominio],
+) -> Result<()> {
+    info!(calendar_id = %cfg.calendar_id, "sincronizando avisos de expiração no Google Calendar…");
+
+    let ativos = listar_eventos_ativos(http, token, cfg).await?;
+    let ids_ativos: HashSet<&str> = ativos.iter().map(|e| e.id.as_str()).collect();
+
+    let (mut criados, mut concluidos, mut removidos, mut erros) = (0u32, 0u32, 0u32, 0u32);
+    let mut manter: HashSet<String> = HashSet::new();
+
+    // ---- Cria os eventos que faltam para os domínios na janela de alerta ----
+    for registro in registros {
+        let Some(data) = registro.data_exp else { continue };
+        let dias = registro.dias_num.unwrap_or(i64::MAX);
+        // Janela: de já vencido há até 7 dias até `calendar_alert_days` no futuro.
+        if !(-7..=cfg.calendar_alert_days).contains(&dias) {
+            continue;
+        }
+
+        let id = evento_id(&registro.dominio, data);
+        let ja_ativo = ids_ativos.contains(id.as_str());
+        manter.insert(id);
+        if ja_ativo {
+            continue; // já existe e ativo — não mexe
+        }
+
+        let corpo = corpo_evento(registro, data, cfg.calendar_nag_days);
+        match criar_evento(http, token, cfg, &corpo).await {
+            Ok(true) => {
+                criados += 1;
+                info!(dominio = %registro.dominio, expira = %data, "evento de expiração criado");
+            }
+            Ok(false) => concluidos += 1, // apagado por você no celular — mantém apagado
+            Err(erro) => {
+                erros += 1;
+                warn!(dominio = %registro.dominio, erro = %erro, "falha ao criar evento");
+            }
+        }
+    }
+
+    // ---- Faxina: remove eventos nossos que não devem mais existir ----
+    for evento in &ativos {
+        if manter.contains(&evento.id) {
+            continue;
+        }
+        match remover_evento(http, token, cfg, &evento.id).await {
+            Ok(()) => removidos += 1,
+            Err(erro) => {
+                erros += 1;
+                warn!(id = %evento.id, erro = %erro, "falha ao remover evento obsoleto");
+            }
+        }
+    }
+
+    info!(
+        criados,
+        dispensados = concluidos,
+        removidos,
+        erros,
+        "Google Calendar sincronizado"
+    );
+    Ok(())
+}
+
+// ============================================================
 // Orquestração do pipeline
 // ============================================================
 
@@ -553,9 +876,13 @@ async fn executar() -> Result<()> {
         .build()
         .context("falha ao construir o cliente HTTP")?;
 
-    // ---- 1. Autenticação no Google ----
+    // ---- 1. Autenticação no Google (Sheets + Calendar, se habilitado) ----
     info!("autenticando no Google via Service Account…");
-    let token_google = obter_token_google(&cfg.google_credentials).await?;
+    let mut escopos: Vec<&str> = vec![GOOGLE_SCOPE_SHEETS];
+    if cfg.calendar_enabled {
+        escopos.push(GOOGLE_SCOPE_CALENDAR);
+    }
+    let token_google = obter_token_google(&cfg.google_credentials, &escopos).await?;
     info!("token de acesso do Google obtido");
 
     // ---- 2. Lista de domínios na Cloudflare (uma ou mais contas) ----
@@ -592,6 +919,16 @@ async fn executar() -> Result<()> {
     limpar_aba(&http, &token_google, &cfg).await?;
     escrever_cabecalho(&http, &token_google, &cfg).await?;
     inserir_dados(&http, &token_google, &cfg, &registros).await?;
+
+    // ---- 5. Google Calendar: avisos diários de expiração (best-effort) ----
+    if cfg.calendar_enabled {
+        // Não falha o run: a planilha já foi atualizada com sucesso.
+        if let Err(erro) = sincronizar_calendario(&http, &token_google, &cfg, &registros).await {
+            warn!("sincronização do Google Calendar falhou: {erro:#}");
+        }
+    } else {
+        info!("Google Calendar desativado (defina CALENDAR_ENABLED=true para ativar) — etapa ignorada");
+    }
 
     info!("pipeline concluído com sucesso");
     Ok(())
