@@ -1,0 +1,106 @@
+## This file must *NOT* be checked into Version Control Systems,
+# as it contains information specific to your local configuration.
+# Location of the SDK. This is only used by Gradle.
+sdk.dir=/home/muniquefeitoza/Android/Sdk
+
+# ========== Pocket NOC Configuration ==========
+# NUNCA commite este arquivo!
+
+# IPs e Nomes dos Servidores (Padrão RunCloud)
+# --------------------------------------------------
+# Host Genix (Ubuntu 22.04 • nginx • Canada)
+POCKET_NOC_SERVER_1=158.69.126.90
+POCKET_NOC_SERVER_NAME_1=Host Genix
+
+# HOST Viral (Ubuntu 22.04 • nginx • Canada)
+POCKET_NOC_SERVER_2=66.70.178.190
+POCKET_NOC_SERVER_NAME_2=HOST Viral
+
+# Host WINUP (Ubuntu 22.04 • nginx • Canada)
+POCKET_NOC_SERVER_3=142.44.137.130
+POCKET_NOC_SERVER_NAME_3=Host WINUP
+
+# WINUP (Ubuntu 22.04 • nginx • Canada)
+POCKET_NOC_SERVER_4=144.217.255.109
+POCKET_NOC_SERVER_NAME_4=WINUP
+
+# Hetzner (Ubuntu • OpenLiteSpeed • Falkenstein DE) — copia paralela noobnews + ita
+POCKET_NOC_SERVER_5=23.88.113.219
+POCKET_NOC_SERVER_NAME_5=Hetzner
+
+# ========== Configurações Globais de SSH ==========
+# Esta chave única será usada para acessar todos os servidores.
+SSH_KEY_CONTENT_GLOBAL=-----BEGIN OPENSSH PRIVATE KEY-----\n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\nQFBg==\n-----END OPENSSH PRIVATE KEY-----
+
+# ========== Detalhes de Acesso por Servidor ==========
+
+# Servidor 1 (RunCloud)
+SSH_USER_1=runcloud
+SSH_SERVICE_PORT_1=22
+LOCAL_FORWARD_PORT_1=9443
+REMOTE_AGENT_PORT_1=9443
+
+# Servidor 2 (RunCloud)
+SSH_USER_2=runcloud
+SSH_SERVICE_PORT_2=22
+LOCAL_FORWARD_PORT_2=9444
+REMOTE_AGENT_PORT_2=9443
+
+# Servidor 3 (RunCloud)
+SSH_USER_3=runcloud
+SSH_SERVICE_PORT_3=2222
+LOCAL_FORWARD_PORT_3=9445
+REMOTE_AGENT_PORT_3=9443
+
+# Servidor 4 (Runcloud)
+SSH_USER_4=runcloud
+SSH_SERVICE_PORT_4=22
+LOCAL_FORWARD_PORT_4=9446
+REMOTE_AGENT_PORT_4=9443
+
+# Servidor 5 (Hetzner — SSH como root, agent em /usr/local/bin/pocket-noc-agent)
+SSH_USER_5=root
+SSH_SERVICE_PORT_5=22
+LOCAL_FORWARD_PORT_5=9447
+REMOTE_AGENT_PORT_5=9443
+
+# ========== Configurações Extras ==========
+POCKET_NOC_SECRET=TCIcgeX6s0SXUP06rky32MhSSto8nxyTI+FC2IZff58=
+USE_HTTPS=false
+
+# ========== Configurações de Emergência & Segurança ==========
+# Se true, permite ignorar falhas graves para manter o controle (CUIDADO!)
+EMERGENCY_MODE=true
+# Ativa verificação estrita de hosts (Proteção contra Man-in-the-Middle)
+SSH_STRICT_HOST_CHECKING=false
+# Limite de falhas de autenticação antes de disparar alerta de invasão
+MAX_AUTH_FAILURES=3
+# Limite de uso de CPU para disparar alerta de carga alta (%)
+CPU_ALERT_THRESHOLD=80
+
+# ========== Watchdog & Auto-Remediação (Por Servidor) ==========
+# Documente aqui as vars do `.env` de cada agente remoto.
+# (Estes valores configuram o comportement do agente lá no VPS)
+
+# Servidor 1: Host Genix
+WATCHDOG_SERVER_ID_1=host-genix
+WATCHDOG_SERVER_ROLE_1=wordpress
+
+# Servidor 2: HOST Viral
+WATCHDOG_SERVER_ID_2=host-viral
+WATCHDOG_SERVER_ROLE_2=wordpress
+
+# Servidor 3: Host WINUP
+WATCHDOG_SERVER_ID_3=host-winup
+WATCHDOG_SERVER_ROLE_3=wordpress-python
+
+# Servidor 4: WINUP
+WATCHDOG_SERVER_ID_4=winup
+WATCHDOG_SERVER_ROLE_4=python-nextjs
+
+# Valores globais recomendados (mesmos em todos os servidores)
+WATCHDOG_INTERVAL_SECS=30
+WATCHDOG_MAX_FAILURES=3
+WATCHDOG_COOLDOWN_SECS=300DASHBOARD_NOC_TOKEN=8a7d92d18e78461bb274215ad81fbfbb
+
+

@@ -30,13 +30,15 @@ object ServerSeed {
         val sshKey = PocketNOCConfig.sshKeyContent
         val token = JwtUtils.generateToken(secret)
 
-        for (i in 1..5) {
+        for (i in 1..7) {
             val ip = when (i) {
                 1 -> PocketNOCConfig.server1
                 2 -> PocketNOCConfig.server2
                 3 -> PocketNOCConfig.server3
                 4 -> PocketNOCConfig.server4
                 5 -> PocketNOCConfig.server5
+                6 -> PocketNOCConfig.server6
+                7 -> PocketNOCConfig.server7
                 else -> ""
             }
             if (ip.isBlank()) continue

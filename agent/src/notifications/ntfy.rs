@@ -1,6 +1,25 @@
 use crate::error::Result;
 use tracing::{error, info, warn};
 
+/// Horário de Brasília, formatado para leitura humana (dd/mm/aaaa hh:mm:ss).
+///
+/// Offset fixo de -03:00: o Brasil não adota horário de verão desde 2019, então
+/// não há necessidade da dependência `chrono-tz` — o offset nunca muda.
+///
+/// # Por que existe
+/// Os servidores rodam em UTC. Um alerta que chega atrasado no celular (o app
+/// Android é suspenso pelo Android quando a tela fica apagada) fica
+/// indistinguível de um incidente em curso. Carimbar o horário do evento na
+/// própria mensagem resolve isso: dá para saber de imediato se é de agora ou
+/// de horas atrás, sem precisar abrir o servidor.
+pub fn agora_brt() -> String {
+    let brt = chrono::FixedOffset::west_opt(3 * 3600).expect("offset -03:00 é válido");
+    chrono::Utc::now()
+        .with_timezone(&brt)
+        .format("%d/%m/%Y %H:%M:%S")
+        .to_string()
+}
+
 /// Cliente para envio de notificações via ntfy.sh
 pub struct NtfyClient {
     url: String,
@@ -36,9 +55,15 @@ impl NtfyClient {
             _ => "min",
         };
 
+        // Carimbo de horário no título e no corpo. Notificação atrasada precisa
+        // se auto-datar, senão um alerta antigo parece incidente em andamento.
+        let momento = agora_brt();
+        let titulo_datado = format!("{} • {}", title, momento);
+        let corpo_datado = format!("🕐 OCORREU EM: {} (Brasília)\n\n{}", momento, message);
+
         info!(
-            "Sending ntfy alert '{}' (priority: {})",
-            title, priority_str
+            "Sending ntfy alert '{}' (priority: {}, ocorrido em {} BRT)",
+            title, priority_str, momento
         );
 
         let mut attempts = 0;
@@ -48,14 +73,14 @@ impl NtfyClient {
             let response = self
                 .client
                 .post(&self.url)
-                .header("Title", title)
+                .header("Title", &titulo_datado)
                 .header("Priority", priority_str)
                 .header("Tags", tags)
                 // Cache: no impede que ntfy.sh armazene a mensagem no canal.
                 // Push real-time ao celular continua funcionando via FCM,
                 // mas nao ha replay quando o app reconectar.
                 .header("Cache", "no")
-                .body(message.to_string())
+                .body(corpo_datado.clone())
                 .send()
                 .await;
 

@@ -34,11 +34,15 @@ android {
         val server3 = localProperties.getProperty("POCKET_NOC_SERVER_3") ?: ""
         val server4 = localProperties.getProperty("POCKET_NOC_SERVER_4") ?: ""
         val server5 = localProperties.getProperty("POCKET_NOC_SERVER_5") ?: ""
+        val server6 = localProperties.getProperty("POCKET_NOC_SERVER_6") ?: ""
+        val server7 = localProperties.getProperty("POCKET_NOC_SERVER_7") ?: ""
         val serverName1 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_1") ?: "Acme 1"
         val serverName2 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_2") ?: "Acme 2"
         val serverName3 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_3") ?: "Acme 3"
         val serverName4 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_4") ?: "Acme 4"
         val serverName5 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_5") ?: "Acme 5"
+        val serverName6 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_6") ?: "Acme 6"
+        val serverName7 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_7") ?: "Acme 7"
         val useHttps = localProperties.getProperty("USE_HTTPS")?.toBoolean() ?: true
 
         // SSH key fica em BuildConfig por enquanto pra preservar fluxo de tunel global.
@@ -92,17 +96,35 @@ android {
         buildConfigField("String", "LOCAL_FORWARD_PORT_5", "\"${localProperties.getProperty("LOCAL_FORWARD_PORT_5") ?: "9447"}\"")
         buildConfigField("String", "REMOTE_AGENT_PORT_5", "\"${localProperties.getProperty("REMOTE_AGENT_PORT_5") ?: "9443"}\"")
 
+        // Servidor 6 (migracao — RunCloud/OLS, SSH como root)
+        buildConfigField("String", "SSH_USER_6", "\"${localProperties.getProperty("SSH_USER_6") ?: ""}\"")
+        buildConfigField("String", "SSH_HOST_6", "\"${localProperties.getProperty("SSH_HOST_6") ?: server6}\"")
+        buildConfigField("String", "SSH_SERVICE_PORT_6", "\"${localProperties.getProperty("SSH_SERVICE_PORT_6") ?: "22"}\"")
+        buildConfigField("String", "LOCAL_FORWARD_PORT_6", "\"${localProperties.getProperty("LOCAL_FORWARD_PORT_6") ?: "9448"}\"")
+        buildConfigField("String", "REMOTE_AGENT_PORT_6", "\"${localProperties.getProperty("REMOTE_AGENT_PORT_6") ?: "9443"}\"")
+
+        // Servidor 7 (contabo — CyberPanel/AlmaLinux, SSH como root)
+        buildConfigField("String", "SSH_USER_7", "\"${localProperties.getProperty("SSH_USER_7") ?: ""}\"")
+        buildConfigField("String", "SSH_HOST_7", "\"${localProperties.getProperty("SSH_HOST_7") ?: server7}\"")
+        buildConfigField("String", "SSH_SERVICE_PORT_7", "\"${localProperties.getProperty("SSH_SERVICE_PORT_7") ?: "22"}\"")
+        buildConfigField("String", "LOCAL_FORWARD_PORT_7", "\"${localProperties.getProperty("LOCAL_FORWARD_PORT_7") ?: "9449"}\"")
+        buildConfigField("String", "REMOTE_AGENT_PORT_7", "\"${localProperties.getProperty("REMOTE_AGENT_PORT_7") ?: "9443"}\"")
+
         buildConfigField("String", "POCKET_NOC_SERVER_1", "\"$server1\"")
         buildConfigField("String", "POCKET_NOC_SERVER_2", "\"$server2\"")
         buildConfigField("String", "POCKET_NOC_SERVER_3", "\"$server3\"")
         buildConfigField("String", "POCKET_NOC_SERVER_4", "\"$server4\"")
         buildConfigField("String", "POCKET_NOC_SERVER_5", "\"$server5\"")
+        buildConfigField("String", "POCKET_NOC_SERVER_6", "\"$server6\"")
+        buildConfigField("String", "POCKET_NOC_SERVER_7", "\"$server7\"")
 
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_1", "\"$serverName1\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_2", "\"$serverName2\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_3", "\"$serverName3\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_4", "\"$serverName4\"")
         buildConfigField("String", "POCKET_NOC_SERVER_NAME_5", "\"$serverName5\"")
+        buildConfigField("String", "POCKET_NOC_SERVER_NAME_6", "\"$serverName6\"")
+        buildConfigField("String", "POCKET_NOC_SERVER_NAME_7", "\"$serverName7\"")
 
         // POCKET_NOC_SECRET removido do BuildConfig pra nao vazar via APK extraido.
         // Cada servidor cadastrado armazena seu proprio secret em EncryptedSharedPreferences,

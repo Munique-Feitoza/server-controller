@@ -19,6 +19,8 @@ object PocketNOCConfig {
     val server3: String get() = BuildConfig.POCKET_NOC_SERVER_3
     val server4: String get() = BuildConfig.POCKET_NOC_SERVER_4
     val server5: String get() = BuildConfig.POCKET_NOC_SERVER_5
+    val server6: String get() = BuildConfig.POCKET_NOC_SERVER_6
+    val server7: String get() = BuildConfig.POCKET_NOC_SERVER_7
 
     /** Token para acessar a API de seguranca do dashboard ERP */
     val dashboardNocToken: String get() = BuildConfig.DASHBOARD_NOC_TOKEN
@@ -46,6 +48,8 @@ object PocketNOCConfig {
         3 -> BuildConfig.SSH_USER_3
         4 -> BuildConfig.SSH_USER_4
         5 -> BuildConfig.SSH_USER_5
+        6 -> BuildConfig.SSH_USER_6
+        7 -> BuildConfig.SSH_USER_7
         else -> ""
     }
 
@@ -55,6 +59,8 @@ object PocketNOCConfig {
         3 -> BuildConfig.POCKET_NOC_SERVER_NAME_3
         4 -> BuildConfig.POCKET_NOC_SERVER_NAME_4
         5 -> BuildConfig.POCKET_NOC_SERVER_NAME_5
+        6 -> BuildConfig.POCKET_NOC_SERVER_NAME_6
+        7 -> BuildConfig.POCKET_NOC_SERVER_NAME_7
         else -> "Acme $index"
     }
 
@@ -64,6 +70,8 @@ object PocketNOCConfig {
         3 -> BuildConfig.SSH_HOST_3
         4 -> BuildConfig.SSH_HOST_4
         5 -> BuildConfig.SSH_HOST_5
+        6 -> BuildConfig.SSH_HOST_6
+        7 -> BuildConfig.SSH_HOST_7
         else -> ""
     }
 
@@ -73,12 +81,14 @@ object PocketNOCConfig {
         3 -> BuildConfig.SSH_SERVICE_PORT_3.toIntOrNull() ?: 2222
         4 -> BuildConfig.SSH_SERVICE_PORT_4.toIntOrNull() ?: 22
         5 -> BuildConfig.SSH_SERVICE_PORT_5.toIntOrNull() ?: 22
+        6 -> BuildConfig.SSH_SERVICE_PORT_6.toIntOrNull() ?: 22
+        7 -> BuildConfig.SSH_SERVICE_PORT_7.toIntOrNull() ?: 22
         else -> 22
     }
 
     val sshKeyContent: String = BuildConfig.SSH_KEY_CONTENT_GLOBAL
 
-    /** Secret JWT compartilhado entre os 4 agentes (mesmo POCKET_NOC_SECRET no .env de cada host) */
+    /** Secret JWT compartilhado entre os 7 agentes (mesmo POCKET_NOC_SECRET no .env de cada host) */
     val sharedSecret: String = BuildConfig.POCKET_NOC_SECRET
 
     fun getLocalPort(index: Int): Int = when(index) {
@@ -87,6 +97,8 @@ object PocketNOCConfig {
         3 -> BuildConfig.LOCAL_FORWARD_PORT_3.toIntOrNull() ?: 9445
         4 -> BuildConfig.LOCAL_FORWARD_PORT_4.toIntOrNull() ?: 9446
         5 -> BuildConfig.LOCAL_FORWARD_PORT_5.toIntOrNull() ?: 9447
+        6 -> BuildConfig.LOCAL_FORWARD_PORT_6.toIntOrNull() ?: 9448
+        7 -> BuildConfig.LOCAL_FORWARD_PORT_7.toIntOrNull() ?: 9449
         else -> 9443
     }
 
@@ -96,6 +108,8 @@ object PocketNOCConfig {
         3 -> BuildConfig.REMOTE_AGENT_PORT_3.toIntOrNull() ?: 9443
         4 -> BuildConfig.REMOTE_AGENT_PORT_4.toIntOrNull() ?: 9443
         5 -> BuildConfig.REMOTE_AGENT_PORT_5.toIntOrNull() ?: 9443
+        6 -> BuildConfig.REMOTE_AGENT_PORT_6.toIntOrNull() ?: 9443
+        7 -> BuildConfig.REMOTE_AGENT_PORT_7.toIntOrNull() ?: 9443
         else -> 9443
     }
     

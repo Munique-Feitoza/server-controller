@@ -1,0 +1,681 @@
+================================================================================
+        RELATÓRIO DE INCIDENTE — ENCURTADOR DE LINKS DA WINUP
+   O serviço ficou 13 horas, 28 minutos e 18 segundos fora do ar
+                    10 e 11 de setembro de 2026
+
+   Investigação concluída em 16/09/2026
+   TODOS OS HORÁRIOS EM HORÁRIO DE BRASÍLIA (UTC-3)
+================================================================================
+
+As capturas de tela das evidências aparecem ao longo do texto, numeradas de 1 a
+16, cada uma no ponto em que o fato é apresentado.
+
+ÍNDICE
+   1. RESUMO
+   2. QUEM, QUANDO, ONDE, COMO E POR QUÊ
+   3. A NOITE DO INCIDENTE, SEGUNDO A SEGUNDO
+   4. A MECÂNICA DA FALHA
+   5. O QUE FOI PESQUISADO, E ONDE
+   6. O IMPACTO
+   7. O PADRÃO DE TRABALHO
+   8. OUTROS PROBLEMAS ENCONTRADOS
+   9. RECOMENDAÇÕES
+
+================================================================================
+1. RESUMO
+================================================================================
+
+Na noite de quinta-feira, 10 de setembro, às 21h18min48s, o desenvolvedor Erick
+Ojeda executou no servidor de produção um script chamado `delete_all_oneoff.py`.
+Ele havia instalado o arquivo um segundo antes e o apagou dez segundos depois.
+
+Quinze segundos após a execução, às 21h19min03s, todos os links encurtados da
+rede passaram a responder erro 404. Nenhum usuário conseguia mais chegar ao site
+de destino.
+
+O script não apagou as campanhas: ele as ARQUIVOU — marcou como inativas e
+substituiu o endereço de destino por `https://google.com`. O encurtador responde
+404 para campanha arquivada. Foram 51 campanhas em duas rodadas, e entre elas as
+duas que sozinhas carregam 99% de todo o tráfego.
+
+Ele não percebeu. Continuou trabalhando no mesmo servidor por mais 1 hora e 19
+minutos, publicando alterações da tela do encurtador, e encerrou às 22h37min
+deixando a produção fora do ar. O apagão atravessou a madrugada.
+
+Na manhã de sexta-feira, 11 de setembro, a equipe identificou a falha. Luis
+Balsamo diagnosticou com 13 consultas de leitura às 10h41min, e Munique Feitoza
+restaurou o banco de dados às 10h47min19s. Dois segundos depois o encurtador
+voltou a funcionar.
+
+CLASSIFICAÇÃO: erro operacional grave. Não foi ataque, invasão, falha da
+Cloudflare nem sabotagem. Foi um script de limpeza de campanhas de teste,
+executado à mão em produção, que alcançou as campanhas reais porque teste e
+produção compartilham o mesmo banco de dados.
+
+================================================================================
+2. QUEM, QUANDO, ONDE, COMO E POR QUÊ
+================================================================================
+
+QUEM
+    Erick Ojeda — usuário `erickojeda-winup` no servidor 144.217.255.109.
+    Acesso por SSH autenticado por SENHA (não por chave), do endereço
+    181.77.73.239, escalando privilégio com sudo.
+
+QUANDO
+    21h18min48s de quinta 10/09 ..... execução do script
+    21h19min03s ..................... primeiro link quebrado
+    10h47min19s de sexta 11/09 ...... restauração do banco
+    10h47min21s ..................... primeiro link de volta
+    DURAÇÃO: 13 horas, 28 minutos e 18 segundos
+
+    ATENÇÃO AO FUSO: o servidor e a Cloudflare operam em UTC. Nos registros
+    técnicos os dois momentos aparecem como "11/09 00:19" e "11/09 13:47". São
+    os mesmos instantes, em outro fuso.
+
+ONDE
+    Na tabela de campanhas do banco Cloudflare D1 "url-shortener-db".
+    Os links publicados são https://url-1.com/<código>.
+    O programa que responde por eles NÃO foi tocado — não é republicado desde
+    30 de março de 2026.
+
+    ........................................................................
+    EVIDÊNCIA 1 — o programa do encurtador não foi alterado
+    Onde: painel Cloudflare -> Workers & Pages -> url-shortener-worker -> Deployments
+    A versão no ar durante o incidente é de 30 de março de 2026.
+    As seguintes são de 14/09, depois do apagão.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+COMO
+    Dois scripts avulsos, com três minutos de intervalo, chamaram o caminho de
+    "exclusão" do ERP. Esse caminho grava `is_active = 0` em cada campanha.
+    Foram 19 campanhas na primeira rodada e 32 na segunda, totalizando 51.
+    O encurtador responde 404 para campanha inativa.
+
+POR QUÊ
+    Erick estava reconstruindo a tela do encurtador. Naquela mesma noite trocou
+    14 arquivos de código e rodou 9 scripts de teste. Entre uma tentativa e
+    outra ele criava campanhas de teste e precisava limpá-las. Os dois scripts
+    de exclusão são essa limpeza.
+
+    O problema: não existe ambiente de teste do encurtador. As campanhas de
+    teste convivem no mesmo banco com as reais, que estavam recebendo tráfego
+    naquele instante. O primeiro script ("delete_non_rr" = apagar as que não são
+    round-robin) pegou 19. O segundo ("delete_all" = apagar todas) pegou mais
+    32, e aí entraram as que sustentam a operação.
+
+================================================================================
+3. A NOITE DO INCIDENTE, SEGUNDO A SEGUNDO
+================================================================================
+
+Quinta-feira, 10 de setembro de 2026.
+Fonte: registro de auditoria do sistema operacional, que grava cada comando.
+
+  21:12:43  conecta por SSH, autenticando por senha
+  21:12:53  lê a senha do banco Postgres no arquivo de configuração de produção
+  21:14:26  inspeciona o serviço do backend
+
+  21:15:32  INSTALA o script  delete_non_rr_oneoff.py
+  21:15:33  EXECUTA o script
+  21:15:34  o encurtador recebe 19 arquivamentos em 4 segundos
+  21:15:38  APAGA o script (viveu 6 segundos)
+
+  21:16:01  lê a senha do banco Postgres de novo
+
+  21:18:47  INSTALA o script  delete_all_oneoff.py
+  21:18:48  EXECUTA o script                        <<< AQUI QUEBRA
+  21:18:49  o encurtador recebe 32 arquivamentos em 9 segundos:
+              21:18:52   campanha 71 (fluxo-DE) e 74 (debroad)
+              21:18:56   campanha 125  <- 41.852 cliques, a maior da rede
+              21:18:57   campanha 132  <- 13.217 cliques, a segunda maior
+  21:18:53  ÚLTIMA resposta correta do encurtador
+  21:18:58  APAGA o script (viveu 11 segundos)
+
+  ..........................................................................
+  EVIDÊNCIA 2 — os dois scripts, com nome e dono
+  Onde: terminal, no servidor 144
+  Registro de auditoria do servidor. Mostra o usuário erickojeda-winup
+  instalando, executando e apagando os dois scripts. É a prova central.
+  Comando: grep -h -E 'delete_all_oneoff|delete_non_rr_oneoff' /var/log/auth.log*
+
+  [ PRINT AQUI ]
+  ..........................................................................
+
+  ============================================================================
+  21:19:03  PRIMEIRO ERRO 404. A PRODUÇÃO ESTÁ FORA DO AR.
+  ============================================================================
+
+  ..........................................................................
+  EVIDÊNCIA 3 — as 32 campanhas sendo arquivadas, e a virada para erro
+  Onde: Cloudflare -> url-shortener-worker -> Observability, 11/09 00:18-00:20 UTC
+  Duas capturas: as gravações de arquivamento uma a uma (filtro de caminho
+  /api/campaigns), e a última resposta 302 às 00:18:53 seguida da primeira
+  404 às 00:19:03 (filtro /auto-139-usa-1782839597).
+
+  [ PRINT AQUI ]
+  ..........................................................................
+
+  A partir daqui ele segue trabalhando, sem verificar o encurtador:
+
+  21:20 a 21:47   sete trocas de arquivo da tela (ShortenedLinksHistory.tsx,
+                  useShortener.ts, ManualShortener.tsx), sete compilações e
+                  sete reinícios do serviço; dois scripts de teste
+  22:14           troca dois arquivos do backend e reinicia o serviço
+  22:24           lê a senha do banco Postgres (3ª vez na noite)
+  22:26           troca mais três arquivos do backend e reinicia
+  22:27 a 22:37   mais duas trocas de arquivo da tela e quatro scripts de teste
+  22:37:46        ÚLTIMO COMANDO. Encerra a sessão.
+
+  ..........................................................................
+  EVIDÊNCIA 4 — a sessão inteira da noite
+  Onde: terminal, no servidor 144
+  Os 82 comandos executados entre 21h12 e 22h37 — os dois scripts de
+  exclusão no meio de uma sequência normal de trabalho.
+
+  [ PRINT AQUI ]
+  ..........................................................................
+
+  A produção permanece fora do ar por mais 12 horas e 9 minutos.
+
+  Não há, em toda a sessão, nenhum comando de verificação do encurtador depois
+  das 21h19, nem tentativa de desfazer o arquivamento.
+
+  RESUMO DA NOITE: 82 comandos com privilégio de administrador em 1h25min —
+      14 arquivos de código trocados direto no servidor
+      10 reinícios de serviço em produção
+       9 scripts instalados, executados e apagados
+       8 compilações do frontend
+       3 leituras da senha do banco
+
+SEXTA-FEIRA, 11 DE SETEMBRO — O CONSERTO
+
+  Durante a madrugada e a manhã o encurtador recebeu de 1.000 a 3.600 acessos
+  por hora, todos respondidos com erro. No pico da manhã (06h às 09h) foram
+  3.521, 3.529, 2.515 e 3.643 acessos por hora, todos perdidos.
+
+  10:41:32 a 10:41:51  Luis Balsamo executa 13 consultas de leitura no banco
+                       (diagnóstico — nenhuma alteração)
+  10:47:17             ÚLTIMO erro 404
+  10:47:19             Munique restaura o banco por Time Travel, voltando ao
+                       estado de 07/09 às 23h58min37s. Resultado: sucesso.
+  10:47:21             PRIMEIRA resposta correta. O SERVIÇO VOLTA.
+  10:47:29             PRIMEIRO clique volta a ser registrado.
+
+  ..........................................................................
+  EVIDÊNCIA 5 — a restauração, e o vazio antes dela
+  Onde: Cloudflare -> Manage Account -> Audit Log
+  Duas capturas: a restauração das 13:47:19 UTC de 11/09; e a janela de
+  10/09 das 19h às 23h, que vem vazia — nenhuma ação humana no painel,
+  o que descarta a Cloudflare como origem do problema.
+
+  [ PRINT AQUI ]
+  ..........................................................................
+
+================================================================================
+4. A MECÂNICA DA FALHA
+================================================================================
+
+4.1 — AS TRÊS PEÇAS DO SISTEMA
+
+  O PROGRAMA (Cloudflare) recebe o link, consulta o banco e redireciona.
+      NÃO FOI TOCADO: última republicação em 30/03/2026.
+  O BANCO (Cloudflare D1) guarda o destino de cada link e se está ativo.
+      FOI AQUI O ESTRAGO.
+  O ERP (servidor 144) é a única origem de alterações no banco.
+
+4.2 — POR QUE "EXCLUIR" NÃO EXCLUI
+
+  No código do ERP, o método de exclusão traz este comentário e esta linha:
+
+      # ALTERADO: Forçamos o 'Soft Delete' (is_active=0) pois o DELETE nativo
+      await cls.update_campaign(campaign_id,
+                                target_url="https://google.com", is_active=0)
+
+    ........................................................................
+    EVIDÊNCIA 6 — o código que transforma "excluir" em "arquivar"
+    Onde: terminal, arquivo worker_client.py no servidor
+    O comentário e a linha que marcam a campanha como inativa e apagam o
+    endereço de destino original, sobrescrevendo com google.com.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+  Quem pede "excluir" não apaga nada. O sistema marca a campanha como inativa E
+  SOBRESCREVE o endereço de destino com https://google.com.
+
+  Três consequências graves:
+     - o link não some, passa a dar 404;
+     - o destino original é PERDIDO, sobrescrito;
+     - cada operação devolve "deu certo" — nada avisa que 32 campanhas de
+       produção acabaram de ser derrubadas.
+
+  Confirmação no banco hoje: das 56 campanhas inativas, todas as 56 estão com
+  destino https://google.com.
+
+4.3 — A ASSINATURA NO BANCO DE DADOS (a prova mais forte do documento)
+
+  Atividade do banco, minuto a minuto, na virada:
+
+      21:15   consultas=29   gravações=65   linhas lidas=3.957.932
+      21:18   consultas=31   gravações=48   linhas lidas=4.662.288
+      21:19   consultas=20   gravações=0    linhas lidas=20   <- APAGÃO
+      21:20   consultas=21   gravações=0    linhas lidas=21
+
+    ........................................................................
+    EVIDÊNCIA 7 — o colapso da atividade do banco
+    Onde: Cloudflare -> D1 -> url-shortener-db -> Metrics, dias 10 e 11/09
+    As linhas lidas despencando de centenas de milhões por hora para alguns
+    milhares, e voltando na hora exata da restauração.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+  As consultas CONTINUARAM chegando. Mas passaram a ler exatamente 1 linha cada,
+  contra cerca de 130 mil no funcionamento normal. E as gravações zeraram.
+
+  Foi feita uma calibração no próprio banco: um código de link inexistente lê 0
+  linhas; um código existente lê 1 linha. Portanto, 1 linha por consulta prova
+  que O ENCURTADOR ENCONTRAVA A CAMPANHA, VIA QUE ESTAVA INATIVA E RECUSAVA.
+  As campanhas não sumiram — foram recusadas.
+
+  Por hora, o mesmo fenômeno:
+      10/09 19h ....... 348.122.761 linhas lidas
+      10/09 21h .......  83.279.977   <- quebrou às 21h19
+      10/09 23h .......       1.853
+      11/09 00h a 09h .. entre 1.000 e 2.500 por hora
+      11/09 11h ....... 156.120.328   <- depois da restauração
+
+4.4 — O QUE O USUÁRIO FINAL RECEBEU
+
+      08/09   30.437 acessos  ->  redirecionou 28.509  |  erro 404:    243
+      09/09   36.791 acessos  ->  redirecionou 36.239  |  erro 404:    141
+      10/09   33.199 acessos  ->  redirecionou 31.863  |  erro 404:    383
+      11/09   37.368 acessos  ->  redirecionou  7.775  |  erro 404: 20.275
+                                                       |  + 7.083 erros 522
+
+    ........................................................................
+    EVIDÊNCIA 8 — os erros entregues ao usuário final
+    Onde: Cloudflare -> zona url-1.com -> Analytics, por código de status
+    20.275 respostas de erro 404 no dia 11, contra 141 a 383 nos dias
+    anteriores.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+  Vinte mil duzentos e setenta e cinco respostas de erro em um único dia. E os
+  7.775 acertos do dia 11 são todos posteriores às 10h47 — depois do conserto.
+
+4.5 — O SEGUNDO ESTRAGO, ESTE PERMANENTE
+
+  O mesmo caminho de exclusão do ERP também APAGA a linha de automação no banco
+  Postgres do servidor. O processo automático registrou a queda no minuto
+  seguinte:
+
+      21:15:00   "Iniciando Auto-Pilot para 56 campanhas..."
+      21:20:00   "Iniciando Auto-Pilot para  0 campanhas..."
+
+  E o Postgres NÃO FOI RESTAURADO — só o banco da Cloudflare foi. Hoje restam 3
+  linhas na tabela de automações, a mais antiga criada em 11/09 às 10h39. O
+  contador do banco confirma: 99 criadas, 94 apagadas, 3 vivas.
+
+    ........................................................................
+    EVIDÊNCIA 9 — o Auto-Pilot caindo de 56 para 0, e as automações perdidas
+    Onde: terminal, no servidor 144
+    Duas capturas: o registro do processo automático às 21h15 e às 21h20; e
+    o contador do banco Postgres — 99 criadas, 94 apagadas, 3 vivas.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+  As 56 configurações de rotação anteriores (quais URLs, qual modo, qual
+  domínio) estão PERDIDAS EM DEFINITIVO e precisam ser recadastradas à mão.
+
+4.6 — UMA ARMADILHA PARA AUDITORIAS FUTURAS
+
+  A restauração reiniciou a numeração das campanhas. O maior identificador
+  sobrevivente é 134; os identificadores 135 a 146 de hoje pertencem a campanhas
+  criadas em 14 e 16/09. Qualquer registro de 08 a 13/09 que cite "campanha 138"
+  NÃO se refere à campanha 138 de hoje. Quem for auditar receita ou tráfego
+  desse período precisa saber disso.
+
+================================================================================
+5. O QUE FOI PESQUISADO, E ONDE
+================================================================================
+
+A investigação foi feita SOMENTE COM LEITURA — nada foi alterado em nenhum
+sistema. Foram consultadas oito fontes independentes, listadas abaixo com o que
+cada uma respondeu. Os comandos de verificação estão no arquivo de apoio
+interno, à disposição de quem quiser reproduzir.
+
+FONTE 1 — REGISTRO DE AUDITORIA DO SISTEMA OPERACIONAL (servidor 144)
+    O `sudo` grava a linha de comando inteira. Foi essa fonte que deu o nome, o
+    horário e o comando exato. Registrou os dois scripts sendo instalados,
+    executados e apagados, e todos os 684 comandos do desenvolvedor entre 08 e
+    15/09.
+    FOI ELA QUE RESOLVEU O CASO — não a Cloudflare.
+
+FONTE 2 — REGISTRO DE REQUISIÇÕES DO ENCURTADOR (Cloudflare, Observability)
+    Guarda cada requisição recebida, com o endereço pedido e o código de
+    resposta. Mostrou as 32 gravações de arquivamento em 9 segundos e a virada
+    de "redirecionou" para "erro 404" às 21h19min03s.
+    Conferência que fecha: na janela há 85 gravações no total = 33 da rotação
+    normal + 19 do 1º script + 32 do 2º script + 1 exclusão manual avulsa.
+
+FONTE 3 — MÉTRICAS DO BANCO D1 (Cloudflare)
+    Deu a assinatura do item 4.3: o colapso das linhas lidas e das gravações no
+    minuto exato, e a volta imediata na hora da restauração.
+
+FONTE 4 — ESTATÍSTICAS DA ZONA url-1.com (Cloudflare)
+    Deu o número de erros entregues ao usuário final: 20.275 no dia 11.
+
+FONTE 5 — REGISTRO DE AUDITORIA DA CONTA CLOUDFLARE
+    Consultado sem filtro na janela do incidente: ZERO eventos entre 10/09 19h e
+    10/09 23h. Foi o que descartou ação humana pelo painel e falha da plataforma.
+    Registrou a restauração das 10h47min19s.
+
+FONTE 6 — HISTÓRICO DE PUBLICAÇÕES DO PROGRAMA (Cloudflare)
+    Mostrou que o programa do encurtador não era republicado desde 30/03/2026.
+    Descartou mudança de código como causa.
+
+FONTE 7 — BANCO DE DADOS DO ERP (Postgres, servidor 144)
+    Este banco NÃO foi restaurado, então preserva o histórico real. Deu a perda
+    de receita, a destruição das 56 automações e o contador de exclusões.
+
+FONTE 8 — REPOSITÓRIOS DE CÓDIGO (git, no servidor)
+    Mostraram que nos dias 10, 11 e 12 de setembro não existe um único commit —
+    todo o trabalho daquela noite foi aplicado direto nos arquivos de produção.
+
+MÉTODO
+    A investigação partiu do sintoma relatado e trabalhou de trás para a frente:
+    primeiro localizou o instante exato em que os links pararam de redirecionar
+    (pelo registro de requisições), depois confirmou o mecanismo (pelas métricas
+    do banco), depois procurou o que havia acontecido naquele minuto — e foi o
+    registro do sistema operacional que entregou a causa.
+    Outras explicações possíveis foram levantadas e testadas uma a uma até
+    sobrar apenas esta, que é sustentada pelas oito fontes acima.
+
+================================================================================
+6. O IMPACTO
+================================================================================
+
+TEMPO FORA DO AR
+    13 horas, 28 minutos e 18 segundos, com 100% dos links respondendo erro.
+
+ACESSOS PERDIDOS
+    20.275 respostas de erro 404, mais 7.083 erros 522, em um único dia.
+
+RECEITA — domínio usa.udenze.com, que concentra o tráfego do encurtador
+
+        dia              impressões        receita
+        seg 07/09          12.940        US$   807,79
+        ter 08/09          13.071        US$   825,63
+        qua 09/09          15.867        US$   975,49   <- melhor dia do mês
+        qui 10/09          13.375        US$   899,84
+        sex 11/09           6.673        US$   433,68   <- APAGÃO
+        sáb 12/09          13.665        US$   835,50
+        dom 13/09          17.334        US$ 1.001,77
+
+    ........................................................................
+    EVIDÊNCIA 10 — a perda de receita
+    Onde: terminal, banco do ERP no servidor 144
+    A queda de metade do faturamento do domínio no dia 11, contra os dias
+    anteriores e posteriores. Este banco não foi restaurado, então preserva
+    o histórico real.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+    Perda estimada na sexta, só nesse domínio: cerca de US$ 450. A queda de 50%
+    é coerente com 13h28 fora do ar, que correspondem a 56% do dia.
+
+PERDA DE DADOS PERMANENTE (duas)
+    (a) A restauração devolveu o banco ao estado de 07/09 23h58. Todo o histórico
+        de cliques entre aquele momento e 11/09 10h47 foi apagado — quatro dias
+        de dados de audiência. É consequência inevitável do método de conserto,
+        não erro adicional.
+    (b) As 56 configurações de automação do Auto-Pilot foram destruídas e não
+        foram restauradas. Precisam ser recadastradas à mão.
+
+================================================================================
+7. O PADRÃO DE TRABALHO
+================================================================================
+
+A noite de 10/09 não foi exceção. É o método de trabalho, repetido todos os dias.
+
+7.1 — VOLUME DE COMANDOS COM PRIVILÉGIO DE ADMINISTRADOR
+
+        08/09 (terça)     13h52 -> 16h29       41 comandos
+        09/09 (quarta)    14h10 -> 17h53      247 comandos
+        10/09 (quinta)    21h12 -> 22h37       82 comandos  <- a noite
+        14/09 (segunda)   10h02 -> 17h39      312 comandos
+        15/09 (terça)     11h17                 2 comandos
+                                               ---
+                                               684 comandos
+
+    ........................................................................
+    EVIDÊNCIA 11 — o volume de comandos com privilégio de administrador
+    Onde: terminal, no servidor 144
+    684 comandos entre 08 e 15 de setembro.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+7.2 — ARQUIVOS DE CÓDIGO TROCADOS DIRETO NO SERVIDOR, FORA DO GIT
+
+        38x  ManualShortener.tsx          10x  shortener.py (rotas da API)
+        26x  useShortener.ts               3x  cron_auto_optimize.py
+        20x  page.tsx                      3x  worker_client.py
+        20x  ShortenedLinksHistory.tsx     3x  rotation.py
+        13x  campaign_orchestrator.py      e mais 6 arquivos
+
+    ........................................................................
+    EVIDÊNCIA 12 — os arquivos trocados direto no servidor
+    Onde: terminal, no servidor 144
+    38 trocas de um mesmo arquivo, 26 de outro — todas fora do git.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+7.3 — SCRIPTS AVULSOS EM PRODUÇÃO (18 nomes distintos)
+
+        test_list_check (3x)    test_worker_target      test_shared_title
+        test_edit_flow (2x)     test_worker_target2     test_multi_add
+        smoke_test (2x)         test_worker_target3     test_group_edit
+        test_url_titles         test_worker_sync        test_create_site
+        test_title_fix          test_worker_raw         check_campaign_by_id
+        restore_campaign        delete_non_rr           delete_all
+
+    ........................................................................
+    EVIDÊNCIA 13 — os scripts avulsos rodados e apagados
+    Onde: terminal, no servidor 144
+    18 scripts distintos, todos instalados, executados e apagados em segundos.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+        Todos no mesmo padrão: instala um arquivo com nome aleatório, executa,
+        apaga. Nenhum fica versionado, nenhum passa por revisão, e o conteúdo
+        desaparece em segundos.
+
+7.4 — PRODUÇÃO RODOU CÓDIGO QUE NÃO EXISTE EM COMMIT NENHUM
+
+        Entre 09/09 e 14/09, o que rodava em produção divergia do repositório:
+        um arquivo do processo automático teve três conteúdos diferentes em um
+        único dia sem nenhum commit, e um endereço da API respondeu normalmente
+        cinco dias antes de existir no repositório.
+        Durante cinco dias não havia como saber o que estava rodando em
+        produção. O deploy seguinte sobrescreveu tudo — esse código é
+        irrecuperável.
+
+    ........................................................................
+    EVIDÊNCIA 14 — nenhum commit nos dias 10, 11 e 12
+    Onde: terminal, no servidor 144
+    A saída vem vazia nos dois repositórios: todo o trabalho daquela noite
+    foi aplicado direto nos arquivos de produção.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+7.5 — APROVAÇÃO DO PRÓPRIO TRABALHO
+
+        Solicitação de mudança nº 33: aberta às 17h12min02s e aprovada pelo
+        próprio autor às 17h14min52s — dois minutos e cinquenta segundos depois.
+        Em produção às 17h46min18s. O mesmo padrão nas solicitações nº 37 e 39.
+
+7.6 — ACESSO POR SENHA E SENHA EM TEXTO ABERTO
+
+        O acesso SSH é por senha, não por chave (o restante da frota foi
+        padronizado em chave em 15/09). E o método usado para consultar o banco
+        coloca a senha na linha de comando, o que faz o sistema gravá-la no
+        registro de auditoria — 41 ocorrências. Enquanto o comando roda, a senha
+        também fica visível para qualquer usuário do servidor.
+
+    ........................................................................
+    EVIDÊNCIA 15 — a senha do banco no registro do sistema
+    Onde: terminal, no servidor 144
+    41 ocorrências da senha de produção gravadas no log de auditoria.
+
+    [ PRINT AQUI ]
+
+    Ao printar, cubra a senha: o que interessa é a contagem e o formato.
+    ........................................................................
+
+================================================================================
+8. OUTROS PROBLEMAS ENCONTRADOS
+================================================================================
+
+Nenhum destes causou o apagão. Todos continuam ativos e precisam de decisão.
+
+8.1 — 14 CAMPANHAS ATIVAS COM LINK QUEBRADO, NESTE MOMENTO
+       O processo automático grava o destino sem "https://", porque a tabela de
+       onde ele lê o endereço vem assim do Google Ad Manager (129.459 de 129.459
+       registros sem protocolo). Sem o protocolo, o navegador não sai do domínio
+       do encurtador e o usuário cai numa página em branco.
+       Reproduzido ao vivo em 16/09. São 14 de 80 campanhas ativas, de baixo
+       tráfego.
+
+    ........................................................................
+    EVIDÊNCIA 16 — um link que continua quebrado hoje
+    Onde: terminal, com curl
+    O encurtador devolve um endereço sem "https://", e o usuário termina
+    numa página em branco em vez de chegar ao site.
+
+    [ PRINT AQUI ]
+    ........................................................................
+
+8.2 — A SINCRONIZAÇÃO DE DADOS DO ENCURTADOR ESTÁ QUEBRADA DESDE 15/07
+       Falha em toda execução por falta de uma biblioteca. Os dados de clique
+       nunca chegam ao ERP, e todo relatório de desempenho do encurtador dentro
+       do sistema está incompleto.
+
+8.3 — CADA CLIQUE LÊ 400 MIL LINHAS DO BANCO
+       De 5 a 7 bilhões de linhas lidas por dia. Isso é custo na fatura da
+       Cloudflare e latência em todo redirecionamento.
+
+8.4 — A CHAVE DE API DO ENCURTADOR ESCREVE SEM DEIXAR RASTRO
+       Qualquer processo com essa chave altera o banco de produção sem aparecer
+       no registro de auditoria da Cloudflare. Foi por isso que o gatilho não
+       apareceu em nenhum log de aplicação.
+
+8.5 — O ERP NÃO REGISTRA ALTERAÇÃO DE DADOS
+       A tabela de auditoria só grava login, logout e alteração de conta.
+       Nenhuma criação, edição ou exclusão de campanha deixa rastro. Esta
+       investigação só foi possível porque o sistema operacional grava comandos
+       e a Cloudflare guarda requisições — duas fontes acidentais, ambas com
+       retenção curta.
+
+8.6 — DESPERDÍCIO E ERRO DE ESCALA NO CÁLCULO DE eCPM
+       O modo criado em 08/09 consulta o Google a cada 5 minutos para cada rede
+       do usuário (1.157 e 1.161 consultas por dia, com 314 e 344 recusas por
+       excesso). E não converte a unidade em que o Google entrega a receita,
+       produzindo valores como "eCPM: US$ 163.364.705,88" nos registros.
+
+8.7 — O PROGRAMA DO ENCURTADOR NÃO ESTÁ EM NENHUM REPOSITÓRIO DA EMPRESA
+       O código que decide para onde cada link manda o usuário existe apenas
+       dentro da conta Cloudflare.
+
+8.8 — 141 GB DE ARQUIVOS DE LOG ABANDONADOS, e retenção de registro de apenas
+       7 dias. Uma investigação feita duas semanas depois deste incidente não
+       encontraria nada.
+
+================================================================================
+9. RECOMENDAÇÕES
+================================================================================
+
+AGORA — impedem a repetição exata deste acidente
+
+  R1. AMBIENTE DE TESTE SEPARADO PARA O ENCURTADOR, com banco próprio.
+      É a correção da causa raiz. Enquanto teste e produção dividirem o mesmo
+      banco, o acidente pode repetir a qualquer momento.
+
+  R2. PROIBIR EXECUÇÃO DE SCRIPT AVULSO EM PRODUÇÃO. Toda rotina de manutenção
+      precisa estar versionada, revisada e registrar o que alterou.
+
+  R3. TROCAR O "EXCLUIR" MUDO POR EXCLUSÃO EXPLÍCITA, com confirmação, registro
+      de auditoria e desfazer. E nunca sobrescrever o destino com google.com.
+
+  R4. EXIGIR CONFIRMAÇÃO PARA OPERAÇÃO EM LOTE. Arquivar 32 campanhas em 9
+      segundos deveria ser impossível sem confirmação explícita.
+
+  R5. ALARME AUTOMÁTICO em três sinais: queda da taxa de redirecionamento, queda
+      brusca no número de campanhas ativas, e a mensagem "Auto-Pilot para 0
+      campanhas". Qualquer um teria cortado este apagão de 13 horas para
+      minutos. Hoje não existe nenhum — a descoberta foi humana, na manhã
+      seguinte.
+
+ESTA SEMANA
+
+  R6.  Exigir revisão de outra pessoa para publicar em produção.
+  R7.  Corrigir as 14 campanhas quebradas e a origem do problema (item 8.1).
+  R8.  Recolocar a sincronização de dados no ar (item 8.2).
+  R9.  Registrar em auditoria toda alteração de campanha (item 8.5).
+  R10. Colocar o programa do encurtador em um repositório da empresa (8.7).
+  R11. Recadastrar as 56 automações perdidas do Auto-Pilot.
+
+ESTE MÊS
+
+  R12. Parar de passar senha de banco na linha de comando e TROCAR a senha
+       exposta (item 7.6).
+  R13. Migrar o acesso SSH do desenvolvedor de senha para chave.
+  R14. Aumentar a retenção de registro para 30 dias e limpar os 141 GB (8.8).
+  R15. Corrigir o consumo da API do Google e o cálculo de eCPM (item 8.6).
+  R16. Revisar o caminho de redirecionamento, que lê 400 mil linhas por clique.
+
+SOBRE A CONDUÇÃO DO CASO
+
+  R17. Este documento descreve um erro operacional, não má-fé. A recomendação é
+       tratar como falha de processo: não existia ambiente de teste, não existia
+       revisão obrigatória, não existia alarme, não existia trava para operação
+       em lote, e "excluir" não avisava que estava derrubando produção. Qualquer
+       pessoa trabalhando nessas condições poderia ter causado o mesmo estrago.
+
+       Dito isso, três práticas precisam parar independentemente de qualquer
+       discussão sobre este incidente, porque são erradas por si mesmas e
+       continuam acontecendo:
+         - rodar script avulso não versionado em produção;
+         - trocar arquivo de código direto no servidor, fora do git;
+         - aprovar e publicar o próprio trabalho sem revisão de terceiro.
+
+
+================================================================================
+IDENTIFICADORES PARA CONFERÊNCIA
+================================================================================
+
+  Servidor ................. 144.217.255.109 (nome "winup"), opera em UTC
+  Usuário investigado ...... erickojeda-winup, SSH por senha de 181.77.73.239
+  Conta Cloudflare ......... 244aa857742e394ebb84fdc34f822c75
+  Banco do encurtador ...... 38f73965-8d8c-4e40-814b-a7d30613a81e
+  Programa do encurtador ... url-shortener-worker, versão de 30/03/2026
+  Domínio dos links ........ url-1.com
+  Restauração .............. 11/09 13:47:19 UTC, identificação a3971fa9288349ac
+  Campanhas principais ..... 125 — 41.852 cliques  |  132 — 13.217 cliques
+  Scripts do incidente ..... delete_non_rr_49c5805c1f3340689de56efd78bf076f.py
+                             delete_all_e10aa2cb54e54dc68e6289203132ead6.py
+
+  O histórico completo dos 684 comandos e os comandos de verificação estão no
+  arquivo de apoio interno, à disposição de quem quiser reproduzir as provas.
+
+================================================================================
+                              FIM DO RELATÓRIO
+================================================================================

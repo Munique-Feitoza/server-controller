@@ -1,0 +1,790 @@
+================================================================================
+ARQUIVO DE APOIO — USO INTERNO, NÃO ENTRA NO RELATÓRIO
+Comandos de verificação + histórico completo dos 684 comandos
+================================================================================
+PARTE 13 — COMANDOS PARA CONFERIR NO SEU PRÓPRIO TERMINAL
+================================================================================================
+
+Copie e cole. Todos são de LEITURA, nenhum altera nada.
+
+--- 1. OS DOIS SCRIPTS DE EXCLUSÃO, COM NOME E DONO (a prova principal) ---
+
+ssh dashboard144 "sudo grep -h -E 'delete_all_oneoff|delete_non_rr_oneoff' /var/log/auth.log*"
+
+--- 2. TUDO QUE ELE FEZ NA NOITE DO INCIDENTE (em UTC, como o servidor grava) ---
+
+ssh dashboard144 "sudo grep -h 'erickojeda-winup :' /var/log/auth.log* | awk '\$2==11 && \$3<\"03:00:00\"'"
+
+--- 3. TODOS OS 684 COMANDOS DELE, DE 08 A 15/09 ---
+
+ssh dashboard144 "sudo grep -h 'erickojeda-winup :' /var/log/auth.log* | wc -l"
+ssh dashboard144 "sudo grep -h 'erickojeda-winup :' /var/log/auth.log*"
+
+--- 4. OS ARQUIVOS DE CÓDIGO QUE ELE TROCOU DIRETO NO SERVIDOR ---
+
+ssh dashboard144 "sudo grep -h 'erickojeda-winup' /var/log/auth.log* | grep 'install -o runcloud' | grep -oE '/home/runcloud/webapps/\S+' | sort | uniq -c | sort -rn"
+
+--- 5. OS SCRIPTS AVULSOS QUE ELE RODOU E APAGOU ---
+
+ssh dashboard144 "sudo grep -h 'erickojeda-winup' /var/log/auth.log* | grep -oE '[a-z_0-9]+_oneoff\.py' | sort | uniq -c | sort -rn"
+
+--- 6. PROVA DE QUE NÃO HOUVE COMMIT NOS DIAS 10, 11 E 12 ---
+
+ssh dashboard144 "cd /home/runcloud/webapps/api-viralnetwork && git log --all --since=2026-09-10 --until=2026-09-13 --oneline"
+ssh dashboard144 "cd /home/runcloud/webapps/app-viralnetwork && git log --all --since=2026-09-10 --until=2026-09-13 --oneline"
+
+--- 7. A SENHA DO BANCO EM TEXTO ABERTO NO REGISTRO ---
+
+ssh dashboard144 "sudo grep -c 'PGPASSWORD=' /var/log/auth.log*"
+
+--- 8. O CÓDIGO QUE SOBRESCREVE O DESTINO COM google.com ---
+
+ssh dashboard144 "sudo -u runcloud grep -n -B2 -A4 'Soft Delete' /home/runcloud/webapps/api-viralnetwork/app/services/shortener/worker_client.py"
+
+--- 9. O MOMENTO EM QUE O AUTO-PILOT CAIU DE 56 PARA 0 ---
+
+ssh dashboard144 "grep 'Iniciando Auto-Pilot' /home/runcloud/.pm2/logs/shortener-rotation-error__2026-09-12_00-00-00.log | head -8"
+
+--- 10. AS AUTOMAÇÕES PERDIDAS (99 criadas, 94 apagadas, 3 vivas) ---
+
+ssh dashboard144 "sudo -u postgres psql -d erp_winup -P pager=off -c \"SELECT relname, n_tup_ins AS inseridos, n_tup_del AS deletados, n_live_tup AS vivos FROM pg_stat_user_tables WHERE relname='shortener_automations';\""
+
+--- 11. A PERDA DE RECEITA (banco que não foi restaurado) ---
+
+ssh dashboard144 "sudo -u postgres psql -d erp_winup -P pager=off -c \"SELECT date, sum(impressions) AS impressoes, round(sum(gross_revenue_usd)::numeric,2) AS receita FROM fact_subpage_performance WHERE url_name ILIKE '%usa.udenze.com%' AND date BETWEEN '2026-09-07' AND '2026-09-13' GROUP BY 1 ORDER BY 1;\""
+
+--- 12. O LINK QUEBRADO QUE AINDA EXISTE HOJE (item 11.1) ---
+
+curl -sI https://url-1.com/debroad | head -3
+curl -sL https://url-1.com/debroad
+
+NO PAINEL DA CLOUDFLARE (não dá para fazer por comando):
+
+  a) Workers & Pages -> url-shortener-worker -> Observability
+       janela 11/09 00:18-00:19 UTC, filtro de caminho /api/campaigns
+       -> mostra as 32 gravações de arquivamento
+       janela 11/09 00:18-00:20 UTC, filtro /auto-139-usa-1782839597
+       -> mostra a virada de 302 para 404
+
+  b) Workers & Pages -> url-shortener-worker -> Deployments
+       -> mostra que a versão no ar era de 30/03/2026
+
+  c) Storage & Databases -> D1 -> url-shortener-db -> Metrics, dias 10 e 11/09
+       -> mostra a queda das linhas lidas e das gravações
+
+  d) zona url-1.com -> Analytics, por código de status, dias 08 a 12/09
+       -> mostra os 20.275 erros 404 do dia 11
+
+  e) Manage Account -> Audit Log, dia 11/09
+       -> mostra a restauração às 13:47:19 UTC e a ausência de qualquer ação antes disso
+
+================================================================================================
+IDENTIFICADORES PARA CONFERÊNCIA
+
+================================================================================
+HISTÓRICO COMPLETO — 684 comandos com sudo, horário de Brasília
+================================================================================
+
+   --------------------------------------------------------------------------------------------------
+   08/09/2026 (terça) — horário de Brasília
+   --------------------------------------------------------------------------------------------------
+   13:52:36 [root    ] comando        ss -tlnp
+   13:54:13 [root    ] comando        ls -la /home/runcloud/webapps
+   13:54:14 [root    ] comando        readlink -f /proc/1878089/cwd
+   13:54:14 [root    ] comando        readlink -f /proc/2848526/cwd
+   13:54:14 [root    ] comando        readlink -f /proc/347078/cwd
+   13:54:14 [root    ] comando        readlink -f /proc/4924/cwd
+   13:54:14 [root    ] comando        readlink -f /proc/4935/cwd
+   13:54:14 [root    ] comando        readlink -f /proc/5053/cwd
+   15:20:17 [runcloud] CONSULTA-BANCO psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:20:51 [runcloud] CONSULTA-BANCO psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:21:25 [root    ] comando        cat /home/runcloud/.pgpass
+   15:21:25 [root    ] comando        ls -la /home/runcloud/.pgpass
+   15:21:25 [runcloud] comando        env
+   15:21:26 [runcloud] CONSULTA-BANCO psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:23:56 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:23:56 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:25:33 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:25:34 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:26:25 [runcloud] le-logs        pm2 logs gam-etl-1h --lines 1000 --nostream
+   15:30:30 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:30:31 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:34:05 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:34:06 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:38:41 [runcloud] le-logs        pm2 logs gam-etl-1h --lines 2000 --nostream
+   15:40:23 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:40:24 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:41:15 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:41:15 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:44:43 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:44:44 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:48:36 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:48:36 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:49:13 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:49:14 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   15:59:12 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   15:59:12 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   16:25:29 [root    ] comando        grep -iE ^SHORTENER_API_KEY=|^SHORTENER_BASE_URL= ~webapps/api-viralnetwork/.env
+   16:28:09 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   16:28:09 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+   16:29:06 [root    ] *SENHA-BANCO*  grep -i ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   16:29:06 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup --pset=pager=off
+
+   --------------------------------------------------------------------------------------------------
+   09/09/2026 (quarta) — horário de Brasília
+   --------------------------------------------------------------------------------------------------
+   14:10:34 [runcloud] comando        pm2 list
+   14:11:08 [runcloud] comando        bash -c 'cd ~webapps/api-viralnetwork && git log --oneline -1 && git status --short | head -5'
+   14:11:08 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && git log --oneline -1 && git status --short | head -5'
+   14:12:10 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_a1442eb88a76440e9be80c35d5dc22ba ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   14:12:10 [runcloud] comando        mkdir -p ~webapps/api-viralnetwork/app/api/v1/routers
+   14:12:12 [runcloud] comando        mkdir -p ~webapps/api-viralnetwork/app/services/shortener
+   14:12:13 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_519f1d8f3cd74d3a806738c2cb4cc547 ~webapps/api-viralnetwork/app/services/shortener/post_resolver.py
+   14:12:15 [runcloud] comando        mkdir -p ~webapps/app-viralnetwork/app/hooks
+   14:12:16 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_f7b35d42165e474aba9acf5628aecd4e ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   14:12:18 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_4315483f83ce4063ac878d40eecbb5d3 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   14:12:18 [runcloud] comando        mkdir -p ~webapps/app-viralnetwork/app/shortener/_components
+   14:12:20 [runcloud] comando        mkdir -p ~webapps/app-viralnetwork/app/shortener/_components
+   14:12:21 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_b9837c40800e4564944f99e0ac93ac56 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   14:12:23 [runcloud] comando        mkdir -p ~webapps/app-viralnetwork/app/shortener
+   14:12:24 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_8f30b4a2cddb4e3ab1aa3beeeef8a8b8 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   14:12:58 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   14:13:02 [runcloud] le-logs        pm2 logs erp-backend --lines 40 --nostream
+   14:14:33 [runcloud] COMPILA        bash -c 'cd ~webapps/app-viralnetwork && npm run build'
+   14:15:27 [runcloud] COMPILA        bash -c 'cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out.log 2>&1; echo EXITCODE=$?; tail -c 6000 /tmp/build_out.log'
+   14:16:37 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && ls -la .env.production 2>&1 && grep -i NEXT_PUBLIC_API_URL .env.production 2>&1; export NVM_DIR=$HOME/.nvm; .
+   14:17:15 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out.log 2>&1;
+   14:18:23 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   14:18:26 [runcloud] le-logs        pm2 logs erp-frontend --lines 30 --nostream
+   14:25:51 [runcloud] comando        bash -c 'cd ~webapps/api-viralnetwork && git log --oneline -1 && ls -la app/services/shortener/post_resolver.py 2>&1 && grep -c resolve-post app/api/v
+   14:27:12 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_e07caa43b47c4179bd5961224f91d1c3 ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   14:27:14 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_dd2da1b5c881467889ba0d305606522a ~webapps/api-viralnetwork/app/services/shortener/post_resolver.py
+   14:27:15 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   14:31:00 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && git log --oneline -1'
+   14:31:01 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_dd148a2033d7460b9ad20a127676719e ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   14:31:03 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_7832a05f4a9644d893804b00b7d1773a ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   14:32:28 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_550045b629b54ce5af472561e714e5ce ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   14:32:30 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_9a337b47555349f08b9127051abe38cc ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   14:32:31 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_e6ee42dba87149b491e30f53d124e57b ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   14:32:33 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_97b7b96cb89b436c964357ee68ebf867 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   14:33:08 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out.log 2>&1;
+   14:33:47 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   14:33:51 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   14:56:09 [runcloud] comando        bash -c 'cd ~webapps/api-viralnetwork && git log --oneline -1'
+   14:56:10 [runcloud] comando        bash -c 'cd ~webapps/api-viralnetwork && git status --porcelain | head -20'
+   14:56:10 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && git log --oneline -1'
+   14:56:11 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && git status --porcelain | head -20'
+   14:56:45 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_da08a7556c5b4895b3013e1c52b22564 ~webapps/api-viralnetwork/app/models/shortener/automation.py
+   14:56:46 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d4702115979145f3836acbdcb57a6f5e ~webapps/api-viralnetwork/app/services/shortener/rotation.py
+   14:56:48 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_4f4023fc61bf432b9d6df2ca61ccf902 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   14:56:50 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_59718881616e445c89a135a6a0db503f ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   14:56:52 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_c15b9849a888451d9334a7e265abc713 ~webapps/api-viralnetwork/scripts/cron_auto_optimize.py
+   14:56:53 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_f80ab13a7f8b49ec8629ccb637205001 ~webapps/api-viralnetwork/alembic/versions/a3f6c1e97b02_add_url_we
+   14:56:55 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_6e514fe2613a433a9af5bae834496f0d ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   14:56:57 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_0a2143cd0dec4fbf9610b65365213e15 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   14:56:59 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_7b3bb33adebb4ff2b934573aca840c1a ~webapps/app-viralnetwork/app/shortener/page.tsx
+   14:57:21 [root    ] comando        grep -E ^POSTGRES_ ~webapps/api-viralnetwork/.env
+   14:57:35 [root    ] *SENHA-BANCO*  grep ^POSTGRES_PASSWORD= ~webapps/api-viralnetwork/.env
+   14:57:36 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'ALTER TABLE shortener_automations ADD COLUMN IF NOT EXISTS url_
+   14:57:36 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c '\\d shortener_automations'
+   14:57:37 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   14:57:41 [runcloud] le-logs        pm2 logs erp-backend --lines 25 --nostream
+   14:57:58 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_weights.l
+   14:58:06 [root    ] comando        tail -100 /tmp/build_out_weights.log
+   14:58:21 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   14:58:25 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   14:59:15 [root    ] comando        grep -c Peso ~webapps/app-viralnetwork/app/shortener/_components/ManualShortener.tsx
+   14:59:15 [root    ] comando        grep -c rotationWeights ~webapps/app-viralnetwork/app/shortener/_components/ManualShortener.tsx
+   14:59:16 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && git log --oneline -1'
+   14:59:17 [runcloud] comando        bash -c 'cd ~webapps/app-viralnetwork && git status --porcelain | head -10'
+   15:07:49 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_058ccc02fe7d4fa69a8ab68f24372234 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   15:07:50 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_750d9dfe3eca46288d09dfafb04abd35 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:07:52 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_088e9d7878b145d3be314462eb1ebc0d ~webapps/app-viralnetwork/app/shortener/page.tsx
+   15:07:53 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_unified.l
+   15:08:01 [root    ] comando        tail -100 /tmp/build_out_unified.log
+   15:08:10 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:08:14 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:11:11 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_eb117a67328a4f178462f83b8a414696 ~webapps/app-viralnetwork/app/shortener/_components/ShortenerHeade
+   15:11:13 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d0c7cc63e88641fd87d1043d15223c54 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   15:11:15 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_header.lo
+   15:11:22 [root    ] comando        tail -100 /tmp/build_out_header.log
+   15:11:31 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:11:35 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:25:00 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_2848af29580543168d84c1baab10a6d8 ~webapps/app-viralnetwork/app/shortener/_components/ShortenerHeade
+   15:25:01 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_52435743deb64fa2a2c8a02f0534eb4b ~webapps/app-viralnetwork/app/shortener/page.tsx
+   15:25:02 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_badge.log
+   15:25:09 [root    ] comando        tail -100 /tmp/build_out_badge.log
+   15:25:18 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:25:21 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:35:49 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_83fb6182981f4296bc500ed6c4a6aee2 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   15:35:50 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_nosites.l
+   15:35:57 [root    ] comando        tail -100 /tmp/build_out_nosites.log
+   15:36:06 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:36:10 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:36:29 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_1a94dc1ea19d4e79841da398a0264841 ~webapps/api-viralnetwork/app/services/shortener/rotation.py
+   15:36:31 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d30f596e70cd4c91b367d1a06db20d34 ~webapps/api-viralnetwork/scripts/cron_auto_optimize.py
+   15:36:32 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   15:36:36 [runcloud] le-logs        pm2 logs erp-backend --lines 20 --nostream
+   15:42:20 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d7218bd089e145ebb6f1682c7061f1bc ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   15:42:21 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_1f01d52826314328a01c7e61ff1b9634 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   15:42:23 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_30daabfee1a745b784da29d6288a9254 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   15:42:25 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_35d0bf7c2833429587999efbae174eb8 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:42:26 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   15:42:30 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_titlepos.
+   15:42:30 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   15:42:37 [root    ] comando        tail -100 /tmp/build_out_titlepos.log
+   15:42:46 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:42:50 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:56:32 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_fab6eaca09ff4b88a82d338d1d1fd78f ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:56:33 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_7a041a1c37ac45edb781ce655865acee ~webapps/app-viralnetwork/app/shortener/page.tsx
+   15:56:34 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_oneby1.lo
+   15:56:42 [root    ] comando        tail -100 /tmp/build_out_oneby1.log
+   15:56:50 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:56:54 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:00:03 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_29f9a9d7014842c8bf0b8878d9b307cc ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:00:04 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_loading.l
+   16:00:11 [root    ] comando        tail -100 /tmp/build_out_loading.log
+   16:00:20 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:00:23 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:04:55 [root    ] comando        tail -120 /home/runcloud/.pm2/logs/erp-backend-error.log
+   16:04:56 [root    ] comando        tail -400 /home/runcloud/.pm2/logs/erp-backend-out.log
+   16:05:24 [root    ] comando        grep -n 'Erro ao criar link encurtado' /home/runcloud/.pm2/logs/erp-backend-error.log
+   16:05:25 [root    ] comando        sed -n 19546,19581p /home/runcloud/.pm2/logs/erp-backend-error.log
+   16:05:59 [root    ] comando        sed -n 19576,19620p /home/runcloud/.pm2/logs/erp-backend-error.log
+   16:06:08 [root    ] comando        sed -n 19620,19680p /home/runcloud/.pm2/logs/erp-backend-error.log
+   16:09:35 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_74929adfb0a248a5b2b0ec40fef243a8 ~webapps/api-viralnetwork/app/services/shortener/worker_client.py
+   16:09:36 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   16:09:40 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   16:16:15 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_714c91bda8be45ef83163001c289f997 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   16:16:17 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_0daabc06c37e45ee8f379d43a7833602 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   16:16:18 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d54513710fb74a74ae798a6310ebbc83 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:16:20 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_1e1a654e85be4d85bb717de83c505055 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   16:16:21 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   16:16:25 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   16:16:26 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_merge.log
+   16:16:33 [root    ] comando        tail -100 /tmp/build_out_merge.log
+   16:16:42 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:16:46 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:18:50 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_878827d443134c0da8629e68b74870b5 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:18:51 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_ticks.log
+   16:18:58 [root    ] comando        tail -100 /tmp/build_out_ticks.log
+   16:19:07 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:19:11 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:21:36 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_9c1111bc832b4dcba26e8f0e0739b42c ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:21:37 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_ticks2.lo
+   16:21:44 [root    ] comando        tail -100 /tmp/build_out_ticks2.log
+   16:21:53 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:21:56 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:24:53 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_ac734982052c49958dfdc5c8863fc362 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:24:54 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_ticks3.lo
+   16:25:01 [root    ] comando        tail -100 /tmp/build_out_ticks3.log
+   16:25:09 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:25:13 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:29:16 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_0b28ef5ba7154047bc20212c78e52ada ~webapps/app-viralnetwork/app/shortener/page.tsx
+   16:29:17 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_pagerefre
+   16:29:24 [root    ] comando        tail -100 /tmp/build_out_pagerefresh.log
+   16:29:33 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:29:36 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:35:59 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_0fe0f6b80feb45deb2babe2ab4667a54 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   16:36:00 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_6358ed4e4885450cb38942e4db98605b ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   16:36:02 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_c334931393e048af8bdf0ef23b53331d ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   16:36:04 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_34fdc74a1cbd463c961b0f4d15facf92 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   16:36:05 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   16:36:09 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   16:36:10 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_cards.log
+   16:36:17 [root    ] comando        tail -100 /tmp/build_out_cards.log
+   16:36:45 [runcloud] inspeciona     pm2 jlist
+   16:37:10 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:37:14 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:42:58 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_af345659c90d481090c90b86c60fad7b ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   16:42:59 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_5b1078d4160b42d1b4b96b31a5dc3d1a ~webapps/app-viralnetwork/app/shortener/_components/ShortenerHeade
+   16:43:01 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_bbb1e160c1d840f3851c119c2bfbe2bf ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:43:03 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_ea6de0435c5e4124aa446ad7d1589288 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   16:43:04 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_toggle.lo
+   16:43:11 [root    ] comando        tail -100 /tmp/build_out_toggle.log
+   16:43:21 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:43:25 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:49:09 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_5db626d65ecd40019e2bc65810617fe3 ~webapps/api-viralnetwork/app/services/shortener/rotation.py
+   16:49:10 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_80371d60907f49c2a259c1ddddeffb55 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   16:49:12 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   16:49:16 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   16:57:13 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_5fc5642c61d243ea8c370b18fbda8574 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   16:57:15 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_64c898d4a2e14e27a93a04716f10dd8a ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   16:57:17 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_08978c92b9b54c039c93ea2de59e0ab8 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   16:57:19 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_da2fedde1b0f4c18bc45ae5babefaa37 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   16:57:20 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d5550183cba548b58b643f78501d65a4 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   16:57:21 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   16:57:26 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_modalweig
+   16:57:26 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   16:57:34 [root    ] comando        tail -100 /tmp/build_out_modalweight.log
+   16:57:43 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:57:47 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:02:33 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_84d25517387b44fbb7eca7e5101717ca ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   17:02:35 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_54b56541fc0d4cb39ddd133c0b2e49bb ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:02:37 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_3374e7e7601b4ee2a4e6c44c06e400eb ~webapps/app-viralnetwork/app/shortener/page.tsx
+   17:02:38 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_compare.l
+   17:02:45 [root    ] comando        tail -100 /tmp/build_out_compare.log
+   17:02:54 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:02:58 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:06:53 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_62b6c55fe9834e1ebd4e88227c122c65 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:06:54 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_capslide.
+   17:07:02 [root    ] comando        tail -100 /tmp/build_out_capslide.log
+   17:07:11 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:07:14 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:16:03 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_30ac6cc34b1d4391ade4704e84fca933 ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   17:16:05 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_2971b1ad6fb642b2aaf35dbd5981ea4c ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   17:16:07 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_1c92909d4a6f420da25400a2935b9879 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   17:16:09 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_29d0fccb59e640cf82b580514be0a893 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:16:10 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_eda5f0b95102453480a52964041207c5 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:16:12 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_0aa9a450370e43cdb82fd4d3e4e2914e ~webapps/app-viralnetwork/app/shortener/page.tsx
+   17:16:13 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   17:16:18 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   17:16:19 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_flatten.l
+   17:16:26 [root    ] comando        tail -150 /tmp/build_out_flatten.log
+   17:16:35 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:16:39 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:23:13 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_206fc8839b09405395d5b47b64b1aa6b ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   17:23:14 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_33a4c43cf83d4e09be6bf5c7ddf8ce5e ~webapps/app-viralnetwork/app/shortener/types.ts
+   17:23:15 [runcloud] comando        rm -f ~webapps/app-viralnetwork/app/shortener/_components/TopUrlsList.tsx
+   17:23:16 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_cleanup.l
+   17:23:16 [runcloud] comando        rm -f ~webapps/app-viralnetwork/app/shortener/_components/StatsGrid.tsx
+   17:23:24 [root    ] comando        tail -150 /tmp/build_out_cleanup.log
+   17:23:34 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:23:37 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:30:46 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_211ca3409d594cd89891c60bb15f8915 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:30:47 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_nowaiting
+   17:30:54 [root    ] comando        tail -100 /tmp/build_out_nowaiting.log
+   17:31:03 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:31:07 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:37:48 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_6442950cdf3d48d3b21c76c9fb74c638 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:37:49 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   17:37:55 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   17:38:17 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_e1382fd2ee9f41468ce65f76a7f58efb ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:38:18 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   17:38:25 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   17:38:36 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:38:39 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:39:10 [runcloud] inspeciona     pm2 jlist
+   17:41:56 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_a7a80e8950d343f280e1e37ba0f07743 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:41:57 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   17:42:05 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   17:42:14 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:42:18 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:45:02 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_9dec4dffb4e2493fabfc7a93522ca9e0 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:45:03 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   17:45:10 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   17:45:19 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:45:23 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:49:44 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_7f238631930a40e88d30cfe069d182bb ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   17:49:45 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   17:49:51 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   17:52:57 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:53:01 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+
+   --------------------------------------------------------------------------------------------------
+   10/09/2026 (quinta) — horário de Brasília
+   --------------------------------------------------------------------------------------------------
+   21:12:53 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   21:14:26 [runcloud] inspeciona     pm2 show erp-backend
+   21:14:53 [runcloud] inspeciona     pm2 show erp-backend
+   21:15:32 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/delete_non_rr_49c5805c1f3340689de56efd78bf076f.py ~webapps/api-viralnetwork/delete_non_rr_oneoff.py
+   21:15:33 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 delete_non_rr_oneoff.py'   <<<<< 1º script de exclusão
+   21:15:38 [runcloud] comando        rm -f ~webapps/api-viralnetwork/delete_non_rr_oneoff.py
+   21:16:01 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   21:18:47 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/delete_all_e10aa2cb54e54dc68e6289203132ead6.py ~webapps/api-viralnetwork/delete_all_oneoff.py
+   21:18:48 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 delete_all_oneoff.py'   <<<<<<<<<<<<<<< QUEBROU A PRODUÇÃO
+   21:18:58 [runcloud] comando        rm -f ~webapps/api-viralnetwork/delete_all_oneoff.py
+   21:20:14 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d9a4f9f3ed4b4d128d112cdee6d3fdd6 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   21:20:16 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   21:20:24 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   21:20:46 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:20:50 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   21:24:38 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_0d3f1b19204d43668d57871a7db6843d ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   21:24:39 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   21:24:47 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   21:25:06 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:25:10 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   21:27:07 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_8b42fc3119a14f04858cfebeef1c2f49 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   21:27:09 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   21:27:16 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   21:27:35 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:27:39 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   21:34:28 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_cd97320044cb483bba75a1246e3470eb ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   21:34:29 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_postid.lo
+   21:34:39 [root    ] comando        tail -150 /tmp/build_out_postid.log
+   21:34:52 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:34:56 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   21:38:25 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_42ffaaf81ad74eeab9a7b4325fe9be16 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   21:38:26 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_fixedlabe
+   21:38:35 [root    ] comando        tail -150 /tmp/build_out_fixedlabels.log
+   21:38:52 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:38:56 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   21:41:07 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_c8e3695c5fd9489f8cd4a7d36f04e475 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   21:41:08 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_fixedlabe
+   21:41:16 [root    ] comando        tail -150 /tmp/build_out_fixedlabels.log
+   21:41:35 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:41:39 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   21:44:48 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_edit_flow_40d7d183ac5c4ff6bb77944aa58d9f64.py ~webapps/api-viralnetwork/test_edit_flow_oneoff.py
+   21:44:49 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_edit_flow_oneoff.py'
+   21:44:51 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_edit_flow_oneoff.py
+   21:45:32 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_edit_flow_53850d9317814504a466380f48ab6f7a.py ~webapps/api-viralnetwork/test_edit_flow_oneoff.py
+   21:45:33 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_edit_flow_oneoff.py'
+   21:45:35 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_edit_flow_oneoff.py
+   21:46:43 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_e890cb60c10b4682af7b12c74c2c0dc9 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   21:46:44 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_postid.lo
+   21:46:51 [root    ] comando        tail -150 /tmp/build_out_postid.log
+   21:47:10 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   21:47:14 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   22:14:19 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d801d69a589d47c4b7db5ca109474071 ~webapps/api-viralnetwork/app/services/shortener/worker_client.py
+   22:14:21 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_737db3ebdaee495caf3107e4b994286f ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   22:14:23 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   22:14:27 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   22:14:51 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_title_fix_c2596635eb914e0c9e2ad7bcb969c250.py ~webapps/api-viralnetwork/test_title_fix_oneoff.py
+   22:14:52 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_title_fix_oneoff.py'
+   22:14:55 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_title_fix_oneoff.py
+   22:24:29 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   22:26:26 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_85777745a9094131aedc6a24b3fc23c7 ~webapps/api-viralnetwork/app/models/shortener/automation.py
+   22:26:28 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_9f02eb148cd84ffe9abf1e451f3d77f7 ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   22:26:30 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_958a5031ce63473a9d5c529f79871402 ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   22:26:31 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   22:26:36 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   22:27:13 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_url_titles_be91d08734434b449fb93a943961a308.py ~webapps/api-viralnetwork/test_url_titles_oneoff.py
+   22:27:14 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_url_titles_oneoff.py'
+   22:27:17 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_url_titles_oneoff.py
+   22:27:47 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_919ccf91d02e475fb106b0834c3d861a ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   22:27:49 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_10fbf85d9e2b48b59f25bc4735beac67 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   22:27:51 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_urltitles
+   22:27:58 [root    ] comando        tail -150 /tmp/build_out_urltitles.log
+   22:28:23 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   22:28:27 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   22:33:58 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/smoke_test_7a490afb51bb4892a65c70b4b491b5c7.py ~webapps/api-viralnetwork/smoke_test_oneoff.py
+   22:34:00 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 smoke_test_oneoff.py'
+   22:34:04 [runcloud] comando        rm -f ~webapps/api-viralnetwork/smoke_test_oneoff.py
+   22:34:54 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/smoke_test_41528d67822e49cc880d10be60d37712.py ~webapps/api-viralnetwork/smoke_test_oneoff.py
+   22:34:55 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 smoke_test_oneoff.py'
+   22:34:59 [runcloud] comando        rm -f ~webapps/api-viralnetwork/smoke_test_oneoff.py
+   22:37:42 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_create_site_fd85321e060c46df81d6c85f242a2af5.py ~webapps/api-viralnetwork/test_create_site_oneoff.py
+   22:37:44 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_create_site_oneoff.py'
+   22:37:46 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_create_site_oneoff.py
+
+   --------------------------------------------------------------------------------------------------
+   14/09/2026 (segunda) — horário de Brasília
+   --------------------------------------------------------------------------------------------------
+   10:02:24 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_700193f3c68049d197f69bd4e71a99f4 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   10:02:25 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_a9837fc5c5a44f36a66ccf41944f84ec ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   10:02:27 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_a977890ce8c84f1eadb49ceb961dabb8 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   10:02:28 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:02:40 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   10:02:48 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   10:02:51 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   10:03:27 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_multi_add_4f43d24324d44b70a375e96ce18b416e.py ~webapps/api-viralnetwork/test_multi_add_oneoff.py
+   10:03:28 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_multi_add_oneoff.py'
+   10:03:30 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_multi_add_oneoff.py
+   10:08:52 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_a232d1caca294cafb36f316773f20fdb ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   10:08:53 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:09:00 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   10:09:09 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   10:09:12 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   10:12:51 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_13c93ec71d834b14839e3c4a2cf79c57 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   10:12:52 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:12:59 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   10:13:08 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   10:13:12 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   10:15:00 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   10:15:18 [runcloud] comando        grep -a 'shortener/automation\\|Auto-Pilot\\|Erro Auto-Pilot' /home/runcloud/.pm2/logs/erp-backend-out.log
+   10:15:19 [runcloud] comando        grep -a 'shortener/automation\\|Auto-Pilot\\|Erro Auto-Pilot\\|Traceback' /home/runcloud/.pm2/logs/erp-backend-error.log
+   10:15:34 [runcloud] comando        grep -na 'POST /api/v1/shortener/automation' /home/runcloud/.pm2/logs/erp-backend-out.log
+   10:15:35 [runcloud] comando        tail -80 /home/runcloud/.pm2/logs/erp-backend-out.log
+   10:16:51 [runcloud] comando        grep -na 2026-09-14 /home/runcloud/.pm2/logs/erp-backend-error.log
+   10:17:28 [root    ] comando        cat ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   10:17:28 [root    ] comando        cat ~webapps/app-viralnetwork/app/shortener/_components/ManualShortener.tsx
+   10:17:29 [root    ] comando        cat ~webapps/app-viralnetwork/app/shortener/page.tsx
+   10:19:05 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   10:20:36 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   10:21:03 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   10:21:29 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_list_check_5a24a6b1e21f47f9a8ca8583a0d36398.py ~webapps/api-viralnetwork/test_list_check_oneoff.py
+   10:21:30 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_list_check_oneoff.py'
+   10:21:32 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_list_check_oneoff.py
+   10:22:26 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_worker_target_c988b4f4b1d54ad7a677304a916daa82.py ~webapps/api-viralnetwork/test_worker_target_oneoff
+   10:22:28 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_worker_target_oneoff.py'
+   10:22:29 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_worker_target_oneoff.py
+   10:22:50 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_worker_target2_98fabe357bdc4b22837051cfa8c40781.py ~webapps/api-viralnetwork/test_worker_target2_oneo
+   10:22:51 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_worker_target2_oneoff.py'
+   10:22:52 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_worker_target2_oneoff.py
+   10:23:34 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_worker_target3_18678badfd86437c88a99c3db892c605.py ~webapps/api-viralnetwork/test_worker_target3_oneo
+   10:23:35 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_worker_target3_oneoff.py'
+   10:23:36 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_worker_target3_oneoff.py
+   10:24:24 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_worker_raw_0d9f51d6805b4d8aa528964bb2fd78e1.py ~webapps/api-viralnetwork/test_worker_raw_oneoff.py
+   10:24:25 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_worker_raw_oneoff.py'
+   10:24:26 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_worker_raw_oneoff.py
+   10:27:23 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_34e4648631494178bffab174058053df ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   10:27:24 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   10:27:28 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   10:27:39 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_list_check_b76ce33447154a79ae4bf4bc2a301d05.py ~webapps/api-viralnetwork/test_list_check_oneoff.py
+   10:27:40 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_list_check_oneoff.py'
+   10:27:42 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_list_check_oneoff.py
+   10:29:12 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_b3105f5842cb4d7dbd55cd3a2441a240 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   10:29:14 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_029e61d1f3e446e19705798ee66a311c ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   10:29:16 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_88630a4abe6d49a68ae047d44adabf17 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   10:29:17 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:29:25 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   10:29:34 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   10:29:38 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   10:33:11 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_179417f29df14d039385e2b48a24d4fc ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   10:33:12 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:33:19 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   10:33:29 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   10:33:32 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   10:47:17 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_be375ce6f45c445a99a0a68bd834b376 ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   10:47:18 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_5820ceff619e46e098e17ce696eac9bf ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   10:47:20 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   10:47:24 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   10:47:57 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_group_edit_6632bb67f48d45a48629de1ab41a4c67.py ~webapps/api-viralnetwork/test_group_edit_oneoff.py
+   10:47:59 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_group_edit_oneoff.py'
+   10:48:03 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_group_edit_oneoff.py
+   10:48:16 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_dc3b942d5957463cb5642a0127c53ee4 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   10:48:18 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_19e8f736fa414c6db8cb2fa798d27f2c ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   10:48:19 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_67124e940a174dbe89ef4e7c3aba70cb ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   10:48:21 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_4a1948989a634c30a63cb0c108bdefbb ~webapps/app-viralnetwork/app/shortener/page.tsx
+   10:48:22 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:48:30 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   10:48:39 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   10:48:43 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   10:58:44 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_a768a1ec1d0349d9be377d0b62ec3636 ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   10:58:45 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d8164ff2914d46dfb9e3ce912ecce0aa ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   10:58:46 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   10:58:50 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   10:59:27 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_shared_title_ade2922ee5644ca88204ef4321cb0ee0.py ~webapps/api-viralnetwork/test_shared_title_oneoff.p
+   10:59:28 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_shared_title_oneoff.py'
+   10:59:32 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_shared_title_oneoff.py
+   10:59:46 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_85f94a08cf464e9e82d798b38aba3c05 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   10:59:48 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_37f8109ca547429b83533bf2a9dd7022 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   10:59:49 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_b9a5c15b4bcd4c809ec1ae31d011e11b ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   10:59:51 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_8666848ff6484aaabca80bb1d2aab56d ~webapps/app-viralnetwork/app/shortener/page.tsx
+   10:59:52 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   10:59:59 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   11:00:09 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   11:00:12 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   11:02:40 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_e6f76e3adb13488fbaa2659396110d38 ~webapps/app-viralnetwork/app/shortener/_components/ShortenedLinks
+   11:02:41 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   11:02:48 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   11:02:57 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   11:03:00 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   11:05:08 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_01a006ea02b64a038793e325fe0b0d38 ~webapps/app-viralnetwork/app/lib/z-index.ts
+   11:05:09 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_forumlayo
+   11:05:20 [root    ] comando        tail -150 /tmp/build_out_forumlayout.log
+   11:05:29 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   11:05:33 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   11:10:17 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/check_campaign_by_id_0aa245eca7d94c8987586eb0cab4cb0d.py ~webapps/api-viralnetwork/check_campaign_by_id_on
+   11:10:18 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 check_campaign_by_id_oneoff.py'
+   11:10:19 [runcloud] comando        rm -f ~webapps/api-viralnetwork/check_campaign_by_id_oneoff.py
+   11:11:20 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   11:11:53 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/restore_campaign_00be0414ac4f4b85a6431eeb6bd42fae.py ~webapps/api-viralnetwork/restore_campaign_oneoff.py
+   11:11:54 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 restore_campaign_oneoff.py'
+   11:11:56 [runcloud] comando        rm -f ~webapps/api-viralnetwork/restore_campaign_oneoff.py
+   11:12:21 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_list_check_77a2ad28ea734a5698dc10e2a2a105da.py ~webapps/api-viralnetwork/test_list_check_oneoff.py
+   11:12:22 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_list_check_oneoff.py'
+   11:12:24 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_list_check_oneoff.py
+   11:14:25 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   11:14:26 [root    ] comando        grep -m1 SHORTENER_API_KEY ~webapps/api-viralnetwork/.env
+   11:14:43 [runcloud] inspeciona     pm2 show shortener-rotation
+   11:14:52 [runcloud] inspeciona     pm2 show shortener-rotation
+   11:15:14 [runcloud] comando        tail -80 /home/runcloud/.pm2/logs/shortener-rotation-out.log
+   11:15:15 [runcloud] comando        tail -80 /home/runcloud/.pm2/logs/shortener-rotation-error.log
+   11:16:30 [root    ] comando        cat ~webapps/api-viralnetwork/app/services/shortener/rotation.py
+   11:16:31 [root    ] comando        cat ~webapps/api-viralnetwork/scripts/cron_auto_optimize.py
+   11:19:14 [runcloud] comando        tail -80 /home/runcloud/.pm2/logs/shortener-rotation-error.log
+   11:19:14 [runcloud] comando        tail -80 /home/runcloud/.pm2/logs/shortener-rotation-out.log
+   11:50:06 [root    ] comando        grep -m1 SHORTENER_API_KEY ~webapps/api-viralnetwork/.env
+   11:56:51 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_934a18f08d604b8699c6305c4344318d ~webapps/api-viralnetwork/app/services/shortener/worker_client.py
+   11:56:53 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_4f339c3c1b484dc4a99f1e5215d6d61d ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestr
+   11:56:54 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   11:56:58 [runcloud] le-logs        pm2 logs erp-backend --lines 15 --nostream
+   11:57:36 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/test_worker_sync_d75707ebe5bb4d6cafebb526994ba273.py ~webapps/api-viralnetwork/test_worker_sync_oneoff.py
+   11:57:38 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && python3 test_worker_sync_oneoff.py'
+   11:57:43 [runcloud] comando        rm -f ~webapps/api-viralnetwork/test_worker_sync_oneoff.py
+   12:02:12 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_40fb8824481442a0b6864382e679ec9a ~webapps/api-viralnetwork/scripts/cron_auto_optimize.py
+   12:02:30 [runcloud] comando        python3 -m py_compile ~webapps/api-viralnetwork/scripts/cron_auto_optimize.py
+   12:02:46 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_auto_optimize.py'
+   13:21:58 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:30:19 [runcloud] inspeciona     pm2 jlist
+   13:32:32 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_ecpm/app/api/v1/routers/shortener.py ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   13:32:32 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_ecpm/app/models/shortener/automation.py ~webapps/api-viralnetwork/app/models/shortener/automation.
+   13:32:33 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_ecpm/app/services/shortener/campaign_orchestrator.py ~webapps/api-viralnetwork/app/services/shorte
+   13:32:33 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_ecpm/scripts/cron_ecpm_rebalance.py ~webapps/api-viralnetwork/scripts/cron_ecpm_rebalance.py
+   13:32:34 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   13:32:40 [runcloud] le-logs        pm2 logs erp-backend --lines 30 --nostream
+   13:37:25 [runcloud] inspeciona     pm2 jlist
+   13:37:27 [runcloud] comando        pm2 save
+   13:37:27 [runcloud] inspeciona     pm2 show shortener-ecpm-rebalance
+   13:37:38 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && pm2 start scripts/cron_ecpm_rebalance.py --name shortener-ecpm-rebalance --interpreter ./venv/bin/python --cr
+   13:37:48 [runcloud] inspeciona     pm2 jlist
+   13:38:16 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_ecpm_rebalance.py'
+   13:38:52 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:38:53 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT id, campaign_id, campaign_slug, selected_urls, url_weigh
+   13:39:35 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:39:35 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT url_name, date, SUM(gross_revenue_usd) rev, SUM(impressi
+   13:40:01 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:40:01 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT url_name, SUM(gross_revenue_usd) rev, SUM(impressions) i
+   13:40:17 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:40:17 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT user_id, site_id FROM shortener_automations WHERE id=78;
+   13:42:43 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:42:43 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'INSERT INTO shortener_automations (campaign_id, campaign_slug, 
+   13:43:12 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_ecpm_rebalance.py'
+   13:43:26 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:43:26 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT selected_urls, url_weights FROM shortener_automations WH
+   13:43:44 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:43:46 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_fix_row91.py
+   13:43:55 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_ecpm_rebalance.py'
+   13:44:09 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:44:10 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT url_weights, last_rebalance_at FROM shortener_automation
+   13:44:21 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_ecpm_rebalance.py'
+   13:44:39 [runcloud] comando        tail -30 ~webapps/api-viralnetwork/logs/ecpm_rebalance.log
+   13:44:54 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   13:44:55 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'DELETE FROM shortener_automations WHERE id=91 AND campaign_slug
+   13:54:32 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_b5559fe81e144143a88e7cf3eeb099ca ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   13:54:34 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_2cb029c8146f4dce8b4b8c349da23b0e ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   13:54:35 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_61c1a1da28ef4f00a704a6d6197c0122 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   13:54:37 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_ecpm.log 
+   13:54:44 [root    ] comando        tail -200 /tmp/build_out_ecpm.log
+   13:55:02 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   13:55:09 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   14:07:18 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_d5af6cc1b38e42d787fe4d766a56203a ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   14:07:20 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   14:07:26 [root    ] comando        tail -80 /tmp/build_out_label.log
+   14:07:34 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   14:07:41 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   14:19:21 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_b1564b9798274db3bb66211c82d19bd5 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   14:19:22 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   14:19:28 [root    ] comando        tail -80 /tmp/build_out_label.log
+   14:19:36 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   14:19:43 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   14:37:57 [runcloud] comando        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; node --check /tmp/_worker_check.mjs; echo EXIT=$?'
+   15:12:30 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_subdomain/app/api/v1/routers/shortener.py ~webapps/api-viralnetwork/app/api/v1/routers/shortener.p
+   15:12:30 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_subdomain/app/services/shortener/campaign_orchestrator.py ~webapps/api-viralnetwork/app/services/s
+   15:12:31 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   15:12:37 [runcloud] le-logs        pm2 logs erp-backend --lines 20 --nostream
+   15:13:01 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python -c "from app.services.shortener.campaign_orchestrator import CampaignOrchestrator as C; pri
+   15:17:34 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_dadd0b293acd4996a59d00d353c9850f ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:17:35 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   15:17:41 [root    ] comando        tail -80 /tmp/build_out_label.log
+   15:17:49 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:17:56 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:20:39 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_f72a6a94c782479098dc856b20420ab0 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   15:20:41 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_582e34665b0d4f79bd23311ad314a4c2 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:20:42 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_hostfix.l
+   15:20:49 [root    ] comando        tail -80 /tmp/build_out_hostfix.log
+   15:20:57 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:21:04 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:23:40 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_b5c70c53f6b749f990d96536ba770650 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:23:41 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   15:23:48 [root    ] comando        tail -80 /tmp/build_out_label.log
+   15:23:56 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:24:03 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:31:40 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_slugtitle/app/services/shortener/campaign_orchestrator.py ~webapps/api-viralnetwork/app/services/s
+   15:31:41 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   15:31:47 [runcloud] le-logs        pm2 logs erp-backend --lines 20 --nostream
+   15:31:58 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_6b4bfdec94664277947cdfcfdde28295 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:31:59 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   15:32:06 [root    ] comando        tail -80 /tmp/build_out_label.log
+   15:32:14 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:32:20 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:32:43 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python -c "from app.services.shortener.campaign_orchestrator import CampaignOrchestrator as C; cas
+   15:44:29 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_multicampaign/app/services/shortener/campaign_orchestrator.py ~webapps/api-viralnetwork/app/servic
+   15:44:30 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_multicampaign/app/api/v1/routers/shortener.py ~webapps/api-viralnetwork/app/api/v1/routers/shorten
+   15:44:31 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   15:44:36 [runcloud] le-logs        pm2 logs erp-backend --lines 20 --nostream
+   15:44:56 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_38a364afc29d424b92f043cda06fcc88 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   15:44:58 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_339c7aceeb3c41a98c1904089b5705ab ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   15:45:00 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_3fc0bac273844fa4a38b4fc64d86d8de ~webapps/app-viralnetwork/app/shortener/page.tsx
+   15:45:01 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_multicamp
+   15:45:08 [root    ] comando        tail -120 /tmp/build_out_multicampaign.log
+   15:45:15 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   15:45:22 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   15:51:27 [root    ] comando        grep -n campaign_id ~webapps/api-viralnetwork/app/services/shortener/campaign_orchestrator.py
+   15:51:27 [root    ] comando        grep -n editingCampaignId\\|campaign_id ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   15:51:46 [root    ] comando        grep -n campaign_id ~webapps/api-viralnetwork/app/api/v1/routers/shortener.py
+   15:53:05 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python /tmp/_test_edit_flow.py'
+   16:02:46 [runcloud] comando        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; node --check /tmp/_worker_check2.mjs; echo EXIT=$?'
+   16:03:25 [root    ] comando        grep -m1 SHORTENER_API_KEY ~webapps/api-viralnetwork/.env
+   16:03:55 [root    ] comando        grep -m1 SHORTENER_API_KEY ~webapps/api-viralnetwork/.env
+   16:04:24 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_2b6c23ad6c4f400ab50a5fda6be98edf ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   16:04:25 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_commentfi
+   16:04:32 [root    ] comando        tail -60 /tmp/build_out_commentfix.log
+   16:04:40 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   16:04:47 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   16:19:05 [runcloud] inspeciona     pm2 jlist
+   16:19:06 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   16:19:06 [runcloud] comando        tail -60 ~webapps/api-viralnetwork/logs/ecpm_rebalance.log
+   16:19:08 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_check_teste123.py
+   16:19:45 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   16:19:47 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_find_teste.py
+   16:20:25 [runcloud] comando        tail -20 ~webapps/api-viralnetwork/logs/ecpm_rebalance.log
+   16:20:54 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   16:20:56 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_check_ecpm_freeei.py
+   16:24:15 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   16:24:15 [runcloud] CONSULTA-BANCO env PGPASSWORD=<SENHA EM TEXTO ABERTO> psql -h 127.0.0.1 -U viraluser -d erp_winup -c 'SELECT * FROM alembic_version;'
+   17:06:41 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   17:06:42 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_add_seed_col.py
+   17:07:08 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_seedweight/app/models/shortener/automation.py ~webapps/api-viralnetwork/app/models/shortener/autom
+   17:07:09 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_seedweight/app/api/v1/routers/shortener.py ~webapps/api-viralnetwork/app/api/v1/routers/shortener.
+   17:07:09 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_seedweight/app/services/shortener/campaign_orchestrator.py ~webapps/api-viralnetwork/app/services/
+   17:07:10 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/_deploy_seedweight/scripts/cron_ecpm_rebalance.py ~webapps/api-viralnetwork/scripts/cron_ecpm_rebalance.py
+   17:07:11 [runcloud] REINICIA       pm2 restart erp-backend --update-env
+   17:07:16 [runcloud] le-logs        pm2 logs erp-backend --lines 20 --nostream
+   17:07:35 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_ecpm_rebalance.py'
+   17:07:59 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   17:08:01 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_test_seed.py
+   17:08:12 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python scripts/cron_ecpm_rebalance.py'
+   17:08:34 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   17:08:35 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_verify_cleanup_seed.py
+   17:08:59 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_236c7f13da4b48d3814839265c9f1dfd ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   17:09:00 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_45d60e1db7d541d09fd693b4bb693e3e ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:09:02 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_32594feb1378417e8107928e418b7677 ~webapps/app-viralnetwork/app/shortener/page.tsx
+   17:09:03 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_seedweigh
+   17:09:24 [root    ] comando        tail -80 /tmp/build_out_seedweight.log
+   17:09:34 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:09:41 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:13:25 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_105cdeae5a864a738fb8092c1afda18b ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:13:26 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   17:13:34 [root    ] comando        tail -80 /tmp/build_out_label.log
+   17:13:42 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:13:49 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:15:57 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_bb9a90890fdb4bf5bda67db7173ac908 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:15:58 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   17:16:05 [root    ] comando        tail -80 /tmp/build_out_label.log
+   17:16:13 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:16:20 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:18:19 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_68a881ba3ad74111aa146c4fd95273f4 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:18:20 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   17:18:27 [root    ] comando        tail -80 /tmp/build_out_label.log
+   17:18:35 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:18:42 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:20:19 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_73ca93d40fdf4a04bcbc7f4d2cf10d74 ~webapps/app-viralnetwork/app/hooks/useShortener.ts
+   17:20:20 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_defaultse
+   17:20:27 [root    ] comando        tail -60 /tmp/build_out_defaultseed.log
+   17:20:35 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:20:42 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:23:27 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_89d01566569c417e842326caae81a70a ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:23:28 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   17:23:35 [root    ] comando        tail -80 /tmp/build_out_label.log
+   17:23:42 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:23:49 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:24:43 [root    ] comando        install -o runcloud -g runcloud -m 644 /tmp/deploy_228e6094dfec48bb85808f8ca45ac2e0 ~webapps/app-viralnetwork/app/shortener/_components/ManualShortene
+   17:24:44 [runcloud] COMPILA        bash -c 'export NVM_DIR=$HOME/.nvm; . $NVM_DIR/nvm.sh; nvm use 22 >/dev/null; cd ~webapps/app-viralnetwork && npm run build > /tmp/build_out_label.log
+   17:24:51 [root    ] comando        tail -80 /tmp/build_out_label.log
+   17:24:58 [runcloud] REINICIA       pm2 restart erp-frontend --update-env
+   17:25:04 [runcloud] le-logs        pm2 logs erp-frontend --lines 20 --nostream
+   17:34:28 [runcloud] inspeciona     pm2 jlist
+   17:34:30 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   17:34:30 [runcloud] comando        tail -30 ~webapps/api-viralnetwork/logs/ecpm_rebalance.log
+   17:34:32 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_check_status.py
+   17:37:08 [runcloud] >> EXECUTA     bash -c 'cd ~webapps/api-viralnetwork && ./venv/bin/python /tmp/_create_real_test.py'
+   17:39:04 [root    ] *SENHA-BANCO*  grep -m1 POSTGRES_PASSWORD ~webapps/api-viralnetwork/.env
+   17:39:05 [runcloud] >> EXECUTA     ~webapps/api-viralnetwork/venv/bin/python /tmp/_reassign.py
+
+   --------------------------------------------------------------------------------------------------
+   15/09/2026 (terça) — horário de Brasília
+   --------------------------------------------------------------------------------------------------
+   11:17:25 [root    ] comando        whoami
+   11:17:26 [runcloud] comando        whoami

@@ -72,10 +72,15 @@ impl ServiceMonitor {
             "inactive" | "deactivating" | "failed" => {
                 // Fallback: painéis como Hosting iniciam processos fora do controle do systemd.
                 // Se o systemd diz "inactive" mas o processo existe no sistema, reportamos como Active.
+                // `.output()` e não `.status()`: o `pgrep` imprime o PID encontrado, e
+                // `.status()` herda o stdout do agente — que a unit systemd redireciona
+                // pro agent.log. O resultado era um número solto no log a cada ciclo
+                // (o PID do redis, nos hosts em que o systemd não reconhece o nome
+                // consultado como ativo). `.output()` captura a saída em vez de vazá-la.
                 let process_exists = Command::new("pgrep")
                     .args(["-x", service_name])
-                    .status()
-                    .map(|s| s.success())
+                    .output()
+                    .map(|o| o.status.success())
                     .unwrap_or(false);
                 if process_exists {
                     ServiceStatus::Active

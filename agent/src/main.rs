@@ -20,6 +20,22 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
+/// Timer de log em horário de Brasília.
+///
+/// O `tracing_subscriber` padrão carimba em UTC (sufixo `Z`), que é o fuso do
+/// servidor. Como a operação é toda no Brasil, escrever o log já em BRT elimina
+/// a conversão mental durante uma investigação de incidente.
+struct HoraBrasilia;
+
+impl tracing_subscriber::fmt::time::FormatTime for HoraBrasilia {
+    fn format_time(
+        &self,
+        w: &mut tracing_subscriber::fmt::format::Writer<'_>,
+    ) -> std::fmt::Result {
+        write!(w, "{} BRT", pocket_noc_agent::notifications::ntfy::agora_brt())
+    }
+}
+
 /// O motor principal do Agente.
 /// Utilizei 'tokio' para I/O assíncrono de alta performance, permitindo que o servidor
 /// lide com centenas de requisições de telemetria simultâneas sem bloquear as threads do SO.
@@ -27,9 +43,12 @@ use tower_http::cors::CorsLayer;
 /// segura entre threads, prevenindo corrupção de dados.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Inicializa logging
+    // Inicializa logging com horário de Brasília.
+    // O servidor roda em UTC; escrever o log em BRT evita a conversão mental
+    // toda vez que se investiga um incidente comparando log com o relógio local.
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
+        .with_timer(HoraBrasilia)
         .init();
 
     tracing::info!("🔒 Starting Pocket NOC Agent with JWT Security");

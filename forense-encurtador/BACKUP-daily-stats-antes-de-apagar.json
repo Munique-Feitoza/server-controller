@@ -1,0 +1,515 @@
+{
+ "total": 51,
+ "linhas": [
+  {
+   "id": 1,
+   "campaign_id": 1,
+   "stat_date": "2026-02-03",
+   "total_clicks": 4,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":4}",
+   "created_at": "2026-05-05 03:00:59"
+  },
+  {
+   "id": 2,
+   "campaign_id": 4,
+   "stat_date": "2026-02-03",
+   "total_clicks": 5,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1,\"US\":1}",
+   "browser_breakdown": "{\"Firefox\":3,\"Outro\":1,\"Chrome\":1}",
+   "created_at": "2026-05-05 03:01:00"
+  },
+  {
+   "id": 9,
+   "campaign_id": 4,
+   "stat_date": "2026-02-04",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"US\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-05-06 03:00:50"
+  },
+  {
+   "id": 3,
+   "campaign_id": 7,
+   "stat_date": "2026-02-03",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-05-05 03:01:00"
+  },
+  {
+   "id": 4,
+   "campaign_id": 12,
+   "stat_date": "2026-02-03",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-05-05 03:01:00"
+  },
+  {
+   "id": 5,
+   "campaign_id": 13,
+   "stat_date": "2026-02-03",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-05-05 03:01:00"
+  },
+  {
+   "id": 6,
+   "campaign_id": 15,
+   "stat_date": "2026-02-03",
+   "total_clicks": 2,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":2}",
+   "created_at": "2026-05-05 03:01:01"
+  },
+  {
+   "id": 7,
+   "campaign_id": 16,
+   "stat_date": "2026-02-03",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-05-05 03:01:01"
+  },
+  {
+   "id": 8,
+   "campaign_id": 17,
+   "stat_date": "2026-02-03",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-05-05 03:01:01"
+  },
+  {
+   "id": 10,
+   "campaign_id": 17,
+   "stat_date": "2026-02-04",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-05-06 03:00:51"
+  },
+  {
+   "id": 13,
+   "campaign_id": 22,
+   "stat_date": "2026-02-04",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-05-06 03:00:51"
+  },
+  {
+   "id": 17,
+   "campaign_id": 29,
+   "stat_date": "2026-02-05",
+   "total_clicks": 2,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":2}",
+   "created_at": "2026-05-07 03:00:30"
+  },
+  {
+   "id": 18,
+   "campaign_id": 30,
+   "stat_date": "2026-02-05",
+   "total_clicks": 8,
+   "unique_visitors": 3,
+   "country_breakdown": "{\"BR\":1,\"SE\":1}",
+   "browser_breakdown": "{\"Chrome\":8}",
+   "created_at": "2026-05-07 03:00:30"
+  },
+  {
+   "id": 32,
+   "campaign_id": 35,
+   "stat_date": "2026-02-20",
+   "total_clicks": 2,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":2}",
+   "created_at": "2026-05-22 03:00:42"
+  },
+  {
+   "id": 144,
+   "campaign_id": 55,
+   "stat_date": "2026-03-25",
+   "total_clicks": 2,
+   "unique_visitors": 2,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1,\"Safari\":1}",
+   "created_at": "2026-06-24 03:00:30"
+  },
+  {
+   "id": 157,
+   "campaign_id": 55,
+   "stat_date": "2026-03-27",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Firefox\":1}",
+   "created_at": "2026-06-26 03:00:30"
+  },
+  {
+   "id": 166,
+   "campaign_id": 55,
+   "stat_date": "2026-03-28",
+   "total_clicks": 2,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":2}",
+   "created_at": "2026-06-27 03:00:30"
+  },
+  {
+   "id": 207,
+   "campaign_id": 55,
+   "stat_date": "2026-03-31",
+   "total_clicks": 6,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":6}",
+   "created_at": "2026-06-30 03:00:52"
+  },
+  {
+   "id": 255,
+   "campaign_id": 55,
+   "stat_date": "2026-04-03",
+   "total_clicks": 20,
+   "unique_visitors": 3,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":11,\"Safari\":9}",
+   "created_at": "2026-07-03 03:00:31"
+  },
+  {
+   "id": 462,
+   "campaign_id": 55,
+   "stat_date": "2026-04-18",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-18 03:00:23"
+  },
+  {
+   "id": 150,
+   "campaign_id": 56,
+   "stat_date": "2026-03-26",
+   "total_clicks": 8,
+   "unique_visitors": 2,
+   "country_breakdown": "{\"BR\":1,\"US\":1}",
+   "browser_breakdown": "{\"Chrome\":8}",
+   "created_at": "2026-06-25 03:00:30"
+  },
+  {
+   "id": 151,
+   "campaign_id": 58,
+   "stat_date": "2026-03-26",
+   "total_clicks": 700,
+   "unique_visitors": 456,
+   "country_breakdown": "{\"BR\":1,\"DE\":1,\"HR\":1,\"XK\":1,\"HU\":1}",
+   "browser_breakdown": "{\"Chrome\":602,\"Outro\":67,\"Firefox\":13,\"Safari\":18}",
+   "created_at": "2026-06-25 03:00:31"
+  },
+  {
+   "id": 158,
+   "campaign_id": 58,
+   "stat_date": "2026-03-27",
+   "total_clicks": 1202,
+   "unique_visitors": 712,
+   "country_breakdown": "{\"DE\":1,\"BR\":1,\"PL\":1,\"TR\":1,\"FR\":1,\"AT\":1,\"CZ\":1,\"HR\":1,\"NL\":1,\"RO\":1}",
+   "browser_breakdown": "{\"Chrome\":988,\"Outro\":168,\"Safari\":34,\"Firefox\":12}",
+   "created_at": "2026-06-26 03:00:31"
+  },
+  {
+   "id": 167,
+   "campaign_id": 58,
+   "stat_date": "2026-03-28",
+   "total_clicks": 1460,
+   "unique_visitors": 843,
+   "country_breakdown": "{\"DE\":1,\"CI\":1,\"AT\":1,\"PT\":1,\"RO\":1,\"SG\":1,\"BR\":1,\"NL\":1}",
+   "browser_breakdown": "{\"Chrome\":1224,\"Outro\":166,\"Firefox\":22,\"Safari\":48}",
+   "created_at": "2026-06-27 03:00:30"
+  },
+  {
+   "id": 177,
+   "campaign_id": 58,
+   "stat_date": "2026-03-29",
+   "total_clicks": 300,
+   "unique_visitors": 137,
+   "country_breakdown": "{\"DE\":1,\"BR\":1,\"TR\":1,\"IQ\":1,\"AT\":1}",
+   "browser_breakdown": "{\"Chrome\":256,\"Outro\":39,\"Safari\":3,\"Firefox\":2}",
+   "created_at": "2026-06-28 03:00:30"
+  },
+  {
+   "id": 189,
+   "campaign_id": 58,
+   "stat_date": "2026-03-30",
+   "total_clicks": 28,
+   "unique_visitors": 19,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":15,\"Outro\":12,\"Safari\":1}",
+   "created_at": "2026-06-29 03:00:52"
+  },
+  {
+   "id": 208,
+   "campaign_id": 58,
+   "stat_date": "2026-03-31",
+   "total_clicks": 12,
+   "unique_visitors": 5,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":10,\"Firefox\":2}",
+   "created_at": "2026-06-30 03:00:52"
+  },
+  {
+   "id": 221,
+   "campaign_id": 58,
+   "stat_date": "2026-04-01",
+   "total_clicks": 16,
+   "unique_visitors": 11,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":14,\"Safari\":2}",
+   "created_at": "2026-07-01 03:00:17"
+  },
+  {
+   "id": 238,
+   "campaign_id": 58,
+   "stat_date": "2026-04-02",
+   "total_clicks": 5,
+   "unique_visitors": 3,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":5}",
+   "created_at": "2026-07-02 03:00:17"
+  },
+  {
+   "id": 256,
+   "campaign_id": 58,
+   "stat_date": "2026-04-03",
+   "total_clicks": 5,
+   "unique_visitors": 2,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Outro\":5}",
+   "created_at": "2026-07-03 03:00:31"
+  },
+  {
+   "id": 275,
+   "campaign_id": 58,
+   "stat_date": "2026-04-04",
+   "total_clicks": 3,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":3}",
+   "created_at": "2026-07-04 03:00:33"
+  },
+  {
+   "id": 295,
+   "campaign_id": 58,
+   "stat_date": "2026-04-05",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-05 03:00:34"
+  },
+  {
+   "id": 340,
+   "campaign_id": 58,
+   "stat_date": "2026-04-08",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-08 03:00:19"
+  },
+  {
+   "id": 354,
+   "campaign_id": 58,
+   "stat_date": "2026-04-09",
+   "total_clicks": 2,
+   "unique_visitors": 2,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Safari\":1,\"Chrome\":1}",
+   "created_at": "2026-07-09 03:00:19"
+  },
+  {
+   "id": 371,
+   "campaign_id": 58,
+   "stat_date": "2026-04-10",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-10 03:00:53"
+  },
+  {
+   "id": 399,
+   "campaign_id": 58,
+   "stat_date": "2026-04-12",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-12 03:00:46"
+  },
+  {
+   "id": 421,
+   "campaign_id": 58,
+   "stat_date": "2026-04-14",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-14 03:00:17"
+  },
+  {
+   "id": 159,
+   "campaign_id": 61,
+   "stat_date": "2026-03-27",
+   "total_clicks": 5,
+   "unique_visitors": 5,
+   "country_breakdown": "{\"US\":1}",
+   "browser_breakdown": "{\"Outro\":2,\"Chrome\":3}",
+   "created_at": "2026-06-26 03:00:31"
+  },
+  {
+   "id": 152,
+   "campaign_id": 62,
+   "stat_date": "2026-03-26",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"US\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-06-25 03:00:31"
+  },
+  {
+   "id": 160,
+   "campaign_id": 62,
+   "stat_date": "2026-03-27",
+   "total_clicks": 3,
+   "unique_visitors": 3,
+   "country_breakdown": "{\"US\":1}",
+   "browser_breakdown": "{\"Chrome\":2,\"Outro\":1}",
+   "created_at": "2026-06-26 03:00:31"
+  },
+  {
+   "id": 161,
+   "campaign_id": 63,
+   "stat_date": "2026-03-27",
+   "total_clicks": 571,
+   "unique_visitors": 215,
+   "country_breakdown": "{\"BR\":1,\"DE\":1,\"BE\":1,\"AT\":1,\"RO\":1}",
+   "browser_breakdown": "{\"Chrome\":475,\"Outro\":72,\"Firefox\":18,\"Safari\":6}",
+   "created_at": "2026-06-26 03:00:31"
+  },
+  {
+   "id": 168,
+   "campaign_id": 63,
+   "stat_date": "2026-03-28",
+   "total_clicks": 1382,
+   "unique_visitors": 473,
+   "country_breakdown": "{\"DE\":1,\"IT\":1,\"TR\":1,\"BA\":1,\"MZ\":1,\"NL\":1}",
+   "browser_breakdown": "{\"Chrome\":1198,\"Outro\":123,\"Safari\":39,\"Firefox\":22}",
+   "created_at": "2026-06-27 03:00:31"
+  },
+  {
+   "id": 180,
+   "campaign_id": 63,
+   "stat_date": "2026-03-29",
+   "total_clicks": 227,
+   "unique_visitors": 78,
+   "country_breakdown": "{\"DE\":1,\"XK\":1,\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":200,\"Safari\":4,\"Outro\":23}",
+   "created_at": "2026-06-28 03:00:31"
+  },
+  {
+   "id": 190,
+   "campaign_id": 63,
+   "stat_date": "2026-03-30",
+   "total_clicks": 18,
+   "unique_visitors": 10,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":10,\"Firefox\":1,\"Outro\":5,\"Safari\":2}",
+   "created_at": "2026-06-29 03:00:52"
+  },
+  {
+   "id": 209,
+   "campaign_id": 63,
+   "stat_date": "2026-03-31",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-06-30 03:00:53"
+  },
+  {
+   "id": 222,
+   "campaign_id": 63,
+   "stat_date": "2026-04-01",
+   "total_clicks": 7,
+   "unique_visitors": 2,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1,\"Safari\":6}",
+   "created_at": "2026-07-01 03:00:18"
+  },
+  {
+   "id": 239,
+   "campaign_id": 63,
+   "stat_date": "2026-04-02",
+   "total_clicks": 2,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Safari\":2}",
+   "created_at": "2026-07-02 03:00:18"
+  },
+  {
+   "id": 433,
+   "campaign_id": 63,
+   "stat_date": "2026-04-15",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-15 03:00:56"
+  },
+  {
+   "id": 469,
+   "campaign_id": 63,
+   "stat_date": "2026-04-19",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"DE\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-07-19 03:00:57"
+  },
+  {
+   "id": 185,
+   "campaign_id": 72,
+   "stat_date": "2026-03-29",
+   "total_clicks": 2,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":2}",
+   "created_at": "2026-06-28 03:00:32"
+  },
+  {
+   "id": 186,
+   "campaign_id": 73,
+   "stat_date": "2026-03-29",
+   "total_clicks": 1,
+   "unique_visitors": 1,
+   "country_breakdown": "{\"BR\":1}",
+   "browser_breakdown": "{\"Chrome\":1}",
+   "created_at": "2026-06-28 03:00:32"
+  }
+ ]
+}

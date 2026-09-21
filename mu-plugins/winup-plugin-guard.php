@@ -3,7 +3,7 @@
 /**
  * Plugin Name: WinUp Plugin Guard
  * Description: Analisa código de plugins na ativação. Bloqueia, remove e rebaixa para Editor o admin que ativou plugin com padrões maliciosos ou de gerenciador de arquivo.
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      WinUp Security
  * Network:     true
  */
@@ -17,10 +17,34 @@ define('WPGUARD_WARN_SCORE',   60);
 define('WPGUARD_NTFY_TOPIC',  get_option('wpguard_ntfy_topic', ''));
 define('WPGUARD_LOG_KEY',     'wpguard_audit_log');
 
+// ─── Plugins liberados por política ───────────────────────────────────────────
+// Slugs aqui PULAM toda a análise (legítimos que usam eval()/PHP e dão falso-positivo).
+// Ad Inserter usa eval() para blocos de anúncio com PHP → pontuava >=100 sem ser malware.
+// Adicionar mais via: update_option('wpguard_allowed_slugs', ['slug1','slug2']);
+define('WPGUARD_ALLOWED_SLUGS', array_merge(
+    ['ad-inserter'],
+    (array) get_option('wpguard_allowed_slugs', [])
+));
+
 // ─── Padrões de risco ─────────────────────────────────────────────────────────
 // [regex, score, label]
 // Score >= 100 → bloqueia sozinho.
 // Combinações que somem 100+ também bloqueiam.
+// ─── Plugins banidos por política de segurança ────────────────────────────────
+// Slug → motivo exibido no aviso de admin.
+// Gerenciadores de arquivo dão acesso direto ao filesystem via browser — vetor
+// confirmado de ataque em todos os nossos servidores (jun/2026).
+define('WPGUARD_BANNED_SLUGS', [
+    'wp-file-manager'         => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'wp-file-manager-pro'     => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'file-manager-advanced'   => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'filemanager-advanced'    => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'wp-filemanager'          => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'file-manager'            => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'mr-file-manager'         => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+    'wd-file-manager'         => 'Gerenciadores de arquivo permitem escrita direta em qualquer diretório do servidor via browser. Foram o vetor de ataque confirmado nos servidores WinUp.',
+]);
+
 define('WPGUARD_PATTERNS', [
     // RCE via eval ofuscado — cada um bloqueia sozinho
     ['/eval\s*\(\s*base64_decode\s*\(/i',                              100, 'eval+base64'],
@@ -51,9 +75,11 @@ define('WPGUARD_PATTERNS', [
     ['/[\'"]elfinder[\'"]/i',                                           60, 'elfinder_lib'],
 ]);
 
-// ─── Hook principal ───────────────────────────────────────────────────────────
+// ─── Hooks ───────────────────────────────────────────────────────────────────
 
 add_action('activated_plugin', 'wpguard_on_activate', 1, 2);
+add_action('admin_notices',    'wpguard_show_notices');
+add_action('network_admin_notices', 'wpguard_show_notices');
 
 function wpguard_on_activate(string $plugin, bool $network_wide): void {
     $slug = dirname($plugin);
@@ -61,6 +87,38 @@ function wpguard_on_activate(string $plugin, bool $network_wide): void {
         $slug = basename($plugin, '.php');
     }
 
+    // ── Allowlist: plugins liberados por política pulam TODA a análise ──
+    if (in_array($slug, WPGUARD_ALLOWED_SLUGS, true)) {
+        return;
+    }
+
+    // ── Verificação 1: slug banido por política ──
+    $banned = WPGUARD_BANNED_SLUGS;
+    if (isset($banned[$slug])) {
+        deactivate_plugins($plugin, true);
+
+        $entry = [
+            'ts'      => current_time('mysql'),
+            'site'    => get_bloginfo('url'),
+            'plugin'  => $plugin,
+            'score'   => 999,
+            'hits'    => ['banned_slug:' . $slug],
+            'files'   => 0,
+            'user'    => wp_get_current_user()->user_login ?? 'desconhecido',
+            'user_id' => (int) (wp_get_current_user()->ID ?? 0),
+            'action'  => 'bloqueado_politica',
+        ];
+        wpguard_append_log($entry);
+        wpguard_send_ntfy($entry);
+
+        set_transient('wpguard_banned_notice_' . get_current_user_id(), [
+            'slug'   => $slug,
+            'reason' => $banned[$slug],
+        ], 60);
+        return;
+    }
+
+    // ── Verificação 2: análise de código ──
     $plugin_dir = WP_PLUGIN_DIR . '/' . $slug;
     if (!is_dir($plugin_dir)) {
         return;
@@ -113,6 +171,21 @@ function wpguard_on_activate(string $plugin, bool $network_wide): void {
 
     wpguard_append_log($entry);
     wpguard_send_ntfy($entry);
+}
+
+// ─── Aviso de plugin banido ──────────────────────────────────────────────────
+
+function wpguard_show_notices(): void {
+    $data = get_transient('wpguard_banned_notice_' . get_current_user_id());
+    if (!$data) {
+        return;
+    }
+    delete_transient('wpguard_banned_notice_' . get_current_user_id());
+    printf(
+        '<div class="notice notice-error"><p><strong>🚫 Plugin bloqueado por política de segurança:</strong> <code>%s</code><br>%s</p></div>',
+        esc_html($data['slug']),
+        esc_html($data['reason'])
+    );
 }
 
 // ─── Análise de código ────────────────────────────────────────────────────────
