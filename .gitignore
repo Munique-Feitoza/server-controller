@@ -40,6 +40,8 @@ build/
 *.swp
 *~
 .vscode/
+.claude/
+.gemini/
 .sublime-*
 tmp/
 temp/
