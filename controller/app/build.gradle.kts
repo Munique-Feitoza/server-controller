@@ -41,13 +41,6 @@ android {
         val serverName5 = localProperties.getProperty("POCKET_NOC_SERVER_NAME_5") ?: "Acme 5"
         val useHttps = localProperties.getProperty("USE_HTTPS")?.toBoolean() ?: true
 
-        // SSH key fica em BuildConfig por enquanto pra preservar fluxo de tunel global.
-        // TODO seguranca: mover pra prompt de import .pem no LoginScreen e armazenar em
-        // EncryptedSharedPreferences. Hoje o conteudo da chave esta extraivel do APK.
-        val sshKeyRaw = localProperties.getProperty("SSH_KEY_CONTENT_GLOBAL") ?: ""
-        val escapedSshKey = sshKeyRaw.replace("\n", "\\n").replace("\r", "\\r")
-        buildConfigField("String", "SSH_KEY_CONTENT_GLOBAL", "\"$escapedSshKey\"")
-
         // Configuracoes Globais
         buildConfigField("boolean", "USE_HTTPS", localProperties.getProperty("USE_HTTPS") ?: "false")
         buildConfigField("boolean", "SSH_STRICT_HOST_CHECKING", localProperties.getProperty("SSH_STRICT_HOST_CHECKING") ?: "true")
@@ -55,7 +48,6 @@ android {
         buildConfigField("String", "DASHBOARD_NOC_TOKEN", "\"${localProperties.getProperty("DASHBOARD_NOC_TOKEN") ?: ""}\"")
         buildConfigField("String", "DASHBOARD_API_URL", "\"${localProperties.getProperty("DASHBOARD_API_URL") ?: "https://api.example.com/api/v1/pocketnoc/"}\"" )
         buildConfigField("int", "MAX_CPU_THRESHOLD", localProperties.getProperty("CPU_ALERT_THRESHOLD") ?: "80")
-        buildConfigField("String", "POCKET_NOC_SECRET", "\"${localProperties.getProperty("POCKET_NOC_SECRET") ?: ""}\"")
 
         // Servidor 1
         buildConfigField("String", "SSH_USER_1", "\"${localProperties.getProperty("SSH_USER_1") ?: ""}\"")

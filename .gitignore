@@ -29,6 +29,8 @@ Cargo.lock
 .idea
 *.iml
 local.properties
+local.properties.*
+*.bak
 build/
 *.apk
 *.aab

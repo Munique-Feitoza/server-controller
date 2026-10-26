@@ -145,7 +145,7 @@ sudo nano /etc/pocket-noc/.env
 
 ```bash
 # /etc/pocket-noc-agent.env
-POCKET_NOC_SECRET=a3f8d2c1e4b5f67890abcdef1234567890abcdef1234567890abcdef12345678
+POCKET_NOC_SECRET=<gere localmente com: openssl rand -hex 32>
 POCKET_NOC_PORT=9443
 SERVER_ROLE=generic
 SERVER_ID=vps-server-01
@@ -257,11 +257,8 @@ SSH_SERVICE_PORT_2=22
 LOCAL_FORWARD_PORT_2=9444
 REMOTE_AGENT_PORT_2=9443
 
-# === Chave SSH Global (Ed25519 recomendado) ===
-SSH_KEY_CONTENT_GLOBAL=-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----
-
 # === Segredo JWT (IDÊNTICO ao POCKET_NOC_SECRET do servidor) ===
-POCKET_NOC_SECRET=a3f8d2c1e4b5f67890abcdef1234567890abcdef1234567890abcdef12345678
+POCKET_NOC_SECRET=<gere localmente com: openssl rand -hex 32>
 
 # === Dashboard ERP (opcional) ===
 DASHBOARD_NOC_TOKEN=token-do-dashboard
